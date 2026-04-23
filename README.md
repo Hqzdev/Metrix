@@ -1,0 +1,149 @@
+# Smart Booking System
+### Booking infrastructure for modern offices
+
+Smart Booking System turns room and desk scheduling into a fast, visible and reliable workflow across web, calendars and Telegram.
+
+[Website](#) • [Docs](./TECH_SPEC.md) • [Discord](#) • [GitHub](#)
+
+## Product Vision
+
+Офисные ресурсы до сих пор управляются как будто это 2015 год: чаты, таблицы, устные договорённости и постоянная путаница со слотами. Smart Booking System превращает бронирование переговорных и рабочих мест в прозрачный цифровой слой, где доступность видна сразу, синхронизация с календарями работает автоматически, а администраторы наконец получают живую картину использования пространства.
+
+Это продукт не просто про резервирование. Это инфраструктура офисного опыта: быстрее принять решение, проще найти место, меньше конфликтов, больше контроля и аналитики.
+
+## Core Capabilities
+
+### Moderation / Security
+
+- 🛡 Role-based access для сотрудников и администраторов с проверкой прав на backend.
+- 🔐 OAuth2-интеграции с Google и Microsoft для безопасного подключения календарей.
+- 📜 Audit-ready сценарии для контроля критических действий, отмен и изменений броней.
+
+### Engagement / Growth
+
+- 📲 Telegram-бот для быстрого бронирования без входа в веб-интерфейс.
+- ⏰ Автоматические напоминания перед встречами и бронями.
+- 📊 Наглядная аналитика, которая повышает фактическое использование офисных ресурсов.
+
+### Automation
+
+- 🚀 Автоматическое создание, перенос и удаление событий в подключённых календарях.
+- 🔄 Фоновые очереди для синхронизации, ретраев и тяжёлых операций без нагрузки на UI.
+- ⚡ Realtime-обновления доступности переговорных и рабочих мест.
+
+### Monetization
+
+- 💼 Базис для B2B SaaS-модели: офисы, филиалы, зоны, тарифные ограничения и отчёты.
+- 📈 Готовая основа для premium analytics, multi-location rollout и enterprise onboarding.
+
+### Community Infrastructure
+
+- 🏢 Единый слой управления переговорными, коворкингом и доступностью пространства.
+- 🧩 Модульная архитектура, готовая к расширению под новые сценарии бронирования.
+- 🌐 Web + Calendar + Bot experience внутри одной системы истины.
+
+## Why This Product
+
+- No-code first. Пользователь не должен изучать систему, чтобы просто найти свободную переговорную.
+- Modular system. Архитектура разбита на доменные блоки, а не на хаотичный набор экранов и API.
+- Real-time analytics. Загрузка помещений видна не постфактум, а как управляемый операционный сигнал.
+- Built for scale. Очереди, кэш, адаптеры интеграций и модульный backend закладывают рост без раннего переусложнения.
+- Privacy-first. Контроль доступа, OAuth2 и защищённая работа с внешними календарями встроены в базовый контур.
+- AI-native architecture. Событийная модель и чистые доменные границы позволяют дальше добавлять AI-подсказки, прогнозирование и автоматизацию.
+
+## UI Preview
+
+### Homepage
+![Homepage](images/1.png)
+
+### Dashboard
+![Dashboard](images/2.png)
+
+### Booking Flow
+![Booking Flow](images/3.png)
+
+### Room Availability
+![Room Availability](images/4.png)
+
+### Analytics
+![Analytics](images/5.png)
+
+### Telegram Experience
+![Telegram Experience](images/6.png)
+
+## Tech Stack
+
+- Frontend: `Next.js` / `React` / `TypeScript` / `Tailwind CSS`
+- State & Data: `React Query` / `Redux Toolkit`
+- Backend: `Node.js` / `PostgreSQL` / `Prisma ORM`
+- Queue & Cache: `Redis` / `BullMQ`
+- Realtime: `WebSocket` or `SSE`
+- Integrations: `Google Calendar API` / `Microsoft Graph API` / `Telegram Bot API`
+- Hosting: `Vercel` for frontend, managed cloud runtime for backend services and workers
+
+## Pages Overview
+
+| Page | Description |
+| --- | --- |
+| `/` | Продуктовый landing с ценностью системы и основными сценариями |
+| `/dashboard` | Главная операционная панель сотрудника или администратора |
+| `/bookings` | Управление активными, будущими и завершёнными бронями |
+| `/resources` | Список переговорных и рабочих мест с доступностью |
+| `/analytics` | Карта занятости, utilisation и пиковые часы |
+| `/integrations` | Подключение Google и Microsoft календарей |
+| `/admin` | Настройки ресурсов, ролей и системных ограничений |
+| `/reports` | Экспорт аналитических отчётов и PDF-выгрузок |
+
+## Visual Identity
+
+Smart Booking System должен ощущаться как премиальный B2B-продукт, а не как внутренний корпоративный кабинет.
+
+- Gradient system. Мягкие технологичные градиенты для hero-зон, аналитики и ключевых статусных блоков.
+- Typography hierarchy. Контрастная типографика с чётким разделением стратегических заголовков, product copy и плотных data-слоёв.
+- Motion & micro-interactions. Анимации подтверждения брони, обновления слотов и смены состояния должны усиливать ясность, а не отвлекать.
+- Capsule UI. Скруглённые контролы, собранные сегменты фильтров, статусные плашки и компактные action-капсулы.
+- Adaptive layouts. Интерфейс должен одинаково быстро читаться на desktop, tablet и mobile, особенно в сценариях срочного бронирования.
+
+## Quick Start
+
+```bash
+git clone https://github.com/your-org/smart-booking-system.git
+cd smart-booking-system
+npm install
+npm run dev
+```
+
+## Roadmap
+
+### Now
+
+- Web-приложение для бронирования переговорных и рабочих мест
+- Google Calendar и Microsoft Outlook интеграции
+- Telegram-бот для быстрых действий
+- Базовая аналитика загрузки помещений
+
+### Next
+
+- PDF-отчёты и управляемые export pipelines
+- Расширенные роли и политики доступа
+- Multi-location поддержка для нескольких офисов
+- Гибкие правила доступности по расписанию и зонам
+
+### Future
+
+- AI-рекомендации по подбору слотов и переговорных
+- Прогнозирование пиковых часов и загрузки
+- Enterprise policy engine
+- Platform expansion для booking-инфраструктуры за пределами офисных помещений
+
+## Documentation
+
+- [Техническое задание](./TECH_SPEC.md)
+- [Архитектура](./ARCHITECTURE.md)
+- [Code style](./codestyle.md)
+- [Contributing](./CONTRIBUTING.md)
+
+## Built By
+
+Built by Hqz.dev  
+Designed with obsession for community experience.
