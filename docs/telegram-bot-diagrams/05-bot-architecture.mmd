@@ -1,0 +1,33 @@
+flowchart LR
+    A[Telegram User] --> B[Telegram Bot App]
+
+    B --> C[Command Router]
+    C --> D[Bot Scenes]
+    C --> E[Bot Services]
+
+    E --> F[Shared Backend API]
+    F --> G[Domain Modules]
+
+    G --> H[Bookings Module]
+    G --> I[Resources Module]
+    G --> J[Availability Module]
+    G --> K[Notifications Module]
+    G --> L[Calendar Integrations Module]
+
+    H --> M[(PostgreSQL)]
+    I --> M
+    J --> M
+    K --> M
+    L --> M
+
+    G --> N[Queues and Workers]
+    N --> O[booking-reminders queue]
+    N --> P[calendar-sync queue]
+
+    P --> Q[Google Calendar Adapter]
+    P --> R[Microsoft Calendar Adapter]
+
+    O --> B
+
+    B --> S[Telegram Bot API]
+    S --> A

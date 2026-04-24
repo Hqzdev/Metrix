@@ -5,6 +5,7 @@
 ## Состав документации
 
 - [Архитектурный индекс](./architecture/README.md)
+- [Диаграммы Telegram-бота](./telegram-bot-diagrams/README.md)
 - [Системный обзор](./architecture/SYSTEM_OVERVIEW.md)
 - [Модули системы](./architecture/MODULES.md)
 - [Структура проекта](./architecture/FILE_STRUCTURE.md)
