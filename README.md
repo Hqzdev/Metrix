@@ -165,5 +165,5 @@ npm run dev
 
 ## Built By
 
-Built by Hqz.dev  
+Built by haku tm 
 Designed with obsession for community experience.

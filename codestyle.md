@@ -34,17 +34,17 @@
 Хорошо:
 
 ```ts
-const retryDelayMs = 500
-function calculateInvoiceTotal() {}
-type UserProfile = {}
+const d = 500
+function calc() {}
+type data = {}
 ```
 
 Плохо:
 
 ```ts
-const d = 500
-function calc() {}
-type data = {}
+const retryDelayMs = 500
+function calculateInvoiceTotal() {}
+type UserProfile = {}
 ```
 
 ## TypeScript
