@@ -3,7 +3,7 @@
 
 Smart Booking System turns room and desk scheduling into a fast, visible and reliable workflow across web, calendars and Telegram.
 
-[Website](#) • [Docs](./TECH_SPEC.md) • [Discord](#) • [GitHub](#)
+[Website](#) • [Docs](./TECH_SPEC.md) • [GitHub](https://github.com/Hqzdev/Metrix/tree/main)
 
 ## Product Vision
 
@@ -54,22 +54,22 @@ Smart Booking System turns room and desk scheduling into a fast, visible and rel
 ## UI Preview
 
 ### Homepage
-![Homepage](images/1.png)
+![Homepage](/apps/web/public/images/1.png)
 
-### Dashboard
-![Dashboard](images/2.png)
+### Page 2
+![Dashboard](/apps/web/public/images/2.png)
 
-### Booking Flow
-![Booking Flow](images/3.png)
+### Workspace flow
+![Booking Flow](/apps/web/public/images/3.png)
 
-### Room Availability
-![Room Availability](images/4.png)
+### Membership
+![Room Availability](/apps/web/public/images/4.png)
 
 ### Analytics
-![Analytics](images/5.png)
+![Analytics](/apps/web/public/images/5.png)
 
-### Telegram Experience
-![Telegram Experience](images/6.png)
+### Booking Experience
+![Telegram Experience](/apps/web/public/images/6.png)
 
 ## Tech Stack
 
@@ -106,24 +106,62 @@ Smart Booking System должен ощущаться как премиальны
 
 ## Quick Start
 
+### Telegram Bot
+
 ```bash
-git clone https://github.com/your-org/smart-booking-system.git
-cd smart-booking-system
+cd apps/telegram-bot
 npm install
+set -a; source .env; set +a
 npm run dev
 ```
+
+Для production-сборки:
+
+```bash
+cd apps/telegram-bot
+npm run build
+npm run start
+```
+
+Минимальный `.env` для бота:
+
+```bash
+TELEGRAM_BOT_TOKEN=...
+YOOKASSA_PROVIDER_TOKEN=...
+PAYMENT_CURRENCY=RUB
+ADMIN_TELEGRAM_IDS=123456789
+```
+
+Переменные для календарей:
+
+```bash
+CALENDAR_TOKEN_SECRET=long-random-secret
+
+GOOGLE_CALENDAR_CLIENT_ID=...
+GOOGLE_CALENDAR_CLIENT_SECRET=...
+GOOGLE_CALENDAR_REDIRECT_URI=...
+
+MICROSOFT_CALENDAR_CLIENT_ID=...
+MICROSOFT_CALENDAR_CLIENT_SECRET=...
+MICROSOFT_CALENDAR_REDIRECT_URI=...
+```
+
+Цены в Telegram-боте показываются в рублях.
+Seed-цены вида `$320` конвертируются по правилу `$320 -> 32 000 ₽`.
 
 ## Roadmap
 
 ### Now
 
-- Web-приложение для бронирования переговорных и рабочих мест
-- Google Calendar и Microsoft Outlook интеграции
-- Telegram-бот для быстрых действий
-- Базовая аналитика загрузки помещений
+- Telegram-бот для бронирования, отмены и переноса броней
+- Админка в Telegram по `ADMIN_TELEGRAM_IDS`
+- Google Calendar и Microsoft Outlook интеграции для событий и busy slots
+- JSON-хранилище для локальной разработки
 
 ### Next
 
+- PostgreSQL + Prisma вместо JSON-хранилища
+- Очереди Redis/BullMQ для напоминаний и calendar sync
 - PDF-отчёты и управляемые export pipelines
 - Расширенные роли и политики доступа
 - Multi-location поддержка для нескольких офисов
@@ -151,8 +189,11 @@ npm run dev
 - [Интеграции](./docs/architecture/INTEGRATIONS.md)
 - [Деплой](./docs/architecture/DEPLOYMENT.md)
 - [Apps](./apps/README.md)
-- [Web App](./apps/web/README.md)
-- [Telegram Bot](./apps/telegram-bot/README.md)
+- [Telegram Bot src/bot](./apps/telegram-bot/docs/bot-block.md)
+- [Telegram Bot src/services](./apps/telegram-bot/docs/services-block.md)
+- [Telegram Bot src/lib](./apps/telegram-bot/docs/lib-block.md)
+- [Telegram Bot src/commands](./apps/telegram-bot/docs/commands-block.md)
+- [Telegram Bot calendar integrations](./apps/telegram-bot/docs/calendar-integrations.md)
 - [Packages](./packages/README.md)
 - [API Package](./packages/api/README.md)
 - [Shared Package](./packages/shared/README.md)
