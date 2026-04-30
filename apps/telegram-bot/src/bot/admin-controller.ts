@@ -1,8 +1,12 @@
 import {
   adminAllBookingsKeyboard,
+  adminAnalyticsBackKeyboard,
+  adminAnalyticsMenuKeyboard,
   adminLocationKeyboard,
   adminLocationsKeyboard,
   adminMenuKeyboard,
+  adminReportFailedKeyboard,
+  adminReportPendingKeyboard,
   adminResourceKeyboard,
   adminResourcesKeyboard,
   adminStatsKeyboard,
@@ -10,18 +14,30 @@ import {
 } from './keyboards.js'
 import {
   adminAllBookingsMessage,
+  adminAnalyticsMenuMessage,
+  adminAnalyticsSummaryMessage,
   adminEditPromptMessage,
+  adminHeatmapMessage,
   adminLocationMessage,
   adminLocationsMessage,
   adminMenuMessage,
+  adminPeakHoursMessage,
+  adminReportFailedMessage,
+  adminReportPendingMessage,
   adminResourceMessage,
   adminResourcesMessage,
   adminStatsMessage,
+  adminUtilizationMessage,
 } from './messages.js'
 import type { Logger } from '../lib/logger.js'
 import type { TelegramClient } from '../lib/telegram-client.js'
 import type { TelegramMessage } from '../lib/telegram-types.js'
 import type { BookingLocation, BookingResource, BookingService } from '../services/booking-service.js'
+import { AnalyticsService } from '../services/analytics-service.js'
+import type { AnalyticsFilter } from '../services/analytics-service.js'
+import { ReportService } from '../services/report-service.js'
+import { ReportQueue } from '../services/report-queue.js'
+import { generateAnalyticsPdf } from '../services/pdf-generator.js'
 
 type AdminControllerOptions = {
   adminTelegramIds: number[]
@@ -37,8 +53,15 @@ type AdminEditState =
 
 export class AdminController {
   private readonly editStatesByUserId = new Map<number, AdminEditState>()
+  private readonly analyticsService: AnalyticsService
+  private readonly reportService: ReportService
+  private readonly reportQueue: ReportQueue
 
-  constructor(private readonly options: AdminControllerOptions) {}
+  constructor(private readonly options: AdminControllerOptions) {
+    this.analyticsService = new AnalyticsService(options.bookingService)
+    this.reportService = new ReportService()
+    this.reportQueue = new ReportQueue()
+  }
 
   // проверяет наличие незавершённого редактирования для пользователя
   hasPendingEdit(telegramUserId: number): boolean {
@@ -80,6 +103,43 @@ export class AdminController {
 
     if (data === 'admin:all_bookings') {
       await this.editAllBookings(chatId, messageId)
+      return
+    }
+
+    if (data === 'admin:analytics') {
+      await this.options.telegram.editMessageText(chatId, messageId, adminAnalyticsMenuMessage(), {
+        reply_markup: adminAnalyticsMenuKeyboard(),
+      })
+      return
+    }
+
+    if (data === 'admin:analytics:summary') {
+      await this.editAnalyticsSummary(chatId, messageId)
+      return
+    }
+
+    if (data === 'admin:analytics:heatmap') {
+      await this.editAnalyticsHeatmap(chatId, messageId)
+      return
+    }
+
+    if (data === 'admin:analytics:utilization') {
+      await this.editAnalyticsUtilization(chatId, messageId)
+      return
+    }
+
+    if (data === 'admin:analytics:peak') {
+      await this.editAnalyticsPeakHours(chatId, messageId)
+      return
+    }
+
+    if (data === 'admin:report:export') {
+      await this.startReportExport(chatId, messageId)
+      return
+    }
+
+    if (data.startsWith('admin:report:refresh:')) {
+      await this.refreshReportStatus(chatId, messageId, data.replace('admin:report:refresh:', ''))
       return
     }
 
@@ -135,6 +195,66 @@ export class AdminController {
     }
   }
 
+  // создаёт запись отчёта и ставит задачу генерации pdf в очередь
+  private async startReportExport(chatId: number, messageId: number): Promise<void> {
+    const filter = defaultAnalyticsFilter()
+    const record = this.reportService.createReport(filter)
+
+    await this.options.telegram.editMessageText(chatId, messageId, adminReportPendingMessage(record.reportId, 'pending'), {
+      reply_markup: adminReportPendingKeyboard(record.reportId),
+    })
+
+    this.reportQueue.enqueue(async () => {
+      this.reportService.markProcessing(record.reportId)
+      try {
+        const [summary, heatmapCells, utilization, peakHours] = await Promise.all([
+          this.analyticsService.getSummary(filter),
+          this.analyticsService.getHeatmap(filter),
+          this.analyticsService.getUtilization(filter),
+          this.analyticsService.getPeakHours(filter),
+        ])
+        const buffer = await generateAnalyticsPdf({ summary, heatmapCells, utilization, peakHours })
+        this.reportService.markCompleted(record.reportId, buffer)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        this.reportService.markFailed(record.reportId, message)
+        this.options.logger.error('PDF report generation failed', { error, reportId: record.reportId })
+      }
+    })
+  }
+
+  // проверяет статус отчёта и отправляет pdf если готов
+  private async refreshReportStatus(chatId: number, messageId: number, reportId: string): Promise<void> {
+    const record = this.reportService.getReport(reportId)
+
+    if (!record) {
+      await this.options.telegram.editMessageText(chatId, messageId, 'Report not found. It may have expired after a bot restart.', {
+        reply_markup: adminAnalyticsMenuKeyboard(),
+      })
+      return
+    }
+
+    if (record.status === 'completed' && record.pdfBuffer) {
+      const filename = `analytics_${record.filter.dateFrom.toISOString().slice(0, 10)}_${record.filter.dateTo.toISOString().slice(0, 10)}.pdf`
+      await this.options.telegram.sendDocument(chatId, record.pdfBuffer, filename)
+      await this.options.telegram.editMessageText(chatId, messageId, 'PDF report sent above.', {
+        reply_markup: adminAnalyticsBackKeyboard(),
+      })
+      return
+    }
+
+    if (record.status === 'failed') {
+      await this.options.telegram.editMessageText(chatId, messageId, adminReportFailedMessage(record.error ?? 'Unknown error'), {
+        reply_markup: adminReportFailedKeyboard(),
+      })
+      return
+    }
+
+    await this.options.telegram.editMessageText(chatId, messageId, adminReportPendingMessage(record.reportId, record.status as 'pending' | 'processing'), {
+      reply_markup: adminReportPendingKeyboard(record.reportId),
+    })
+  }
+
   // показывает экран статистики бронирований
   private async editStats(chatId: number, messageId: number): Promise<void> {
     const allBookings = await this.options.bookingService.listAllBookings()
@@ -157,6 +277,45 @@ export class AdminController {
     const allBookings = await this.options.bookingService.listAllBookings()
     await this.options.telegram.editMessageText(chatId, messageId, adminAllBookingsMessage(allBookings), {
       reply_markup: adminAllBookingsKeyboard(),
+    })
+  }
+
+  // показывает сводную аналитику за последние 30 дней
+  private async editAnalyticsSummary(chatId: number, messageId: number): Promise<void> {
+    const filter = defaultAnalyticsFilter()
+    const summary = await this.analyticsService.getSummary(filter)
+    await this.options.telegram.editMessageText(chatId, messageId, adminAnalyticsSummaryMessage(summary), {
+      reply_markup: adminAnalyticsBackKeyboard(),
+    })
+  }
+
+  // показывает heatmap занятости за последние 30 дней
+  private async editAnalyticsHeatmap(chatId: number, messageId: number): Promise<void> {
+    const filter = defaultAnalyticsFilter()
+    const cells = await this.analyticsService.getHeatmap(filter)
+    const period = { dateFrom: filter.dateFrom.toISOString().slice(0, 10), dateTo: filter.dateTo.toISOString().slice(0, 10) }
+    await this.options.telegram.editMessageText(chatId, messageId, adminHeatmapMessage(cells, period), {
+      reply_markup: adminAnalyticsBackKeyboard(),
+    })
+  }
+
+  // показывает utilization по каждому ресурсу за последние 30 дней
+  private async editAnalyticsUtilization(chatId: number, messageId: number): Promise<void> {
+    const filter = defaultAnalyticsFilter()
+    const resources = await this.analyticsService.getUtilization(filter)
+    const period = { dateFrom: filter.dateFrom.toISOString().slice(0, 10), dateTo: filter.dateTo.toISOString().slice(0, 10) }
+    await this.options.telegram.editMessageText(chatId, messageId, adminUtilizationMessage(resources, period), {
+      reply_markup: adminAnalyticsBackKeyboard(),
+    })
+  }
+
+  // показывает пиковые часы бронирований за последние 30 дней
+  private async editAnalyticsPeakHours(chatId: number, messageId: number): Promise<void> {
+    const filter = defaultAnalyticsFilter()
+    const hours = await this.analyticsService.getPeakHours(filter)
+    const period = { dateFrom: filter.dateFrom.toISOString().slice(0, 10), dateTo: filter.dateTo.toISOString().slice(0, 10) }
+    await this.options.telegram.editMessageText(chatId, messageId, adminPeakHoursMessage(hours, period), {
+      reply_markup: adminAnalyticsBackKeyboard(),
     })
   }
 
@@ -310,4 +469,12 @@ function parseAdminPrice(value: string, currency: string): { priceLabel: string;
 // форматирует число для отображения суммы
 function formatMoney(value: number): string {
   return Number.isInteger(value) ? value.toString() : value.toFixed(2)
+}
+
+// возвращает фильтр за последние 30 дней
+function defaultAnalyticsFilter(): AnalyticsFilter {
+  const dateTo = new Date()
+  const dateFrom = new Date()
+  dateFrom.setDate(dateTo.getDate() - 30)
+  return { dateFrom, dateTo }
 }

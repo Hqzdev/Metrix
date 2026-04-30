@@ -86,6 +86,21 @@ export class TelegramClient {
     })
   }
 
+  // отправляет документ (pdf, txt и др.) в чат через multipart/form-data
+  async sendDocument(chatId: number, buffer: Buffer, filename: string, caption?: string): Promise<void> {
+    const form = new FormData()
+    form.append('chat_id', String(chatId))
+    form.append('document', new Blob([new Uint8Array(buffer)], { type: 'application/pdf' }), filename)
+    if (caption) form.append('caption', caption)
+
+    const response = await fetch(`${this.baseUrl}/sendDocument`, { method: 'POST', body: form })
+    const body = (await response.json()) as TelegramApiResponse<unknown>
+
+    if (!response.ok || !body.ok) {
+      throw new Error(body.description ?? 'Telegram sendDocument failed')
+    }
+  }
+
   // регистрирует список команд бота
   async setMyCommands(): Promise<void> {
     await this.request('setMyCommands', {

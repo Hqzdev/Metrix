@@ -1,4 +1,5 @@
 import type { AvailableSlot, Booking, BookingLocation, BookingResource } from '../services/booking-service.js'
+import type { AnalyticsSummary, OccupancyHeatmapCell, PeakHour, ResourceUtilization } from '../services/analytics-service.js'
 
 type AdminStats = {
   active: number
@@ -8,9 +9,8 @@ type AdminStats = {
   total: number
 }
 
-// создем приветсвтенное сообщение
+// формирует приветственное сообщение с именем пользователя
 export function welcomeMessage(firstName?: string): string {
-  // тут добавляем имя если оно только есть чтобы ниче не сломалось
   const name = firstName ? `, ${firstName}` : ''
   return [
     `Welcome${name}.`,
@@ -19,7 +19,8 @@ export function welcomeMessage(firstName?: string): string {
     'Choose an action below.',
   ].join('\n')
 }
-// вызываем help сообщение
+
+// формирует сообщение с перечнем команд помощи
 export function helpMessage(): string {
   return [
     'What I can do:',
@@ -32,15 +33,18 @@ export function helpMessage(): string {
     '/help - show this help message',
   ].join('\n')
 }
-// меню админа
+
+// формирует заголовок меню администратора
 export function adminMenuMessage(): string {
   return ['Admin panel', '', 'Choose what you want to edit.'].join('\n')
 }
-// вывод списка локаций для админа
+
+// формирует список локаций для административной панели
 export function adminLocationsMessage(locations: BookingLocation[]): string {
   return ['Locations:', '', ...locations.map((location) => `• ${location.name}: ${location.occupancy}`)].join('\n')
 }
-// детальная инфа перед редактированием
+
+// формирует детали локации для редактирования
 export function adminLocationMessage(location: BookingLocation): string {
   return [
     location.name,
@@ -50,7 +54,8 @@ export function adminLocationMessage(location: BookingLocation): string {
     `Members: ${location.members}`,
   ].join('\n')
 }
-// список ресурсов внутри локаций
+
+// формирует список ресурсов локации
 export function adminResourcesMessage(resources: BookingResource[]): string {
   if (resources.length === 0) {
     return 'No resources at this location.'
@@ -61,7 +66,8 @@ export function adminResourcesMessage(resources: BookingResource[]): string {
     ...resources.map((resource) => `• ${resource.name}: ${resource.priceLabel}, ${resource.occupancy}, ${resource.status}`),
   ].join('\n')
 }
-// детали конкретной локации вызываем
+
+// формирует детали ресурса для редактирования
 export function adminResourceMessage(resource: BookingResource): string {
   return [
     resource.name,
@@ -72,11 +78,13 @@ export function adminResourceMessage(resource: BookingResource): string {
     `Status: ${resource.status}`,
   ].join('\n')
 }
-// текст для админа
+
+// формирует приглашение ввести новое значение поля
 export function adminEditPromptMessage(fieldLabel: string): string {
   return `Send a new value for ${fieldLabel}.`
 }
-// статистика бронирований для администратора
+
+// формирует сводку статистики бронирований
 export function adminStatsMessage(stats: AdminStats): string {
   return [
     'Statistics',
@@ -88,7 +96,8 @@ export function adminStatsMessage(stats: AdminStats): string {
     `Revenue: ${(stats.revenue / 100).toFixed(2)} ₽`,
   ].join('\n')
 }
-// список всех бронирований для администратора
+
+// формирует список всех бронирований системы
 export function adminAllBookingsMessage(bookings: Booking[]): string {
   if (bookings.length === 0) {
     return 'No bookings yet.'
@@ -99,7 +108,8 @@ export function adminAllBookingsMessage(bookings: Booking[]): string {
     .join('\n')
   return [`All bookings (last ${recent.length}):`, '', list].join('\n')
 }
-// сообщение администратору при невозможности сопоставить оплату
+
+// формирует сообщение об неопознанном платеже для администратора
 export function paymentEscalationMessage(details: { invoicePayload?: string; telegramUserId?: number }): string {
   return [
     'Unmatched payment received.',
@@ -111,6 +121,7 @@ export function paymentEscalationMessage(details: { invoicePayload?: string; tel
   ].join('\n')
 }
 
+// формирует экран подключения календаря с ссылками авторизации
 export function calendarAuthMessage(input: { googleUrl?: string; microsoftUrl?: string }): string {
   return [
     'Calendar connection',
@@ -129,6 +140,7 @@ export function calendarAuthMessage(input: { googleUrl?: string; microsoftUrl?: 
   ].join('\n')
 }
 
+// формирует подтверждение успешного подключения календаря
 export function calendarConnectedMessage(provider: string, scope: string, resourceId?: string): string {
   return [
     'Calendar connected.',
@@ -140,7 +152,8 @@ export function calendarConnectedMessage(provider: string, scope: string, resour
     .filter(Boolean)
     .join('\n')
 }
-// список доступных локаций для пользователя
+
+// формирует список ресурсов локации для выбора пользователем
 export function resourcesMessage(resources: BookingResource[]): string {
   if (resources.length === 0) {
     return 'No offices are available at this location right now.'
@@ -150,22 +163,24 @@ export function resourcesMessage(resources: BookingResource[]): string {
     .join('\n')
   return ['Choose an office or workspace:', '', resourceList].join('\n')
 }
-// список локаций показывем для выбора
+
+// формирует список локаций для выбора
 export function locationsMessage(locations: BookingLocation[]): string {
   const locationList = locations
     .map((location) => `• ${location.name}, ${location.address} (${location.occupancy})`)
     .join('\n')
   return ['Choose a location first:', '', locationList].join('\n')
 }
-// сообщение перед выбором пишем
+
+// формирует список доступных слотов ресурса
 export function slotsMessage(resource: BookingResource, slots: AvailableSlot[]): string {
   if (slots.length === 0) {
     return `${resource.name} has no available slots right now.`
   }
-
   return `Available slots for ${resource.name}:`
 }
-// подтвережрнеие перед бронированием
+
+// формирует экран подтверждения бронирования перед оплатой
 export function bookingConfirmationPrompt(resource: BookingResource, slot: AvailableSlot): string {
   return [
     'Please confirm your booking:',
@@ -176,7 +191,8 @@ export function bookingConfirmationPrompt(resource: BookingResource, slot: Avail
     `Due now: ${resource.priceLabel}`,
   ].join('\n')
 }
-// сообщение перед оплатой
+
+// формирует уведомление об отправленном инвойсе
 export function bookingInvoiceSentMessage(): string {
   return [
     'Payment invoice sent.',
@@ -184,7 +200,8 @@ export function bookingInvoiceSentMessage(): string {
     'Complete the payment in Telegram, and I will confirm the booking right away.',
   ].join('\n')
 }
-// подтвержение бронирования
+
+// формирует подтверждение созданного бронирования
 export function bookingCreatedMessage(booking: Booking): string {
   return [
     'Booking confirmed.',
@@ -195,7 +212,8 @@ export function bookingCreatedMessage(booking: Booking): string {
     `Paid: ${booking.priceLabel}`,
   ].join('\n')
 }
-// список всех бронирований актвных
+
+// формирует список активных бронирований пользователя
 export function bookingsMessage(bookings: Booking[]): string {
   if (bookings.length === 0) {
     return 'You have no active bookings.'
@@ -205,14 +223,16 @@ export function bookingsMessage(bookings: Booking[]): string {
     .join('\n')
   return ['Your active bookings:', '', bookingList, '', 'Choose a booking to manage it.'].join('\n')
 }
-// список слотов для переноса бронирования
+
+// формирует список слотов для переноса бронирования
 export function rescheduleSlotsMessage(booking: Booking, slots: AvailableSlot[]): string {
   if (slots.length === 0) {
     return `No available slots to reschedule ${booking.resourceName}.`
   }
   return `Choose a new time for ${booking.resourceName}:`
 }
-// экран подтверждения переноса бронирования
+
+// формирует экран подтверждения переноса бронирования
 export function rescheduleConfirmMessage(booking: Booking, slot: AvailableSlot): string {
   return [
     'Reschedule booking:',
@@ -223,7 +243,8 @@ export function rescheduleConfirmMessage(booking: Booking, slot: AvailableSlot):
     'The current booking will be cancelled and a new one created.',
   ].join('\n')
 }
-// уведомление об успешном переносе бронирования
+
+// формирует уведомление об успешном переносе бронирования
 export function rescheduleSuccessMessage(booking: Booking): string {
   return [
     'Booking rescheduled.',
@@ -233,7 +254,8 @@ export function rescheduleSuccessMessage(booking: Booking): string {
     `${booking.startsAt} - ${booking.endsAt}`,
   ].join('\n')
 }
-// напоминание пользователю за 15 минут до начала бронирования
+
+// формирует напоминание за 15 минут до начала бронирования
 export function reminderMessage(booking: Booking): string {
   return [
     'Your booking starts in 15 minutes.',
@@ -241,5 +263,105 @@ export function reminderMessage(booking: Booking): string {
     `${booking.locationName}`,
     `${booking.resourceName}`,
     `${booking.startsAt} - ${booking.endsAt}`,
+  ].join('\n')
+}
+
+// формирует экран ожидания или обработки pdf-отчёта
+export function adminReportPendingMessage(reportId: string, status: 'pending' | 'processing'): string {
+  const statusLabel = status === 'pending' ? 'Queued' : 'Generating PDF...'
+  return ['PDF Report', '', `Status: ${statusLabel}`, `Report ID: ${reportId}`, '', 'Press Refresh to check again.'].join('\n')
+}
+
+// формирует сообщение об ошибке генерации отчёта
+export function adminReportFailedMessage(error: string): string {
+  return ['PDF Report', '', 'Status: Failed', '', `Error: ${error}`, '', 'You can try again.'].join('\n')
+}
+
+// формирует заголовок меню аналитики
+export function adminAnalyticsMenuMessage(): string {
+  return ['Analytics (last 30 days)', '', 'Choose a report to view.'].join('\n')
+}
+
+// формирует сводную статистику аналитики за период
+export function adminAnalyticsSummaryMessage(summary: AnalyticsSummary): string {
+  return [
+    'Analytics Summary',
+    `Period: ${summary.period.dateFrom} – ${summary.period.dateTo}`,
+    '',
+    `Total bookings: ${summary.totalBookings}`,
+    `Active: ${summary.activeBookings}`,
+    `Cancelled: ${summary.cancelledBookings}`,
+    `Rescheduled: ${summary.rescheduledBookings}`,
+    '',
+    `Total booked time: ${summary.totalOccupiedMinutes} min`,
+    `Average booking: ${summary.averageBookingMinutes} min`,
+    `Resources used: ${summary.uniqueResources}`,
+  ].join('\n')
+}
+
+// формирует топ занятых ячеек карты занятости
+export function adminHeatmapMessage(cells: OccupancyHeatmapCell[], period: { dateFrom: string; dateTo: string }): string {
+  if (cells.length === 0) {
+    return `Occupancy Heatmap\nPeriod: ${period.dateFrom} – ${period.dateTo}\n\nNo bookings in this period.`
+  }
+
+  const top = cells
+    .slice()
+    .sort((a, b) => b.occupancyPercent - a.occupancyPercent || b.bookings - a.bookings)
+    .slice(0, 10)
+
+  const rows = top.map(
+    (cell, i) =>
+      `${i + 1}. ${cell.date}  ${String(cell.hour).padStart(2, '0')}:00  ${cell.bookings} booking${cell.bookings !== 1 ? 's' : ''}  ${cell.occupiedMinutes} min  ${cell.occupancyPercent}%`,
+  )
+
+  return [
+    'Occupancy Heatmap',
+    `Period: ${period.dateFrom} – ${period.dateTo}`,
+    '',
+    `Top ${top.length} busiest hours:`,
+    ...rows,
+    '',
+    `Total active cells: ${cells.length}`,
+  ].join('\n')
+}
+
+// формирует utilization по каждому ресурсу за период
+export function adminUtilizationMessage(
+  resources: ResourceUtilization[],
+  period: { dateFrom: string; dateTo: string },
+): string {
+  if (resources.length === 0) {
+    return `Resource Utilization\nPeriod: ${period.dateFrom} – ${period.dateTo}\n\nNo resources found.`
+  }
+
+  const sorted = resources.slice().sort((a, b) => b.utilizationPercent - a.utilizationPercent)
+  const rows = sorted.map((r) => `• ${r.resourceName}: ${r.occupiedMinutes} / ${r.availableMinutes} min · ${r.utilizationPercent}%`)
+
+  return [
+    'Resource Utilization',
+    `Period: ${period.dateFrom} – ${period.dateTo}`,
+    '',
+    ...rows,
+  ].join('\n')
+}
+
+// формирует список пиковых часов по убыванию загрузки
+export function adminPeakHoursMessage(hours: PeakHour[], period: { dateFrom: string; dateTo: string }): string {
+  if (hours.length === 0) {
+    return `Peak Hours\nPeriod: ${period.dateFrom} – ${period.dateTo}\n\nNo bookings in this period.`
+  }
+
+  const top = hours.slice(0, 8)
+  const rows = top.map(
+    (h, i) =>
+      `${i + 1}. ${String(h.hour).padStart(2, '0')}:00  ${h.bookings} booking${h.bookings !== 1 ? 's' : ''}  ${h.occupiedMinutes} min  ${h.occupancyPercent}%`,
+  )
+
+  return [
+    'Peak Hours',
+    `Period: ${period.dateFrom} – ${period.dateTo}`,
+    '',
+    ...rows,
   ].join('\n')
 }

@@ -1,8 +1,13 @@
+import type { LogLevel } from './logger.js'
+
 export type BotEnv = {
   adminTelegramIds: number[]
   calendar: CalendarEnv
+  healthPort: number | undefined
+  logLevel: LogLevel
   paymentCurrency: string
   telegramBotToken: string
+  uptimeMonitorUrl: string | undefined
   yookassaProviderToken: string
 }
 
@@ -22,8 +27,11 @@ export type CalendarProviderEnv = {
 export function readEnv(): BotEnv {
   const adminTelegramIds = parseTelegramIds(process.env.ADMIN_TELEGRAM_IDS)
   const calendar = readCalendarEnv()
+  const healthPort = parseOptionalPort(process.env.HEALTH_PORT)
+  const logLevel = parseLogLevel(process.env.LOG_LEVEL)
   const paymentCurrency = process.env.PAYMENT_CURRENCY ?? 'USD'
   const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN
+  const uptimeMonitorUrl = process.env.UPTIME_MONITOR_URL
   const yookassaProviderToken = process.env.YOOKASSA_PROVIDER_TOKEN
 
   if (!telegramBotToken) {
@@ -37,18 +45,17 @@ export function readEnv(): BotEnv {
   return {
     adminTelegramIds,
     calendar,
+    healthPort,
+    logLevel,
     paymentCurrency,
     telegramBotToken,
+    uptimeMonitorUrl,
     yookassaProviderToken,
   }
 }
 
-// парсит список telegram id из строки, разделённой запятыми
 function parseTelegramIds(value: string | undefined): number[] {
-  if (!value) {
-    return []
-  }
-
+  if (!value) return []
   return value
     .split(',')
     .map((item) => Number(item.trim()))
@@ -76,13 +83,17 @@ function readCalendarProviderEnv(input: {
   clientSecret?: string
   redirectUri?: string
 }): CalendarProviderEnv | undefined {
-  if (!input.clientId || !input.clientSecret || !input.redirectUri) {
-    return undefined
-  }
+  if (!input.clientId || !input.clientSecret || !input.redirectUri) return undefined
+  return { clientId: input.clientId, clientSecret: input.clientSecret, redirectUri: input.redirectUri }
+}
 
-  return {
-    clientId: input.clientId,
-    clientSecret: input.clientSecret,
-    redirectUri: input.redirectUri,
-  }
+function parseLogLevel(value: string | undefined): LogLevel {
+  if (value === 'warn' || value === 'error') return value
+  return 'info'
+}
+
+function parseOptionalPort(value: string | undefined): number | undefined {
+  if (!value) return undefined
+  const port = Number(value)
+  return Number.isInteger(port) && port > 0 && port < 65536 ? port : undefined
 }

@@ -1,12 +1,15 @@
 import { createBot } from './bot/create-bot.js'
 import { CalendarIntegrationService } from './integrations/calendar/calendar-integration-service.js'
 import { readEnv } from './lib/env.js'
+import { startHealthServer } from './lib/health-server.js'
 import { ConsoleLogger } from './lib/logger.js'
-import { FileBookingService } from './services/mock-booking-service.js'
 import { TelegramClient } from './lib/telegram-client.js'
+import { startUptimeMonitor } from './lib/uptime-monitor.js'
+import { FileBookingService } from './services/mock-booking-service.js'
 
-const logger = new ConsoleLogger()
+const startedAt = new Date()
 const env = readEnv()
+const logger = new ConsoleLogger(env.logLevel)
 const telegram = new TelegramClient({ token: env.telegramBotToken })
 const bookingService = new FileBookingService()
 const calendarIntegration = new CalendarIntegrationService({
@@ -25,6 +28,14 @@ const bot = createBot({
   },
   telegram,
 })
+
+if (env.healthPort) {
+  startHealthServer({ logger, port: env.healthPort, startedAt })
+}
+
+if (env.uptimeMonitorUrl) {
+  startUptimeMonitor({ intervalMs: 60_000, logger, url: env.uptimeMonitorUrl })
+}
 
 bot.start().catch((error: unknown) => {
   logger.error('Telegram bot failed to start', { error })

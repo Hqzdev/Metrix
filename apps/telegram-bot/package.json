@@ -9,9 +9,12 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "pdfkit": "^0.15.0"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pdfkit": "^0.13.9",
     "tsx": "^4.19.0",
     "typescript": "^5.0.0"
   }

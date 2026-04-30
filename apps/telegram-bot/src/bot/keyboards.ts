@@ -25,7 +25,51 @@ export function adminMenuKeyboard(): InlineKeyboardMarkup {
       [{ text: 'Edit locations', callback_data: 'admin:locations' }],
       [{ text: 'Statistics', callback_data: 'admin:stats' }],
       [{ text: 'All bookings', callback_data: 'admin:all_bookings' }],
+      [{ text: 'Analytics', callback_data: 'admin:analytics' }],
       [{ text: 'Back to user menu', callback_data: 'menu:start' }],
+    ],
+  }
+}
+
+// меню аналитики с выбором отчёта
+export function adminAnalyticsMenuKeyboard(): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [{ text: 'Summary', callback_data: 'admin:analytics:summary' }],
+      [{ text: 'Heatmap', callback_data: 'admin:analytics:heatmap' }],
+      [{ text: 'Utilization', callback_data: 'admin:analytics:utilization' }],
+      [{ text: 'Peak hours', callback_data: 'admin:analytics:peak' }],
+      [{ text: 'Export PDF', callback_data: 'admin:report:export' }],
+      [{ text: 'Back to admin', callback_data: 'admin:menu' }],
+    ],
+  }
+}
+
+// экран ожидания или обработки отчёта
+export function adminReportPendingKeyboard(reportId: string): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [{ text: 'Refresh status', callback_data: `admin:report:refresh:${reportId}` }],
+      [{ text: 'Back to analytics', callback_data: 'admin:analytics' }],
+    ],
+  }
+}
+
+// экран ошибки генерации отчёта
+export function adminReportFailedKeyboard(): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [{ text: 'Try again', callback_data: 'admin:report:export' }],
+      [{ text: 'Back to analytics', callback_data: 'admin:analytics' }],
+    ],
+  }
+}
+
+// кнопка возврата в меню аналитики
+export function adminAnalyticsBackKeyboard(): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [{ text: 'Back to analytics', callback_data: 'admin:analytics' }],
     ],
   }
 }
