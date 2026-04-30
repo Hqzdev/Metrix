@@ -37,6 +37,11 @@ src/app/api/bookings/route.ts
 src/app/api/bookings/[bookingId]/route.ts
 src/app/api/availability/route.ts
 src/app/api/analytics/usage/route.ts
+src/app/api/admin/analytics/heatmap/route.ts
+src/app/api/admin/analytics/utilization/route.ts
+src/app/api/admin/analytics/peak-hours/route.ts
+src/app/api/admin/reports/route.ts
+src/app/api/admin/reports/[reportId]/route.ts
 ```
 
 Controllers и validators
@@ -54,7 +59,25 @@ DTO
 src/modules/bookings/application/dto/create-booking.dto.ts
 src/modules/bookings/application/dto/booking-response.dto.ts
 src/modules/analytics/application/dto/usage-metrics.dto.ts
+src/modules/analytics/application/dto/occupancy-heatmap.dto.ts
+src/modules/analytics/application/dto/resource-utilization.dto.ts
+src/modules/analytics/application/dto/peak-hours.dto.ts
+src/modules/reports/application/dto/report-export.dto.ts
 ```
+
+Analytics endpoints
+
+GET /api/admin/analytics/heatmap — возвращает занятость по дням и часам.
+
+GET /api/admin/analytics/utilization — возвращает процент использования каждого ресурса.
+
+GET /api/admin/analytics/peak-hours — возвращает часы с максимальной загрузкой.
+
+POST /api/admin/reports — создаёт задачу генерации PDF-отчёта.
+
+GET /api/admin/reports/{reportId} — возвращает статус отчёта и ссылку на скачивание.
+
+Все analytics и reports endpoints доступны только администратору.
 
 Зачем нужен этот файл
 

@@ -29,3 +29,4 @@ src/database — доступ к БД и инфраструктурные мап
 
 backend-data.md — backend/data блок, Prisma, auth, validation и contracts
 queues-realtime.md — Redis, BullMQ, events и WebSocket availability
+analytics.md — архитектура analytics, reports и report-export queue

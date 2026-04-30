@@ -10,6 +10,7 @@
 - [API_CONTRACTS.md](./API_CONTRACTS.md) — будущие API-маршруты и контракты
 - [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) — сущности БД и связи между ними
 - [QUEUES_AND_EVENTS.md](./QUEUES_AND_EVENTS.md) — фоновые задачи, события и асинхронные процессы
+- [ANALYTICS.md](./ANALYTICS.md) — метрики занятости, utilization, peak hours и PDF reports
 - [INTEGRATIONS.md](./INTEGRATIONS.md) — Google, Microsoft, Telegram и адаптеры
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — окружения, сервисы, деплой и мониторинг
 

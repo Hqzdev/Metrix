@@ -54,22 +54,32 @@ Smart Booking System turns room and desk scheduling into a fast, visible and rel
 ## UI Preview
 
 ### Homepage
-![Homepage](/apps/web/public/images/1.png)
+![Homepage](/apps/web/public/screen/1.png)
 
 ### Page 2
-![Dashboard](/apps/web/public/images/2.png)
+![Dashboard](/apps/web/public/screen/2.png)
 
 ### Workspace flow
-![Booking Flow](/apps/web/public/images/3.png)
+![Workspace Flow](/apps/web/public/screen/3.png)
 
 ### Membership
-![Room Availability](/apps/web/public/images/4.png)
+![Membership](/apps/web/public/screen/4.png)
 
 ### Analytics
-![Analytics](/apps/web/public/images/5.png)
+![Analytics](/apps/web/public/screen/5.png)
 
 ### Booking Experience
-![Telegram Experience](/apps/web/public/images/6.png)
+![Booking experience](/apps/web/public/screen/6.png)
+
+### Mobile Version
+![Mobile homepage](/apps/web/public/screen/mobile/1.png)
+![Mobile booking flow](/apps/web/public/screen/mobile/2.png)
+![Mobile analytics](/apps/web/public/screen/mobile/3.png)
+
+### Telegram Bot Version
+![Telegram start screen](/apps/web/public/screen/telegram/1.png)
+![Telegram booking flow](/apps/web/public/screen/telegram/2.png)
+![Telegram admin panel](/apps/web/public/screen/telegram/3.png)
 
 ## Tech Stack
 
@@ -194,6 +204,7 @@ REDIS_URL=redis://localhost:6379
 - [API-контракты](./docs/architecture/API_CONTRACTS.md)
 - [Схема БД](./docs/architecture/DATABASE_SCHEMA.md)
 - [Очереди и события](./docs/architecture/QUEUES_AND_EVENTS.md)
+- [Analytics architecture](./docs/architecture/ANALYTICS.md)
 - [Интеграции](./docs/architecture/INTEGRATIONS.md)
 - [Деплой](./docs/architecture/DEPLOYMENT.md)
 - [Apps](./apps/README.md)
@@ -206,6 +217,7 @@ REDIS_URL=redis://localhost:6379
 - [API Package](./packages/api/README.md)
 - [API Backend And Data](./packages/api/docs/backend-data.md)
 - [API Queues And Realtime](./packages/api/docs/queues-realtime.md)
+- [API Analytics](./packages/api/docs/analytics.md)
 - [Shared Package](./packages/shared/README.md)
 - [UI Package](./packages/ui/README.md)
 - [Prisma](./prisma/README.md)

@@ -63,7 +63,25 @@ src/modules/resources/domain/entities/room.ts
 src/modules/resources/domain/entities/desk.ts
 src/modules/availability/application/use-cases/get-available-slots.ts
 src/modules/analytics/application/use-cases/get-usage-metrics.ts
+src/modules/analytics/application/use-cases/get-occupancy-heatmap.ts
+src/modules/analytics/application/use-cases/get-resource-utilization.ts
+src/modules/analytics/application/use-cases/get-peak-hours.ts
+src/modules/reports/application/use-cases/create-report-export.ts
 ```
+
+Analytics module
+
+analytics отвечает только за чтение фактов бронирований и расчёт агрегатов.
+
+Основные use cases:
+
+* getOccupancyHeatmap
+* getResourceUtilization
+* getPeakHours
+* getAnalyticsSummary
+
+reports отвечает за export.
+PDF-отчёты создаются через очередь, а не внутри HTTP-запроса.
 
 Зачем нужен этот файл
 

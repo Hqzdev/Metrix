@@ -36,6 +36,7 @@ src/queues/jobs/sync-calendar-event-job.ts
 src/queues/jobs/delete-calendar-event-job.ts
 src/queues/jobs/send-booking-reminder-job.ts
 src/queues/jobs/export-report-job.ts
+src/queues/report-export-queue.ts
 src/queues/workers/calendar-sync-worker.ts
 src/queues/workers/notification-worker.ts
 src/queues/workers/report-worker.ts
@@ -43,6 +44,15 @@ src/realtime/events/booking-created-event.ts
 src/realtime/events/booking-updated-event.ts
 src/realtime/events/booking-cancelled-event.ts
 ```
+
+Report export
+
+PDF-отчёты не должны создаваться в HTTP-запросе.
+
+POST /api/admin/reports создаёт report record и добавляет job в report-export.
+Worker собирает analytics data, генерирует PDF и обновляет статус отчёта.
+
+Job должна быть idempotent по reportId.
 
 Зачем нужен этот файл
 
