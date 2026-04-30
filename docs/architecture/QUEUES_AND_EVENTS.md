@@ -1,10 +1,10 @@
-# Queues And Events
+Queues And Events
 
-## О чем этот файл
+О чем этот файл
 
 Этот документ описывает асинхронную часть системы: фоновые задачи, очереди, события и взаимодействие между синхронным контуром бронирования и фоновыми процессами.
 
-## Что здесь должно быть описано
+Что здесь должно быть описано
 
 - какие операции уходят в очередь;
 - какие события возникают в системе;
@@ -12,7 +12,7 @@
 - где нужны retry и idempotency;
 - что происходит синхронно, а что асинхронно.
 
-## Основные очереди
+Основные очереди
 
 - `calendar-sync`
 - `booking-reminders`
@@ -20,7 +20,7 @@
 - `analytics-aggregation`
 - `notification-delivery`
 
-## Основные события
+Основные события
 
 - `booking.created`
 - `booking.updated`
@@ -29,7 +29,7 @@
 - `report.export-requested`
 - `analytics.recalculation-requested`
 
-## Какие файлы появятся в проекте
+Какие файлы появятся в проекте
 
 ```txt
 src/queues/jobs/sync-calendar-event-job.ts
@@ -44,6 +44,6 @@ src/realtime/events/booking-updated-event.ts
 src/realtime/events/booking-cancelled-event.ts
 ```
 
-## Зачем нужен этот файл
+Зачем нужен этот файл
 
 Чтобы команда чётко понимала, какие процессы должны завершаться в HTTP-запросе, а какие надо выносить в фон без ухудшения UX.

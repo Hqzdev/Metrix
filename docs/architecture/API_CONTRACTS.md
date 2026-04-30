@@ -1,10 +1,10 @@
-# API Contracts
+API Contracts
 
-## О чем этот файл
+О чем этот файл
 
 Этот документ описывает будущие HTTP API-контракты системы. Он нужен для согласования frontend, backend и интеграций до начала активной реализации.
 
-## Что здесь должно быть описано
+Что здесь должно быть описано
 
 - список маршрутов;
 - методы;
@@ -14,7 +14,7 @@
 - ошибки;
 - правила авторизации по маршрутам.
 
-## Основные группы API
+Основные группы API
 
 - `/api/auth`
 - `/api/users`
@@ -26,9 +26,9 @@
 - `/api/reports`
 - `/api/admin`
 
-## Какие файлы появятся в проекте
+Какие файлы появятся в проекте
 
-### HTTP routes
+HTTP routes
 
 ```txt
 src/app/api/auth/google/route.ts
@@ -39,7 +39,7 @@ src/app/api/availability/route.ts
 src/app/api/analytics/usage/route.ts
 ```
 
-### Controllers и validators
+Controllers и validators
 
 ```txt
 src/modules/bookings/presentation/controllers/create-booking-controller.ts
@@ -48,7 +48,7 @@ src/modules/bookings/presentation/validators/create-booking-schema.ts
 src/modules/resources/presentation/validators/create-resource-schema.ts
 ```
 
-### DTO
+DTO
 
 ```txt
 src/modules/bookings/application/dto/create-booking.dto.ts
@@ -56,6 +56,6 @@ src/modules/bookings/application/dto/booking-response.dto.ts
 src/modules/analytics/application/dto/usage-metrics.dto.ts
 ```
 
-## Зачем нужен этот файл
+Зачем нужен этот файл
 
 Чтобы API не рождался случайно прямо в коде без общего контракта и без понимания, какие модели нужны клиенту.

@@ -1,10 +1,10 @@
-# File Structure
+File Structure
 
-## О чем этот файл
+О чем этот файл
 
 Этот документ описывает, как будет организована файловая структура проекта. Он отвечает на вопрос: какие папки будут в репозитории и что в них должно лежать.
 
-## Целевая структура репозитория
+Целевая структура репозитория
 
 ```txt
 src/
@@ -23,9 +23,9 @@ public/
 scripts/
 ```
 
-## Что будет лежать в основных папках
+Что будет лежать в основных папках
 
-### `src/app`
+`src/app`
 
 - страницы;
 - layouts;
@@ -44,7 +44,7 @@ src/app/api/bookings/route.ts
 src/app/api/resources/route.ts
 ```
 
-### `src/modules`
+`src/modules`
 
 - доменная и application-логика по бизнес-направлениям.
 
@@ -56,7 +56,7 @@ src/modules/resources/application/use-cases/create-room.ts
 src/modules/auth/application/use-cases/sign-in-with-google.ts
 ```
 
-### `src/integrations`
+`src/integrations`
 
 - адаптеры внешних API.
 
@@ -68,7 +68,7 @@ src/integrations/microsoft-calendar/microsoft-calendar-adapter.ts
 src/integrations/telegram-bot/telegram-bot-client.ts
 ```
 
-### `src/queues`
+`src/queues`
 
 - фоновые jobs и workers.
 
@@ -81,7 +81,7 @@ src/queues/workers/calendar-sync-worker.ts
 src/queues/workers/report-export-worker.ts
 ```
 
-### `src/realtime`
+`src/realtime`
 
 - realtime-события и транспорт.
 
@@ -93,7 +93,7 @@ src/realtime/events/booking-cancelled-event.ts
 src/realtime/ws/socket-server.ts
 ```
 
-### `src/shared`
+`src/shared`
 
 - общий код, который не принадлежит конкретному доменному модулю.
 
@@ -107,7 +107,7 @@ src/shared/logger/logger.ts
 src/shared/validation/zod.ts
 ```
 
-### `prisma`
+`prisma`
 
 - схема базы данных, миграции и seed.
 
@@ -119,7 +119,7 @@ prisma/seed/index.ts
 prisma/migrations/*
 ```
 
-### `tests`
+`tests`
 
 - unit, integration и e2e тесты.
 
@@ -131,6 +131,6 @@ tests/integration/api/bookings-route.test.ts
 tests/e2e/booking-flow.spec.ts
 ```
 
-## Зачем нужен этот файл
+Зачем нужен этот файл
 
 Чтобы команда с первого дня создавала файлы в правильных местах, а не строила структуру стихийно.
