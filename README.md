@@ -149,6 +149,14 @@ MICROSOFT_CALENDAR_REDIRECT_URI=...
 Цены в Telegram-боте показываются в рублях.
 Seed-цены вида `$320` конвертируются по правилу `$320 -> 32 000 ₽`.
 
+Минимальный `.env` для backend:
+
+```bash
+DATABASE_URL=postgresql://user:password@localhost:5432/metrix
+JWT_SECRET=long-random-secret
+REDIS_URL=redis://localhost:6379
+```
+
 ## Roadmap
 
 ### Now
@@ -196,6 +204,8 @@ Seed-цены вида `$320` конвертируются по правилу `
 - [Telegram Bot calendar integrations](./apps/telegram-bot/docs/calendar-integrations.md)
 - [Packages](./packages/README.md)
 - [API Package](./packages/api/README.md)
+- [API Backend And Data](./packages/api/docs/backend-data.md)
+- [API Queues And Realtime](./packages/api/docs/queues-realtime.md)
 - [Shared Package](./packages/shared/README.md)
 - [UI Package](./packages/ui/README.md)
 - [Prisma](./prisma/README.md)
