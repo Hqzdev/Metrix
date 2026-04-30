@@ -1,146 +1,152 @@
-# Smart Booking System
-### Booking infrastructure for modern offices
+# <img src="apps/web/public/images/icon-remove.png" width="32" style="vertical-align:middle" /> Metrix
 
-Smart Booking System turns room and desk scheduling into a fast, visible and reliable workflow across web, calendars and Telegram.
+## Инфраструктура бронирования для современных офисов
+
+Metrix — это единая платформа управления офисными ресурсами, которая превращает бронирование переговорных и рабочих мест в прозрачный, управляемый и масштабируемый процесс.
 
 [Website](https://metrixplatform.vercel.app) • [Docs](./TECH_SPEC.md) • [GitHub](https://github.com/Hqzdev/Metrix/tree/main) • [Telegram](https://t.me/metritxsxbot)
 
-## Product Vision
+---
 
-Офисные ресурсы до сих пор управляются как будто это 2015 год: чаты, таблицы, устные договорённости и постоянная путаница со слотами. Smart Booking System превращает бронирование переговорных и рабочих мест в прозрачный цифровой слой, где доступность видна сразу, синхронизация с календарями работает автоматически, а администраторы наконец получают живую картину использования пространства.
+## Обзор продукта
 
-Это продукт не просто про резервирование. Это инфраструктура офисного опыта: быстрее принять решение, проще найти место, меньше конфликтов, больше контроля и аналитики.
+В большинстве компаний управление офисными ресурсами остаётся фрагментированным: таблицы, чаты и устные договорённости приводят к конфликтам, неэффективному использованию пространства и отсутствию достоверной аналитики.
 
-## Core Capabilities
+Smart Booking System устраняет эти проблемы, создавая единый цифровой слой, в котором:
 
-### Moderation / Security
+* доступность ресурсов видна в реальном времени
+* синхронизация с календарями автоматизирована
+* действия пользователей контролируемы и отслеживаемы
+* данные используются как операционный инструмент
 
-- Role-based access для сотрудников и администраторов с проверкой прав на backend.
-- OAuth2-интеграции с Google и Microsoft для безопасного подключения календарей.
-- Audit-ready сценарии для контроля критических действий, отмен и изменений броней.
+Это не просто система бронирования — это инфраструктура офисного взаимодействия.
 
-### Engagement / Growth
+---
 
-- Telegram-бот для быстрого бронирования без входа в веб-интерфейс.
-- Автоматические напоминания перед встречами и бронями.
-- Наглядная аналитика, которая повышает фактическое использование офисных ресурсов.
+## Ключевые возможности
 
-### Automation
+### Безопасность и контроль
 
-- Автоматическое создание, перенос и удаление событий в подключённых календарях.
-- Фоновые очереди для синхронизации, ретраев и тяжёлых операций без нагрузки на UI.
-- Realtime-обновления доступности переговорных и рабочих мест.
+* Role-based access с серверной валидацией прав
+* OAuth2 интеграции с Google и Microsoft
+* Аудит действий: создание, изменение и отмена броней
 
-### Monetization
+### Вовлечение и пользовательский опыт
 
-- Базис для B2B SaaS-модели: офисы, филиалы, зоны, тарифные ограничения и отчёты.
-- Готовая основа для premium analytics, multi-location rollout и enterprise onboarding.
+* Telegram-бот для быстрого доступа без веб-интерфейса
+* Автоматические напоминания
+* Прозрачная доступность ресурсов
 
-### Community Infrastructure
+### Автоматизация
 
-- Единый слой управления переговорными, коворкингом и доступностью пространства.
-- Модульная архитектура, готовая к расширению под новые сценарии бронирования.
-- Web + Calendar + Bot experience внутри одной системы истины.
+* Синхронизация событий с внешними календарями
+* Очереди для фоновых задач и retry-логики
+* Realtime обновления доступности
 
-## Why This Product
+### Монетизация и масштабирование
 
-- No-code first. Пользователь не должен изучать систему, чтобы просто найти свободную переговорную.
-- Modular system. Архитектура разбита на доменные блоки, а не на хаотичный набор экранов и API.
-- Real-time analytics. Загрузка помещений видна не постфактум, а как управляемый операционный сигнал.
-- Built for scale. Очереди, кэш, адаптеры интеграций и модульный backend закладывают рост без раннего переусложнения.
-- Privacy-first. Контроль доступа, OAuth2 и защищённая работа с внешними календарями встроены в базовый контур.
-- AI-native architecture. Событийная модель и чистые доменные границы позволяют дальше добавлять AI-подсказки, прогнозирование и автоматизацию.
+* Архитектура для B2B SaaS
+* Поддержка multi-location
+* Расширяемая система тарифов и ограничений
 
-## UI Preview
+### Инфраструктура продукта
 
-### Homepage
+* Единая система управления ресурсами
+* Модульная архитектура
+* Единый источник истины для web, bot и calendar
+
+---
+
+## Ценность продукта
+
+* Простота: пользователь получает доступ к системе без обучения
+* Прозрачность: данные о доступности всегда актуальны
+* Контроль: администраторы управляют системой, а не реагируют на проблемы
+* Масштабируемость: архитектура готова к росту
+* Безопасность: доступ и интеграции встроены на уровне ядра
+
+---
+
+## Архитектурные принципы
+
+* Domain-driven структура
+* Event-driven взаимодействие
+* Разделение read/write слоёв
+* Расширяемость через адаптеры интеграций
+
+---
+
+## Интерфейс
+
+### Web
+
 ![Homepage](/apps/web/public/screen/1.png)
-
-### Workspace System
 ![Dashboard](/apps/web/public/screen/2.png)
-
-### Membership
-![Workspace Flow](/apps/web/public/screen/3.png)
-
-### Booking Experience
-![Membership](/apps/web/public/screen/4.png)
-
-### Analytics
+![Workspace](/apps/web/public/screen/3.png)
+![Booking](/apps/web/public/screen/4.png)
 ![Analytics](/apps/web/public/screen/5.png)
 
-### Footer
-![Booking experience](/apps/web/public/screen/6.png)
+### Mobile
 
-### Mobile Version
-![Mobile homepage](/apps/web/public/screen/mobile/1.png)
-![Mobile booking flow](/apps/web/public/screen/mobile/2.png)
-![Mobile analytics](/apps/web/public/screen/mobile/3.png)
-![Mobile hero](/apps/web/public/screen/mobile/4.png)
-![Mobile footer](/apps/web/public/screen/mobile/5.png)
+<img src="/apps/web/public/screen/mobile/1.png" width="200" />
+<img src="/apps/web/public/screen/mobile/2.png" width="200" />
+<img src="/apps/web/public/screen/mobile/3.png" width="200" />
+<img src="/apps/web/public/screen/mobile/4.png" width="200" />
 
-### Telegram Bot Version
+### Telegram
 
-#### Start
-![Start screen](/apps/web/public/screen/telegram/start.png)
+<img src="/apps/web/public/screen/telegram/start.png" width="220" />
+<img src="/apps/web/public/screen/telegram/book.png" width="220" />
+<img src="/apps/web/public/screen/telegram/book2.png" width="220" />
+<img src="/apps/web/public/screen/telegram/book3.png" width="220" />
 
-#### Help
-![Help menu](/apps/web/public/screen/telegram/help.png)
+---
 
-#### Booking Flow
-![Choose office](/apps/web/public/screen/telegram/book.png)
-![Choose slot](/apps/web/public/screen/telegram/book2.png)
-![Confirm booking](/apps/web/public/screen/telegram/book3.png)
+## Технологический стек
 
-#### Payment
-![Payment invoice](/apps/web/public/screen/telegram/payment.png)
-![Payment complete](/apps/web/public/screen/telegram/completepay.png)
+Frontend:
 
-#### My Bookings
-![My bookings](/apps/web/public/screen/telegram/mybook.png)
+* Next.js
+* React
+* TypeScript
+* Tailwind CSS
 
-#### Admin Panel
-![Admin panel](/apps/web/public/screen/telegram/admin.png)
+Backend:
 
-#### Statistics
-![Statistics](/apps/web/public/screen/telegram/statistics.png)
+* Node.js
+* PostgreSQL
+* Prisma ORM
 
-#### Analytics
-![Analytics](/apps/web/public/screen/telegram/analytics.png)
+Инфраструктура:
 
-## Tech Stack
+* Redis
+* BullMQ
+* WebSocket / SSE
 
-- Frontend: `Next.js` / `React` / `TypeScript` / `Tailwind CSS`
-- State & Data: `React Query` / `Redux Toolkit`
-- Backend: `Node.js` / `PostgreSQL` / `Prisma ORM`
-- Queue & Cache: `Redis` / `BullMQ`
-- Realtime: `WebSocket` or `SSE`
-- Integrations: `Google Calendar API` / `Microsoft Graph API` / `Telegram Bot API`
-- Hosting: `Vercel` for frontend, managed cloud runtime for backend services and workers
+Интеграции:
 
-## Pages Overview
+* Google Calendar API
+* Microsoft Graph API
+* Telegram Bot API
 
-| Page | Description |
-| --- | --- |
-| `/` | Продуктовый landing с ценностью системы и основными сценариями |
-| `/dashboard` | Главная операционная панель сотрудника или администратора |
-| `/bookings` | Управление активными, будущими и завершёнными бронями |
-| `/resources` | Список переговорных и рабочих мест с доступностью |
-| `/analytics` | Карта занятости, utilisation и пиковые часы |
-| `/integrations` | Подключение Google и Microsoft календарей |
-| `/admin` | Настройки ресурсов, ролей и системных ограничений |
-| `/reports` | Экспорт аналитических отчётов и PDF-выгрузок |
+---
 
-## Visual Identity
+## Структура продукта
 
-Smart Booking System должен ощущаться как премиальный B2B-продукт, а не как внутренний корпоративный кабинет.
+| Раздел        | Назначение                |
+| ------------- | ------------------------- |
+| /             | Продуктовый лендинг       |
+| /dashboard    | Операционная панель       |
+| /bookings     | Управление бронированиями |
+| /resources    | Управление ресурсами      |
+| /analytics    | Аналитика использования   |
+| /integrations | Интеграции календарей     |
+| /admin        | Администрирование         |
+| /reports      | Отчёты                    |
 
-- Gradient system. Мягкие технологичные градиенты для hero-зон, аналитики и ключевых статусных блоков.
-- Typography hierarchy. Контрастная типографика с чётким разделением стратегических заголовков, product copy и плотных data-слоёв.
-- Motion & micro-interactions. Анимации подтверждения брони, обновления слотов и смены состояния должны усиливать ясность, а не отвлекать.
-- Capsule UI. Скруглённые контролы, собранные сегменты фильтров, статусные плашки и компактные action-капсулы.
-- Adaptive layouts. Интерфейс должен одинаково быстро читаться на desktop, tablet и mobile, особенно в сценариях срочного бронирования.
+---
 
-## Quick Start
+## Быстрый старт
 
 ### Telegram Bot
 
@@ -151,108 +157,48 @@ set -a; source .env; set +a
 npm run dev
 ```
 
-Для production-сборки:
+Production:
 
 ```bash
-cd apps/telegram-bot
 npm run build
 npm run start
 ```
 
-Минимальный `.env` для бота:
-
-```bash
-TELEGRAM_BOT_TOKEN=...
-YOOKASSA_PROVIDER_TOKEN=...
-PAYMENT_CURRENCY=RUB
-ADMIN_TELEGRAM_IDS=123456789
-```
-
-Переменные для календарей:
-
-```bash
-CALENDAR_TOKEN_SECRET=long-random-secret
-
-GOOGLE_CALENDAR_CLIENT_ID=...
-GOOGLE_CALENDAR_CLIENT_SECRET=...
-GOOGLE_CALENDAR_REDIRECT_URI=...
-
-MICROSOFT_CALENDAR_CLIENT_ID=...
-MICROSOFT_CALENDAR_CLIENT_SECRET=...
-MICROSOFT_CALENDAR_REDIRECT_URI=...
-```
-
-Цены в Telegram-боте показываются в рублях.
-Seed-цены вида `$320` конвертируются по правилу `$320 -> 32 000 ₽`.
-
-Минимальный `.env` для backend:
-
-```bash
-DATABASE_URL=postgresql://user:password@localhost:5432/metrix
-JWT_SECRET=long-random-secret
-REDIS_URL=redis://localhost:6379
-```
+---
 
 ## Roadmap
 
-### Now
+### Текущий этап
 
-- Telegram-бот для бронирования, отмены и переноса броней
-- Админка в Telegram по `ADMIN_TELEGRAM_IDS`
-- Google Calendar и Microsoft Outlook интеграции для событий и busy slots
-- JSON-хранилище для локальной разработки
+* Telegram-бот
+* Базовые интеграции календарей
+* Администрирование
 
-### Next
+### Следующий этап
 
-- PostgreSQL + Prisma вместо JSON-хранилища
-- Очереди Redis/BullMQ для напоминаний и calendar sync
-- PDF-отчёты и управляемые export pipelines
-- Расширенные роли и политики доступа
-- Multi-location поддержка для нескольких офисов
-- Гибкие правила доступности по расписанию и зонам
+* PostgreSQL и Prisma
+* Очереди и синхронизация
+* Расширенные роли
 
-### Future
+### Долгосрочное развитие
 
-- AI-рекомендации по подбору слотов и переговорных
-- Прогнозирование пиковых часов и загрузки
-- Enterprise policy engine
-- Platform expansion для booking-инфраструктуры за пределами офисных помещений
+* AI-рекомендации
+* Прогнозирование загрузки
+* Enterprise policy engine
 
-## Documentation
+---
 
-- [Техническое задание](./TECH_SPEC.md)
-- [Архитектура](./ARCHITECTURE.md)
-- [Документация](./docs/README.md)
-- [Архитектурный индекс](./docs/architecture/README.md)
-- [Системный обзор](./docs/architecture/SYSTEM_OVERVIEW.md)
-- [Модули](./docs/architecture/MODULES.md)
-- [Структура файлов](./docs/architecture/FILE_STRUCTURE.md)
-- [API-контракты](./docs/architecture/API_CONTRACTS.md)
-- [Схема БД](./docs/architecture/DATABASE_SCHEMA.md)
-- [Очереди и события](./docs/architecture/QUEUES_AND_EVENTS.md)
-- [Analytics architecture](./docs/architecture/ANALYTICS.md)
-- [Интеграции](./docs/architecture/INTEGRATIONS.md)
-- [Деплой](./docs/architecture/DEPLOYMENT.md)
-- [Apps](./apps/README.md)
-- [Telegram Bot src/bot](./apps/telegram-bot/docs/bot-block.md)
-- [Telegram Bot src/services](./apps/telegram-bot/docs/services-block.md)
-- [Telegram Bot src/lib](./apps/telegram-bot/docs/lib-block.md)
-- [Telegram Bot src/commands](./apps/telegram-bot/docs/commands-block.md)
-- [Telegram Bot calendar integrations](./apps/telegram-bot/docs/calendar-integrations.md)
-- [Packages](./packages/README.md)
-- [API Package](./packages/api/README.md)
-- [API Backend And Data](./packages/api/docs/backend-data.md)
-- [API Queues And Realtime](./packages/api/docs/queues-realtime.md)
-- [API Analytics](./packages/api/docs/analytics.md)
-- [Shared Package](./packages/shared/README.md)
-- [UI Package](./packages/ui/README.md)
-- [Prisma](./prisma/README.md)
-- [Tests](./tests/README.md)
-- [Scripts](./scripts/README.md)
-- [Code style](./codestyle.md)
-- [Contributing](./CONTRIBUTING.md)
+## Документация
 
-## Built By
+Полная документация доступна в репозитории и включает:
 
-Built by haku tm 
-Designed with obsession for community experience.
+* архитектуру системы
+* API контракты
+* схемы данных
+* описание модулей
+
+---
+
+## Команда
+
+Разработано с фокусом на системный дизайн, масштабируемость и пользовательский опыт.
