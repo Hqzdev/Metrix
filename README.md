@@ -3,7 +3,7 @@
 
 Smart Booking System turns room and desk scheduling into a fast, visible and reliable workflow across web, calendars and Telegram.
 
-[Website](#) • [Docs](./TECH_SPEC.md) • [GitHub](https://github.com/Hqzdev/Metrix/tree/main)
+[Website](https://metrixplatform.vercel.app) • [Docs](./TECH_SPEC.md) • [GitHub](https://github.com/Hqzdev/Metrix/tree/main)
 
 ## Product Vision
 
