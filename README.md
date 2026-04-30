@@ -3,7 +3,7 @@
 
 Smart Booking System turns room and desk scheduling into a fast, visible and reliable workflow across web, calendars and Telegram.
 
-[Website](#) • [Docs](./TECH_SPEC.md) • [GitHub](https://github.com/Hqzdev/Metrix/tree/main)
+[Website](https://metrixplatform.vercel.app) • [Docs](./TECH_SPEC.md) • [GitHub](https://github.com/Hqzdev/Metrix/tree/main) • [Telegram](https://t.me/metritxsxbot)
 
 ## Product Vision
 
@@ -15,32 +15,32 @@ Smart Booking System turns room and desk scheduling into a fast, visible and rel
 
 ### Moderation / Security
 
-- 🛡 Role-based access для сотрудников и администраторов с проверкой прав на backend.
-- 🔐 OAuth2-интеграции с Google и Microsoft для безопасного подключения календарей.
-- 📜 Audit-ready сценарии для контроля критических действий, отмен и изменений броней.
+- Role-based access для сотрудников и администраторов с проверкой прав на backend.
+- OAuth2-интеграции с Google и Microsoft для безопасного подключения календарей.
+- Audit-ready сценарии для контроля критических действий, отмен и изменений броней.
 
 ### Engagement / Growth
 
-- 📲 Telegram-бот для быстрого бронирования без входа в веб-интерфейс.
-- ⏰ Автоматические напоминания перед встречами и бронями.
-- 📊 Наглядная аналитика, которая повышает фактическое использование офисных ресурсов.
+- Telegram-бот для быстрого бронирования без входа в веб-интерфейс.
+- Автоматические напоминания перед встречами и бронями.
+- Наглядная аналитика, которая повышает фактическое использование офисных ресурсов.
 
 ### Automation
 
-- 🚀 Автоматическое создание, перенос и удаление событий в подключённых календарях.
-- 🔄 Фоновые очереди для синхронизации, ретраев и тяжёлых операций без нагрузки на UI.
-- ⚡ Realtime-обновления доступности переговорных и рабочих мест.
+- Автоматическое создание, перенос и удаление событий в подключённых календарях.
+- Фоновые очереди для синхронизации, ретраев и тяжёлых операций без нагрузки на UI.
+- Realtime-обновления доступности переговорных и рабочих мест.
 
 ### Monetization
 
-- 💼 Базис для B2B SaaS-модели: офисы, филиалы, зоны, тарифные ограничения и отчёты.
-- 📈 Готовая основа для premium analytics, multi-location rollout и enterprise onboarding.
+- Базис для B2B SaaS-модели: офисы, филиалы, зоны, тарифные ограничения и отчёты.
+- Готовая основа для premium analytics, multi-location rollout и enterprise onboarding.
 
 ### Community Infrastructure
 
-- 🏢 Единый слой управления переговорными, коворкингом и доступностью пространства.
-- 🧩 Модульная архитектура, готовая к расширению под новые сценарии бронирования.
-- 🌐 Web + Calendar + Bot experience внутри одной системы истины.
+- Единый слой управления переговорными, коворкингом и доступностью пространства.
+- Модульная архитектура, готовая к расширению под новые сценарии бронирования.
+- Web + Calendar + Bot experience внутри одной системы истины.
 
 ## Why This Product
 
@@ -56,30 +56,56 @@ Smart Booking System turns room and desk scheduling into a fast, visible and rel
 ### Homepage
 ![Homepage](/apps/web/public/screen/1.png)
 
-### Page 2
+### Workspace System
 ![Dashboard](/apps/web/public/screen/2.png)
 
-### Workspace flow
+### Membership
 ![Workspace Flow](/apps/web/public/screen/3.png)
 
-### Membership
+### Booking Experience
 ![Membership](/apps/web/public/screen/4.png)
 
 ### Analytics
 ![Analytics](/apps/web/public/screen/5.png)
 
-### Booking Experience
+### Footer
 ![Booking experience](/apps/web/public/screen/6.png)
 
 ### Mobile Version
 ![Mobile homepage](/apps/web/public/screen/mobile/1.png)
 ![Mobile booking flow](/apps/web/public/screen/mobile/2.png)
 ![Mobile analytics](/apps/web/public/screen/mobile/3.png)
+![Mobile hero](/apps/web/public/screen/mobile/4.png)
+![Mobile footer](/apps/web/public/screen/mobile/5.png)
 
 ### Telegram Bot Version
-![Telegram start screen](/apps/web/public/screen/telegram/1.png)
-![Telegram booking flow](/apps/web/public/screen/telegram/2.png)
-![Telegram admin panel](/apps/web/public/screen/telegram/3.png)
+
+#### Start
+![Start screen](/apps/web/public/screen/telegram/start.png)
+
+#### Help
+![Help menu](/apps/web/public/screen/telegram/help.png)
+
+#### Booking Flow
+![Choose office](/apps/web/public/screen/telegram/book.png)
+![Choose slot](/apps/web/public/screen/telegram/book2.png)
+![Confirm booking](/apps/web/public/screen/telegram/book3.png)
+
+#### Payment
+![Payment invoice](/apps/web/public/screen/telegram/payment.png)
+![Payment complete](/apps/web/public/screen/telegram/completepay.png)
+
+#### My Bookings
+![My bookings](/apps/web/public/screen/telegram/mybook.png)
+
+#### Admin Panel
+![Admin panel](/apps/web/public/screen/telegram/admin.png)
+
+#### Statistics
+![Statistics](/apps/web/public/screen/telegram/statistics.png)
+
+#### Analytics
+![Analytics](/apps/web/public/screen/telegram/analytics.png)
 
 ## Tech Stack
 
