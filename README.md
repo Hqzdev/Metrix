@@ -173,36 +173,77 @@ npm run start
 
 ---
 
-## Roadmap
+## Статус проекта
 
-### Текущий этап
+Основной объём технического задания закрыт на уровне прототипа и архитектурной базы.
+Проект уже содержит web-интерфейс, Telegram-бота, календарные интеграции, админские сценарии, аналитику, очереди и документацию по ключевым блокам.
 
-* Telegram-бот
-* Базовые интеграции календарей
-* Администрирование
+### Реализовано
 
-### Следующий этап
+* Web-интерфейс Metrix с desktop и mobile preview
+* Telegram-бот для бронирования, оплаты, просмотра броней и админских действий
+* Админка в Telegram по ID из env
+* Управление ценами, статусами, загрузкой и статистикой ресурсов
+* Google Calendar OAuth и callback-подключение без ручного ввода code
+* Подготовленная Microsoft Calendar архитектура через adapter pattern
+* Создание и удаление календарных событий при бронировании и отмене
+* Синхронизация busy slots с доступностью ресурсов
+* YooKassa/Telegram payments с разбиением платежей до лимита 99 000 ₽
+* Напоминания, очереди, event-driven события и realtime-архитектура
+* Аналитика: heatmap, utilization, peak hours, PDF reports
+* PostgreSQL/Prisma архитектура, API contracts и backend/data документация
+* Тестовая структура и документация по тестам
+* Документация по блокам Telegram-бота, API, архитектуре и операциям
 
-* PostgreSQL и Prisma
-* Очереди и синхронизация
-* Расширенные роли
+### Что осталось для production
 
-### Долгосрочное развитие
-
-* AI-рекомендации
-* Прогнозирование загрузки
-* Enterprise policy engine
+* Поднять production PostgreSQL, Redis и фоновые workers
+* Подключить реальные OAuth credentials и redirect URI на боевом домене
+* Настроить HTTPS, секреты, CI/CD и мониторинг
+* Прогнать end-to-end сценарии оплаты, календаря и админки на боевых токенах
+* Расширить автотесты вокруг платежей, календарей и конкурентного бронирования
 
 ---
 
 ## Документация
 
-Полная документация доступна в репозитории и включает:
+Полная документация доступна в репозитории и включает архитектуру, API-контракты, схемы данных, интеграции, Telegram-бота и операционные инструкции.
 
-* архитектуру системы
-* API контракты
-* схемы данных
-* описание модулей
+### Общая
+
+* [Docs overview](./docs/README.md)
+* [Apps overview](./apps/README.md)
+* [Technical specification](./TECH_SPEC.md)
+
+### Архитектура
+
+* [Architecture overview](./docs/architecture/README.md)
+* [System overview](./docs/architecture/SYSTEM_OVERVIEW.md)
+* [Modules](./docs/architecture/MODULES.md)
+* [File structure](./docs/architecture/FILE_STRUCTURE.md)
+* [Database schema](./docs/architecture/DATABASE_SCHEMA.md)
+* [API contracts](./docs/architecture/API_CONTRACTS.md)
+* [Integrations](./docs/architecture/INTEGRATIONS.md)
+* [Queues and events](./docs/architecture/QUEUES_AND_EVENTS.md)
+* [Analytics architecture](./docs/architecture/ANALYTICS.md)
+* [Deployment](./docs/architecture/DEPLOYMENT.md)
+
+### API и backend
+
+* [Backend and data](./docs/api/backend-data.md)
+* [Queues and realtime](./docs/api/queues-realtime.md)
+* [Analytics API](./docs/api/analytics.md)
+
+### Telegram Bot
+
+* [Bot block](./docs/telegram-bot/bot-block.md)
+* [Commands block](./docs/telegram-bot/commands-block.md)
+* [Services block](./docs/telegram-bot/services-block.md)
+* [Lib block](./docs/telegram-bot/lib-block.md)
+* [Calendar integrations](./docs/telegram-bot/calendar-integrations.md)
+* [Reports block](./docs/telegram-bot/reports-block.md)
+* [Operations and security](./docs/telegram-bot/operations.md)
+* [Telegram bot diagrams](./docs/telegram-bot-diagrams/README.md)
 
 ---
 
