@@ -1,20 +1,31 @@
-# API Package
+API Package
 
 Это основной backend-слой проекта.
 
-## Что здесь будет
+Что здесь есть
 
-- доменные модули;
-- application use cases;
-- интеграции с Google, Microsoft и Telegram;
-- очереди, realtime и доступ к базе данных;
-- общая серверная инфраструктура.
+packages/api содержит:
 
-## Основные папки
+* контракты API
+* validation для входных данных
+* JWT/session auth helpers
+* Prisma repository для бронирований
+* use-case безопасного создания бронирования
+* Redis/BullMQ очереди для calendar sync и reminders
+* WebSocket hub для availability updates
+* event-driven события бронирований
+* mapper для ресурсов, слотов и локаций
 
-- `src/modules` — доменные модули
-- `src/integrations` — внешние API и адаптеры
-- `src/queues` — jobs и workers
-- `src/realtime` — realtime-события и транспорт
-- `src/shared` — общий backend-код
-- `src/database` — доступ к БД и инфраструктурные мапперы
+Основные папки
+
+src/modules — доменные модули
+src/integrations — внешние API и адаптеры
+src/queues — jobs и workers
+src/realtime — realtime-события и transport
+src/shared — общий backend-код
+src/database — доступ к БД и инфраструктурные мапперы
+
+Документация
+
+backend-data.md — backend/data блок, Prisma, auth, validation и contracts
+queues-realtime.md — Redis, BullMQ, events и WebSocket availability
