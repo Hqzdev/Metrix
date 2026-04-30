@@ -1,0 +1,37 @@
+{
+  "name": "metrix",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:api && npm run build:bot && npm run build:web",
+    "build:api": "npm --prefix packages/api run build",
+    "build:bot": "npm --prefix apps/telegram-bot run build",
+    "build:web": "npm --prefix apps/web run build",
+    "dev:api": "npm --prefix packages/api run build -- --watch",
+    "dev:bot": "npm --prefix apps/telegram-bot run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "prisma:validate": "env DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@localhost:5432/metrix} prisma validate --schema prisma/schema.prisma",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test:e2e": "node --import tsx --test \"tests/e2e/**/*.test.ts\"",
+    "test:integration": "node --import tsx --test \"tests/integration/**/*.test.ts\"",
+    "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
+    "typecheck": "npm run typecheck:api && npm run typecheck:bot && npm run typecheck:web",
+    "typecheck:api": "npm --prefix packages/api run typecheck",
+    "typecheck:bot": "npm --prefix apps/telegram-bot run typecheck",
+    "typecheck:web": "npm --prefix apps/web run typecheck",
+    "verify": "npm run prisma:validate && npm run typecheck:api && npm test"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prisma": "^6.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0"
+  }
+}
