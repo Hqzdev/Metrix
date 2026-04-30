@@ -28,7 +28,7 @@ export function helpMessage(): string {
     '/book - choose a room or desk and reserve a free slot',
     '/slots - browse current availability',
     '/my_bookings - view and cancel active bookings',
-    '/calendar - connect Google Calendar or Outlook',
+    '/calendar - connect Google Calendar',
     '/admin - open admin tools if your Telegram ID is allowed',
     '/help - show this help message',
   ].join('\n')
@@ -121,22 +121,17 @@ export function paymentEscalationMessage(details: { invoicePayload?: string; tel
   ].join('\n')
 }
 
-// формирует экран подключения календаря с ссылками авторизации
-export function calendarAuthMessage(input: { googleUrl?: string; microsoftUrl?: string }): string {
+// формирует экран подключения google calendar
+export function calendarAuthMessage(input: { googleUrl?: string }): string {
+  if (!input.googleUrl) {
+    return 'Google Calendar is not configured.'
+  }
+
   return [
     'Calendar connection',
     '',
-    input.googleUrl ? `Google: ${input.googleUrl}` : 'Google is not configured.',
-    '',
-    input.microsoftUrl ? `Microsoft Outlook: ${input.microsoftUrl}` : 'Microsoft Outlook is not configured.',
-    '',
-    'After approving access, send:',
-    '/connect_google <code>',
-    '/connect_outlook <code>',
-    '',
-    'Admins can connect a room calendar with:',
-    '/connect_google <resourceId> <code>',
-    '/connect_outlook <resourceId> <code>',
+    'Press the button below and choose your Google account.',
+    'After approval I will connect the calendar automatically.',
   ].join('\n')
 }
 
@@ -193,11 +188,40 @@ export function bookingConfirmationPrompt(resource: BookingResource, slot: Avail
 }
 
 // формирует уведомление об отправленном инвойсе
-export function bookingInvoiceSentMessage(): string {
+export function bookingInvoiceSentMessage(input?: { partAmount: string; partNumber: number; totalParts: number; totalAmount: string }): string {
+  if (input && input.totalParts > 1) {
+    return [
+      'Payment invoice sent.',
+      '',
+      `Part ${input.partNumber} of ${input.totalParts}: ${input.partAmount}`,
+      `Total: ${input.totalAmount}`,
+      '',
+      'Complete all payment parts, and I will confirm the booking after the final one.',
+    ].join('\n')
+  }
+
   return [
     'Payment invoice sent.',
     '',
     'Complete the payment in Telegram, and I will confirm the booking right away.',
+  ].join('\n')
+}
+
+// формирует уведомление о следующей части оплаты
+export function bookingPaymentPartPaidMessage(input: {
+  nextAmount: string
+  nextPartNumber: number
+  paidAmount: string
+  totalAmount: string
+  totalParts: number
+}): string {
+  return [
+    'Payment part received.',
+    '',
+    `Paid: ${input.paidAmount} of ${input.totalAmount}`,
+    `Next part ${input.nextPartNumber} of ${input.totalParts}: ${input.nextAmount}`,
+    '',
+    'I sent the next invoice. The booking will be created after the final payment.',
   ].join('\n')
 }
 

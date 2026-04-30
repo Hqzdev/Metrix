@@ -28,6 +28,12 @@ type ConnectInput = {
   telegramUserId: number
 }
 
+type CalendarAuthState = {
+  resourceId?: string
+  scope: CalendarConnectionScope
+  telegramUserId: number
+}
+
 export class CalendarIntegrationService {
   private readonly adapters = new Map<CalendarProvider, CalendarAdapter>()
   private readonly store: CalendarConnectionStore
@@ -84,6 +90,19 @@ export class CalendarIntegrationService {
 
     await this.store.saveConnection(connection)
     return connection
+  }
+
+  // подключает календарь по callback от oauth-провайдера
+  async connectFromCallback(input: { code: string; provider: CalendarProvider; state: string }): Promise<CalendarConnection> {
+    const state = parseCalendarAuthState(input.state)
+
+    return this.connect({
+      code: input.code,
+      provider: input.provider,
+      resourceId: state.resourceId,
+      scope: state.scope,
+      telegramUserId: state.telegramUserId,
+    })
   }
 
   // создаёт события календаря для новой брони
@@ -210,5 +229,24 @@ export class CalendarIntegrationService {
     }
 
     return adapter
+  }
+}
+
+// достаёт данные пользователя из oauth state
+function parseCalendarAuthState(value: string): CalendarAuthState {
+  const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Partial<CalendarAuthState>
+
+  if (
+    !parsed.telegramUserId ||
+    !Number.isInteger(parsed.telegramUserId) ||
+    (parsed.scope !== 'user' && parsed.scope !== 'resource')
+  ) {
+    throw new Error('Invalid calendar auth state.')
+  }
+
+  return {
+    resourceId: parsed.resourceId,
+    scope: parsed.scope,
+    telegramUserId: parsed.telegramUserId,
   }
 }

@@ -1,5 +1,6 @@
 import {
   bookingsKeyboard,
+  calendarAuthKeyboard,
   confirmBookingKeyboard,
   confirmCancelKeyboard,
   locationKeyboard,
@@ -63,6 +64,7 @@ export function createBot(options: CreateBotOptions): { start(): Promise<void> }
 class BotApp {
   private readonly adminController: AdminController
   private readonly paymentController: PaymentController
+  private readonly handledUpdateIds = new Set<number>()
   private updateOffset: number | undefined
 
   constructor(private readonly options: CreateBotOptions) {
@@ -105,6 +107,10 @@ class BotApp {
 
       for (const update of updates) {
         this.updateOffset = update.update_id + 1
+        if (this.handledUpdateIds.has(update.update_id)) {
+          continue
+        }
+        this.rememberHandledUpdate(update.update_id)
         await this.handleUpdate(update)
       }
     } catch (error) {
@@ -368,13 +374,10 @@ class BotApp {
       scope: 'user',
       telegramUserId: message.from.id,
     })
-    const microsoftUrl = tryCreateCalendarAuthUrl(this.options.calendarIntegration, {
-      provider: 'microsoft',
-      scope: 'user',
-      telegramUserId: message.from.id,
-    })
 
-    await this.options.telegram.sendMessage(message.chat.id, calendarAuthMessage({ googleUrl, microsoftUrl }))
+    await this.options.telegram.sendMessage(message.chat.id, calendarAuthMessage({ googleUrl }), {
+      reply_markup: googleUrl ? calendarAuthKeyboard(googleUrl) : mainMenuKeyboard(),
+    })
   }
 
   private async connectCalendar(message: TelegramMessage, text: string): Promise<void> {
@@ -460,6 +463,19 @@ class BotApp {
     }
 
     return slot
+  }
+
+  // запоминает обработанные update_id чтобы не отправлять дубли в одном процессе
+  private rememberHandledUpdate(updateId: number): void {
+    this.handledUpdateIds.add(updateId)
+    if (this.handledUpdateIds.size <= 1000) {
+      return
+    }
+
+    const first = this.handledUpdateIds.values().next().value as number | undefined
+    if (first !== undefined) {
+      this.handledUpdateIds.delete(first)
+    }
   }
 }
 

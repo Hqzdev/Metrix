@@ -4,6 +4,7 @@ import { bookingCalendarKeyboard, mainMenuKeyboard } from './keyboards.js'
 import {
   bookingCreatedMessage,
   bookingInvoiceSentMessage,
+  bookingPaymentPartPaidMessage,
   paymentEscalationMessage,
 } from './messages.js'
 import { createBookingCalendarLinks } from '../lib/calendar-links.js'
@@ -30,11 +31,18 @@ type PaymentControllerOptions = {
 }
 
 type BookingInvoicePayload = {
+  amountMinorUnits: number
   locationId: string
+  paidAmountMinorUnits: number
+  partNumber: number
   resourceId: string
   slotId: string
   telegramUserId: number
+  totalAmountMinorUnits: number
+  totalParts: number
 }
+
+const maxInvoiceAmountMinorUnits = 9_900_000
 
 export class PaymentController {
   private readonly invoiceStorePath: string
@@ -62,33 +70,42 @@ export class PaymentController {
     const resource = await this.findResourceById(parsed.resourceId)
     const location = await this.findLocation(resource.locationId)
     const slot = await this.findSlot(parsed.resourceId, parsed.slotId)
+    const paymentPlan = createPaymentPlan(resource.priceMinorUnits)
     const invoicePayload = createBookingInvoicePayload()
-    this.pendingBookingInvoices.set(invoicePayload, {
+    const payload: BookingInvoicePayload = {
+      amountMinorUnits: paymentPlan[0],
       locationId: resource.locationId,
+      paidAmountMinorUnits: 0,
+      partNumber: 1,
       resourceId: parsed.resourceId,
       slotId: parsed.slotId,
       telegramUserId,
-    })
+      totalAmountMinorUnits: resource.priceMinorUnits,
+      totalParts: paymentPlan.length,
+    }
+    this.pendingBookingInvoices.set(invoicePayload, payload)
     await this.savePendingInvoices()
 
-    await this.options.telegram.sendInvoice({
+    await this.sendBookingInvoice({
       chatId,
-      title: `Booking: ${resource.name}`,
-      description: `${location.name}, ${slot.startsAt} - ${slot.endsAt}`,
-      payload: invoicePayload,
-      providerToken: this.options.providerToken,
-      currency: this.options.currency,
-      prices: [
-        {
-          label: `100% payment: ${resource.name}`,
-          amount: resource.priceMinorUnits,
-        },
-      ],
+      invoicePayload,
+      locationName: location.name,
+      payload,
+      resourceName: resource.name,
+      slot,
     })
 
-    await this.options.telegram.editMessageText(chatId, messageId, bookingInvoiceSentMessage(), {
-      reply_markup: mainMenuKeyboard(),
-    })
+    await this.options.telegram.editMessageText(
+      chatId,
+      messageId,
+      bookingInvoiceSentMessage({
+        partAmount: formatMinorUnits(payload.amountMinorUnits),
+        partNumber: payload.partNumber,
+        totalAmount: formatMinorUnits(payload.totalAmountMinorUnits),
+        totalParts: payload.totalParts,
+      }),
+      { reply_markup: mainMenuKeyboard() },
+    )
   }
 
   // валидирует pre-checkout запрос перед списанием средств
@@ -106,7 +123,12 @@ export class PaymentController {
     try {
       const resource = await this.findResource(payload.locationId, payload.resourceId)
 
-      if (query.currency !== this.options.currency || query.total_amount !== resource.priceMinorUnits) {
+      if (
+        query.currency !== this.options.currency ||
+        query.total_amount !== payload.amountMinorUnits ||
+        payload.totalAmountMinorUnits !== resource.priceMinorUnits ||
+        payload.amountMinorUnits > maxInvoiceAmountMinorUnits
+      ) {
         await this.options.telegram.answerPreCheckoutQuery(query.id, {
           ok: false,
           errorMessage: 'The payment amount is no longer valid. Please start booking again.',
@@ -145,6 +167,12 @@ export class PaymentController {
     }
 
     try {
+      const paidAmountMinorUnits = payload.paidAmountMinorUnits + payload.amountMinorUnits
+      if (paidAmountMinorUnits < payload.totalAmountMinorUnits) {
+        await this.sendNextPaymentPart(message, invoicePayload!, payload, paidAmountMinorUnits)
+        return
+      }
+
       const booking = await this.options.bookingService.createBooking({
         resourceId: payload.resourceId,
         slotId: payload.slotId,
@@ -175,6 +203,77 @@ export class PaymentController {
         { reply_markup: mainMenuKeyboard() },
       )
     }
+  }
+
+  // отправляет следующий инвойс если заказ разбит на несколько платежей
+  private async sendNextPaymentPart(
+    message: TelegramMessage,
+    invoicePayload: string,
+    payload: BookingInvoicePayload,
+    paidAmountMinorUnits: number,
+  ): Promise<void> {
+    const resource = await this.findResource(payload.locationId, payload.resourceId)
+    const location = await this.findLocation(payload.locationId)
+    const slot = await this.findSlot(payload.resourceId, payload.slotId)
+    const nextAmountMinorUnits = Math.min(
+      maxInvoiceAmountMinorUnits,
+      payload.totalAmountMinorUnits - paidAmountMinorUnits,
+    )
+    const nextPayload = createBookingInvoicePayload()
+    const nextPayment: BookingInvoicePayload = {
+      ...payload,
+      amountMinorUnits: nextAmountMinorUnits,
+      paidAmountMinorUnits,
+      partNumber: payload.partNumber + 1,
+    }
+
+    this.pendingBookingInvoices.delete(invoicePayload)
+    this.pendingBookingInvoices.set(nextPayload, nextPayment)
+    await this.savePendingInvoices()
+    await this.sendBookingInvoice({
+      chatId: message.chat.id,
+      invoicePayload: nextPayload,
+      locationName: location.name,
+      payload: nextPayment,
+      resourceName: resource.name,
+      slot,
+    })
+    await this.options.telegram.sendMessage(
+      message.chat.id,
+      bookingPaymentPartPaidMessage({
+        nextAmount: formatMinorUnits(nextPayment.amountMinorUnits),
+        nextPartNumber: nextPayment.partNumber,
+        paidAmount: formatMinorUnits(paidAmountMinorUnits),
+        totalAmount: formatMinorUnits(nextPayment.totalAmountMinorUnits),
+        totalParts: nextPayment.totalParts,
+      }),
+      { reply_markup: mainMenuKeyboard() },
+    )
+  }
+
+  // отправляет telegram invoice для одной части оплаты
+  private async sendBookingInvoice(input: {
+    chatId: number
+    invoicePayload: string
+    locationName: string
+    payload: BookingInvoicePayload
+    resourceName: string
+    slot: AvailableSlot
+  }): Promise<void> {
+    await this.options.telegram.sendInvoice({
+      chatId: input.chatId,
+      title: createInvoiceTitle(input.resourceName, input.payload),
+      description: `${input.locationName}, ${input.slot.startsAt} - ${input.slot.endsAt}`,
+      payload: input.invoicePayload,
+      providerToken: this.options.providerToken,
+      currency: this.options.currency,
+      prices: [
+        {
+          label: createInvoiceLabel(input.resourceName, input.payload),
+          amount: input.payload.amountMinorUnits,
+        },
+      ],
+    })
   }
 
   // отправляет уведомление администраторам о несопоставленной оплате
@@ -268,4 +367,44 @@ function parseResourceSlotData(data: string, prefix: 'confirm'): { resourceId: s
 // генерирует уникальный идентификатор инвойса
 function createBookingInvoicePayload(): string {
   return `booking-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+// разбивает сумму на части не больше 99 000 рублей
+function createPaymentPlan(totalAmountMinorUnits: number): number[] {
+  const parts: number[] = []
+  let remaining = totalAmountMinorUnits
+
+  while (remaining > 0) {
+    const amount = Math.min(maxInvoiceAmountMinorUnits, remaining)
+    parts.push(amount)
+    remaining -= amount
+  }
+
+  return parts.length > 0 ? parts : [0]
+}
+
+// формирует заголовок инвойса с номером части
+function createInvoiceTitle(resourceName: string, payload: BookingInvoicePayload): string {
+  if (payload.totalParts === 1) {
+    return `Booking: ${resourceName}`
+  }
+
+  return `Booking: ${resourceName} (${payload.partNumber}/${payload.totalParts})`
+}
+
+// формирует подпись цены для инвойса
+function createInvoiceLabel(resourceName: string, payload: BookingInvoicePayload): string {
+  if (payload.totalParts === 1) {
+    return `100% payment: ${resourceName}`
+  }
+
+  return `Payment ${payload.partNumber}/${payload.totalParts}: ${resourceName}`
+}
+
+// форматирует копейки в рубли для сообщений оплаты
+function formatMinorUnits(amountMinorUnits: number): string {
+  return `${(amountMinorUnits / 100).toLocaleString('ru-RU', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: amountMinorUnits % 100 === 0 ? 0 : 2,
+  })} ₽`
 }

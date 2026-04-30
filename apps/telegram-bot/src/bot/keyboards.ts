@@ -6,6 +6,16 @@ export type CalendarLinks = {
   outlook: string
 }
 
+// кнопка подключения google calendar
+export function calendarAuthKeyboard(googleUrl: string): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [{ text: 'Connect Google Calendar', url: googleUrl }],
+      [{ text: 'Back to menu', callback_data: 'menu:start' }],
+    ],
+  }
+}
+
 // главное меню с кнопками действий
 export function mainMenuKeyboard(): InlineKeyboardMarkup {
   return {

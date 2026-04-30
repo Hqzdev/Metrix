@@ -7,15 +7,18 @@ import type {
 } from './telegram-types.js'
 
 type TelegramClientOptions = {
+  requestTimeoutMs?: number
   token: string
 }
 
 // http-клиент для telegram bot api
 export class TelegramClient {
   private readonly baseUrl: string
+  private readonly requestTimeoutMs: number
 
   constructor(options: TelegramClientOptions) {
     this.baseUrl = `https://api.telegram.org/bot${options.token}`
+    this.requestTimeoutMs = options.requestTimeoutMs ?? 30_000
   }
 
   // получает новые обновления методом long polling
@@ -109,7 +112,7 @@ export class TelegramClient {
         { command: 'book', description: 'Book a room or desk' },
         { command: 'slots', description: 'See available slots' },
         { command: 'my_bookings', description: 'See your active bookings' },
-        { command: 'calendar', description: 'Connect Google or Outlook calendar' },
+        { command: 'calendar', description: 'Connect Google Calendar' },
         { command: 'help', description: 'Show help' },
       ],
     })
@@ -117,12 +120,18 @@ export class TelegramClient {
 
   // выполняет запрос к telegram api и возвращает результат
   private async request<TData = unknown>(method: string, payload: unknown): Promise<TData> {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs)
+
     const response = await fetch(`${this.baseUrl}/${method}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
+    }).finally(() => {
+      clearTimeout(timeout)
     })
 
     const body = (await response.json()) as TelegramApiResponse<TData>

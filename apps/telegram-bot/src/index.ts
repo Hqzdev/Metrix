@@ -1,3 +1,4 @@
+import { setDefaultResultOrder } from 'node:dns'
 import { createBot } from './bot/create-bot.js'
 import { CalendarIntegrationService } from './integrations/calendar/calendar-integration-service.js'
 import { readEnv } from './lib/env.js'
@@ -8,6 +9,7 @@ import { startUptimeMonitor } from './lib/uptime-monitor.js'
 import { FileBookingService } from './services/mock-booking-service.js'
 
 const startedAt = new Date()
+setDefaultResultOrder('ipv4first')
 const env = readEnv()
 const logger = new ConsoleLogger(env.logLevel)
 const telegram = new TelegramClient({ token: env.telegramBotToken })
@@ -30,7 +32,7 @@ const bot = createBot({
 })
 
 if (env.healthPort) {
-  startHealthServer({ logger, port: env.healthPort, startedAt })
+  startHealthServer({ calendarIntegration, logger, port: env.healthPort, startedAt, telegram })
 }
 
 if (env.uptimeMonitorUrl) {
