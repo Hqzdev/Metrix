@@ -73,7 +73,7 @@ calendar-integration-service.ts содержит CalendarIntegrationService.
 Сервис принимает BookingService, Logger и CalendarEnv через constructor.
 Так он не зависит от process.env напрямую.
 
-## Хранение подключений
+Хранение подключений
 
 calendar-connection-store.ts хранит подключения в файле:
 
@@ -162,7 +162,7 @@ DELETE https://www.googleapis.com/calendar/v3/calendars/{calendarId}/events/{eve
 POST https://www.googleapis.com/calendar/v3/freeBusy
 ```
 
-## Microsoft Outlook
+Microsoft Outlook
 
 microsoft-calendar-adapter.ts работает с Microsoft Graph.
 
@@ -184,7 +184,7 @@ DELETE https://graph.microsoft.com/v1.0/me/events/{eventId}
 POST https://graph.microsoft.com/v1.0/me/calendar/getSchedule
 ```
 
-## Создание события после брони
+Создание события после брони
 
 После успешной оплаты PaymentController создаёт Booking.
 Потом вызывается createEventsForBooking(booking).
@@ -199,7 +199,7 @@ POST https://graph.microsoft.com/v1.0/me/calendar/getSchedule
 Если календарь недоступен, бронирование не откатывается.
 Ошибка пишется в лог.
 
-## Удаление события при отмене
+Удаление события при отмене
 
 При отмене бронирования bot вызывает deleteEventsForBooking(booking).
 
@@ -212,7 +212,7 @@ POST https://graph.microsoft.com/v1.0/me/calendar/getSchedule
 
 Отмена бронирования не блокируется ошибками календаря.
 
-## Синхронизация занятости
+Синхронизация занятости
 
 Перед показом слотов ресурса бот вызывает syncBusySlotsForResource(resourceId).
 
