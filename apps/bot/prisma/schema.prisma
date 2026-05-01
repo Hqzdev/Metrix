@@ -1,0 +1,126 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["booking", "calendar", "payment", "analytics"]
+}
+
+// ─── booking schema ───────────────────────────────────────────────────────────
+
+model Location {
+  id        String     @id
+  name      String
+  city      String
+  address   String
+  occupancy String
+  members   String
+  resources Resource[]
+
+  @@schema("booking")
+}
+
+model Resource {
+  id              String     @id
+  locationId      String
+  name            String
+  type            String
+  seats           String
+  occupancy       String
+  priceLabel      String
+  priceMinorUnits Int
+  status          String
+  location        Location   @relation(fields: [locationId], references: [id])
+  bookings        Booking[]
+  busySlots       BusySlot[]
+
+  @@schema("booking")
+}
+
+model Booking {
+  id                     String   @id
+  locationId             String
+  locationName           String
+  resourceId             String
+  resourceName           String
+  slotId                 String
+  telegramUserId         BigInt
+  paidAmountMinorUnits   Int
+  priceLabel             String
+  startsAt               String
+  startsAtIso            DateTime
+  endsAt                 String
+  endsAtIso              DateTime
+  status                 String   @default("active")
+  calendarEventGoogle    String?
+  calendarEventMicrosoft String?
+  createdAt              DateTime @default(now())
+  resource               Resource @relation(fields: [resourceId], references: [id])
+
+  @@schema("booking")
+}
+
+model BusySlot {
+  id         String   @id @default(cuid())
+  resourceId String
+  slotId     String
+  resource   Resource @relation(fields: [resourceId], references: [id])
+
+  @@unique([resourceId, slotId])
+  @@schema("booking")
+}
+
+// ─── calendar schema ──────────────────────────────────────────────────────────
+
+model CalendarConnection {
+  id             String    @id @default(cuid())
+  provider       String
+  scope          String
+  telegramUserId BigInt
+  resourceId     String?
+  calendarId     String    @default("primary")
+  accessToken    String?
+  refreshToken   String
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([provider, scope, telegramUserId, resourceId])
+  @@schema("calendar")
+}
+
+// ─── payment schema ───────────────────────────────────────────────────────────
+
+model PendingInvoice {
+  id                    String   @id
+  amountMinorUnits      Int
+  locationId            String
+  paidAmountMinorUnits  Int      @default(0)
+  partNumber            Int      @default(1)
+  resourceId            String
+  slotId                String
+  telegramUserId        BigInt
+  totalAmountMinorUnits Int
+  totalParts            Int      @default(1)
+  createdAt             DateTime @default(now())
+
+  @@schema("payment")
+}
+
+// ─── analytics schema ─────────────────────────────────────────────────────────
+
+model Report {
+  id          String   @id @default(cuid())
+  type        String
+  status      String   @default("pending")
+  filePath    String?
+  error       String?
+  requestedBy BigInt?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@schema("analytics")
+}

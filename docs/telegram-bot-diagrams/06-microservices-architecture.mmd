@@ -1,0 +1,40 @@
+---
+title: Microservices Architecture — Telegram Bot
+---
+graph TB
+    TG([Telegram API])
+
+    subgraph docker["Docker Compose"]
+        GW[bot-gateway<br/>:3000<br/>long polling · routing · OAuth callback]
+        BK[booking-service<br/>:3001<br/>locations · resources · bookings · slots]
+        CAL[calendar-service<br/>:3002<br/>OAuth · Google · MS · connections]
+        PAY[payment-service<br/>:3003<br/>YooKassa invoices · pre-checkout]
+        NOT[notification-service<br/>async only<br/>outbound Telegram messages]
+        ANA[analytics-service<br/>:3005<br/>stats · heatmap · reports]
+        ADM[admin-service<br/>:3006<br/>proxy to booking + analytics]
+
+        REDIS[(Redis Streams<br/>event bus)]
+        PG[(PostgreSQL<br/>4 schemas)]
+    end
+
+    TG <-->|long polling| GW
+    GW -->|HTTP sync| BK
+    GW -->|HTTP sync| CAL
+    GW -->|HTTP sync| PAY
+    GW -->|HTTP sync| ADM
+
+    PAY -->|publish payment.completed| REDIS
+    BK  -->|publish booking.created| REDIS
+    BK  -->|publish booking.cancelled| REDIS
+    PAY -->|publish notification.send| REDIS
+    ANA -->|publish report.ready| REDIS
+
+    REDIS -->|consume| NOT
+    REDIS -->|consume| ANA
+
+    NOT -->|sendMessage · sendInvoice| TG
+
+    BK  --- PG
+    CAL --- PG
+    PAY --- PG
+    ANA --- PG

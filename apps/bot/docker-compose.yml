@@ -1,0 +1,151 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: metrix
+      POSTGRES_USER: metrix
+      POSTGRES_PASSWORD: metrix
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U metrix']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  booking-service:
+    build: ./services/booking-service
+    environment:
+      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
+      REDIS_URL: redis://redis:6379
+      PORT: '3001'
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  calendar-service:
+    build: ./services/calendar-service
+    environment:
+      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
+      REDIS_URL: redis://redis:6379
+      PORT: '3002'
+      GOOGLE_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_CALENDAR_REDIRECT_URI}
+      CALENDAR_TOKEN_SECRET: ${CALENDAR_TOKEN_SECRET}
+    ports:
+      - '3002:3002'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  payment-service:
+    build: ./services/payment-service
+    environment:
+      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
+      REDIS_URL: redis://redis:6379
+      PORT: '3003'
+      YOOKASSA_PROVIDER_TOKEN: ${YOOKASSA_PROVIDER_TOKEN}
+      PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-RUB}
+      BOOKING_SERVICE_URL: http://booking-service:3001
+    ports:
+      - '3003:3003'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      booking-service:
+        condition: service_started
+
+  notification-service:
+    build: ./services/notification-service
+    environment:
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  analytics-service:
+    build: ./services/analytics-service
+    environment:
+      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
+      REDIS_URL: redis://redis:6379
+      PORT: '3005'
+      BOOKING_SERVICE_URL: http://booking-service:3001
+    ports:
+      - '3005:3005'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  admin-service:
+    build: ./services/admin-service
+    environment:
+      REDIS_URL: redis://redis:6379
+      PORT: '3006'
+      BOOKING_SERVICE_URL: http://booking-service:3001
+      ANALYTICS_SERVICE_URL: http://analytics-service:3005
+    ports:
+      - '3006:3006'
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  bot-gateway:
+    build: ./services/bot-gateway
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      REDIS_URL: redis://redis:6379
+      HEALTH_PORT: '3000'
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
+      BOOKING_SERVICE_URL: http://booking-service:3001
+      CALENDAR_SERVICE_URL: http://calendar-service:3002
+      PAYMENT_SERVICE_URL: http://payment-service:3003
+      ANALYTICS_SERVICE_URL: http://analytics-service:3005
+      ADMIN_SERVICE_URL: http://admin-service:3006
+    ports:
+      - '3000:3000'
+    depends_on:
+      redis:
+        condition: service_healthy
+      booking-service:
+        condition: service_started
+      calendar-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+      admin-service:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,98 @@
+---
+title: Database Schema — PostgreSQL (4 schemas)
+---
+erDiagram
+
+    %% ── booking schema ──────────────────────────────────────
+    booking_Location {
+        string  id          PK
+        string  name
+        string  city
+        string  address
+        string  occupancy
+        string  members
+    }
+
+    booking_Resource {
+        string  id              PK
+        string  locationId      FK
+        string  name
+        string  type
+        string  seats
+        string  occupancy
+        string  priceLabel
+        int     priceMinorUnits
+        string  status
+    }
+
+    booking_Booking {
+        string   id                      PK
+        string   locationId
+        string   locationName
+        string   resourceId              FK
+        string   resourceName
+        string   slotId
+        bigint   telegramUserId
+        int      paidAmountMinorUnits
+        string   priceLabel
+        string   startsAt
+        datetime startsAtIso
+        string   endsAt
+        datetime endsAtIso
+        string   status
+        string   calendarEventGoogle
+        string   calendarEventMicrosoft
+        datetime createdAt
+    }
+
+    booking_BusySlot {
+        string  id          PK
+        string  resourceId  FK
+        string  slotId
+    }
+
+    booking_Location ||--o{ booking_Resource   : "has"
+    booking_Resource ||--o{ booking_Booking    : "booked as"
+    booking_Resource ||--o{ booking_BusySlot   : "blocked in"
+
+    %% ── calendar schema ─────────────────────────────────────
+    calendar_CalendarConnection {
+        string   id             PK
+        string   provider
+        string   scope
+        bigint   telegramUserId
+        string   resourceId
+        string   calendarId
+        string   accessToken
+        string   refreshToken
+        datetime expiresAt
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    %% ── payment schema ──────────────────────────────────────
+    payment_PendingInvoice {
+        string  id                      PK
+        int     amountMinorUnits
+        string  locationId
+        int     paidAmountMinorUnits
+        int     partNumber
+        string  resourceId
+        string  slotId
+        bigint  telegramUserId
+        int     totalAmountMinorUnits
+        int     totalParts
+        datetime createdAt
+    }
+
+    %% ── analytics schema ────────────────────────────────────
+    analytics_Report {
+        string   id          PK
+        string   type
+        string   status
+        string   filePath
+        string   error
+        bigint   requestedBy
+        datetime createdAt
+        datetime updatedAt
+    }

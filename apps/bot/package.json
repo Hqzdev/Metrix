@@ -1,0 +1,15 @@
+{
+  "name": "@metrix/telegram-bot-ms",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "docker compose up --build",
+    "down": "docker compose down",
+    "db:migrate": "cd prisma && npx prisma migrate dev",
+    "db:generate": "npx prisma generate --schema=prisma/schema.prisma"
+  }
+}

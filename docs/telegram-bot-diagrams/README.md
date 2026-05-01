@@ -1,29 +1,29 @@
 Telegram Bot Diagrams
 
-Здесь лежат диаграммы для Telegram-бота в формате `Mermaid`.
+Здесь лежат диаграммы для Telegram-бота в формате Mermaid.
 
-Для чего эта папка
+Как использовать
 
-- быстро визуализировать логику работы бота;
-- вставлять схемы в `draw.io`;
-- согласовывать user flow и технические сценарии до реализации.
+1. Открыть draw.io → Insert → Advanced → Mermaid
+2. Вставить код из нужного .mmd файла
+3. Или открыть на mermaid.live для быстрого просмотра
 
-Что лежит в папке
+Список диаграмм
 
-- `01-bot-overview.mmd` — общий поток работы бота
-- `02-booking-flow.mmd` — сценарий бронирования
-- `03-cancel-reschedule-flow.mmd` — отмена и перенос
-- `04-reminder-flow.mmd` — напоминания
-- `05-bot-architecture.mmd` — связь бота с API, БД, очередями и интеграциями
+Монолит (оригинальный бот)
 
-Как использовать в draw.io
+- 01-bot-overview.mmd — общий поток работы бота
+- 02-booking-flow.mmd — сценарий бронирования
+- 03-cancel-reschedule-flow.mmd — отмена и перенос
+- 04-reminder-flow.mmd — напоминания
+- 05-bot-architecture.mmd — связь бота с API, БД, очередями и интеграциями
 
-1. Открыть `draw.io`.
-2. Выбрать `Insert`.
-3. Выбрать `Advanced`.
-4. Выбрать `Mermaid`.
-5. Вставить код из нужного `.mmd` файла.
+Микросервисная архитектура (telegram-bot-ms)
 
-Примечание
-
-Это именно исходники схем. Их можно редактировать как текст и поддерживать вместе с проектной документацией.
+- 06-microservices-architecture.mmd — схема всех 7 сервисов, Redis и PostgreSQL
+- 07-db-schema.mmd — ERD: 4 схемы в PostgreSQL (booking, calendar, payment, analytics)
+- 08-booking-flow-ms.mmd — полный flow бронирования через микросервисы
+- 09-calendar-flow.mmd — подключение / статус / отключение Google Calendar
+- 10-cancel-flow-ms.mmd — отмена бронирования через микросервисы
+- 11-redis-streams.mmd — карта Redis Streams: publishers, streams, consumers
+- 12-service-http-api.mmd — HTTP API всех сервисов и связи с bot-gateway
