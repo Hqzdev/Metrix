@@ -213,7 +213,7 @@ Metrix/
 ### Telegram Bot
 
 ```bash
-cd apps/telegram-bot
+cd apps/bot
 npm install
 set -a; source .env; set +a
 npm run dev

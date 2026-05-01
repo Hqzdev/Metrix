@@ -4,7 +4,7 @@ Telegram Bot Operations and Security
 
 Назначение
 
-Документ охватывает только Telegram-бот (apps/telegram-bot).
+Документ охватывает только Telegram-бот (apps/bot).
 Deployment API, базы данных и Redis описаны в docs/architecture/DEPLOYMENT.md.
 
 Требования перед production-деплоем
@@ -167,9 +167,9 @@ Uptime monitoring
 Шаги:
 
 1. скопировать .env.example в .env и заполнить все обязательные переменные
-2. npm install --prefix apps/telegram-bot
-3. npm run build --prefix apps/telegram-bot
-4. запустить: node apps/telegram-bot/dist/index.js
+2. npm install --prefix apps/bot
+3. npm run build --prefix apps/bot
+4. запустить: node apps/bot/dist/index.js
 
 С systemd:
 

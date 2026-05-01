@@ -1,6 +1,6 @@
 Telegram Bot src/services/report
 
-Этот документ описывает блок apps/telegram-bot/src/services/report: создание отчётов, фоновая генерация PDF и доставка результата через sendDocument.
+Этот документ описывает блок apps/bot/src/services/report: создание отчётов, фоновая генерация PDF и доставка результата через sendDocument.
 
 Назначение
 
