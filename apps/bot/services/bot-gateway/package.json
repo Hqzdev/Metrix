@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@metrix/contracts": "*",
-    "@metrix/redis-bus": "*"
+    "@metrix/redis-bus": "*",
+    "@metrix/auth": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

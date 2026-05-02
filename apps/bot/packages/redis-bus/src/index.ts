@@ -69,6 +69,15 @@ export class RedisBus {
     void loop()
   }
 
+  /**
+   * Replay-protection check: returns true if this request-id is new (allow),
+   * false if already seen (replay — reject). ID is remembered for ttlSeconds.
+   */
+  async checkReplay(requestId: string, ttlSeconds = 60): Promise<boolean> {
+    const result = await this.pub.set(`replay:${requestId}`, '1', 'EX', ttlSeconds, 'NX')
+    return result === 'OK'
+  }
+
   async disconnect(): Promise<void> {
     await this.pub.quit()
     await this.sub.quit()

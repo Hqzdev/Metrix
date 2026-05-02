@@ -31,9 +31,33 @@ type BotOptions = {
   telegram: TelegramClient
 }
 
+class RateLimiter {
+  private readonly buckets = new Map<number, number[]>()
+
+  constructor(
+    private readonly limit: number,
+    private readonly windowMs: number,
+  ) {}
+
+  isAllowed(userId: number): boolean {
+    const now = Date.now()
+    const hits = (this.buckets.get(userId) ?? []).filter((t) => now - t < this.windowMs)
+    if (hits.length >= this.limit) return false
+    hits.push(now)
+    this.buckets.set(userId, hits)
+    if (this.buckets.size > 10_000) {
+      for (const [id, timestamps] of this.buckets) {
+        if (timestamps.every((t) => now - t >= this.windowMs)) this.buckets.delete(id)
+      }
+    }
+    return true
+  }
+}
+
 export class Bot {
   private offset: number | undefined
   private readonly handled = new Set<number>()
+  private readonly rateLimiter = new RateLimiter(10, 10_000)
 
   constructor(private readonly opts: BotOptions) {}
 
@@ -59,6 +83,13 @@ export class Bot {
   }
 
   private async handleUpdate(update: TelegramUpdate): Promise<void> {
+    const userId = update.message?.from?.id ?? update.callback_query?.from?.id
+    if (userId && !this.rateLimiter.isAllowed(userId)) {
+      const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id
+      if (chatId) await this.opts.telegram.sendMessage(chatId, 'Too many requests. Please slow down.', {})
+      return
+    }
+
     if (update.message) {
       await this.handleMessage(update.message)
       return

@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@metrix/contracts": "*",
-    "@prisma/client": "^5.0.0"
+    "@prisma/client": "^5.0.0",
+    "@metrix/auth": "*",
+    "ioredis": "^5.3.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

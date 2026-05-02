@@ -1,14 +1,26 @@
 version: '3.9'
 
+# ─── secrets reference ────────────────────────────────────────────────────────
+# Copy .env.example to .env and fill in all values before running.
+# Required env vars:
+#   POSTGRES_PASSWORD, REDIS_PASSWORD
+#   TELEGRAM_BOT_TOKEN, ADMIN_TELEGRAM_IDS
+#   GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, GOOGLE_CALENDAR_REDIRECT_URI
+#   CALENDAR_TOKEN_SECRET, YOOKASSA_PROVIDER_TOKEN
+#   GATEWAY_SIGNING_SECRET, PAYMENT_SIGNING_SECRET
+#   ANALYTICS_SIGNING_SECRET, ADMIN_SIGNING_SECRET
+#   USER_ID_SIGNING_SECRET
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: metrix
       POSTGRES_USER: metrix
-      POSTGRES_PASSWORD: metrix
-    ports:
-      - '5432:5432'
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # no host port — only accessible within docker network
+    expose:
+      - '5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -20,12 +32,19 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - '6379:6379'
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --rename-command FLUSHALL ""
+      --rename-command FLUSHDB ""
+      --rename-command DEBUG ""
+      --rename-command CONFIG ""
+    expose:
+      - '6379'
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -33,11 +52,17 @@ services:
   booking-service:
     build: ./services/booking-service
     environment:
-      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PORT: '3001'
-    ports:
-      - '3001:3001'
+      # callers allowed to reach this service
+      TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_PAYMENT_SECRET: ${PAYMENT_SIGNING_SECRET}
+      TRUSTED_ANALYTICS_SECRET: ${ANALYTICS_SIGNING_SECRET}
+      TRUSTED_ADMIN_SECRET: ${ADMIN_SIGNING_SECRET}
+      USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
+    expose:
+      - '3001'
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,15 +72,17 @@ services:
   calendar-service:
     build: ./services/calendar-service
     environment:
-      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PORT: '3002'
       GOOGLE_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_CALENDAR_REDIRECT_URI}
       CALENDAR_TOKEN_SECRET: ${CALENDAR_TOKEN_SECRET}
-    ports:
-      - '3002:3002'
+      TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
+    expose:
+      - '3002'
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,14 +92,18 @@ services:
   payment-service:
     build: ./services/payment-service
     environment:
-      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PORT: '3003'
       YOOKASSA_PROVIDER_TOKEN: ${YOOKASSA_PROVIDER_TOKEN}
       PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-RUB}
       BOOKING_SERVICE_URL: http://booking-service:3001
-    ports:
-      - '3003:3003'
+      # payment-service calls booking-service → needs signing secret
+      PAYMENT_SIGNING_SECRET: ${PAYMENT_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
+    expose:
+      - '3003'
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,7 +115,7 @@ services:
   notification-service:
     build: ./services/notification-service
     environment:
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
     depends_on:
       redis:
@@ -93,12 +124,15 @@ services:
   analytics-service:
     build: ./services/analytics-service
     environment:
-      DATABASE_URL: postgresql://metrix:metrix@postgres:5432/metrix
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PORT: '3005'
       BOOKING_SERVICE_URL: http://booking-service:3001
-    ports:
-      - '3005:3005'
+      ANALYTICS_SIGNING_SECRET: ${ANALYTICS_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_ADMIN_SECRET: ${ADMIN_SIGNING_SECRET}
+    expose:
+      - '3005'
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,12 +142,14 @@ services:
   admin-service:
     build: ./services/admin-service
     environment:
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PORT: '3006'
       BOOKING_SERVICE_URL: http://booking-service:3001
       ANALYTICS_SERVICE_URL: http://analytics-service:3005
-    ports:
-      - '3006:3006'
+      ADMIN_SIGNING_SECRET: ${ADMIN_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+    expose:
+      - '3006'
     depends_on:
       redis:
         condition: service_healthy
@@ -122,7 +158,7 @@ services:
     build: ./services/bot-gateway
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       HEALTH_PORT: '3000'
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
       BOOKING_SERVICE_URL: http://booking-service:3001
@@ -130,6 +166,9 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:3003
       ANALYTICS_SERVICE_URL: http://analytics-service:3005
       ADMIN_SERVICE_URL: http://admin-service:3006
+      # bot-gateway is the only external-facing service
+      GATEWAY_SIGNING_SECRET: ${GATEWAY_SIGNING_SECRET}
+      USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
     ports:
       - '3000:3000'
     depends_on:

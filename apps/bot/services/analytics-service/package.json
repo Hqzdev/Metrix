@@ -11,7 +11,8 @@
   "dependencies": {
     "@metrix/contracts": "*",
     "@metrix/redis-bus": "*",
-    "@prisma/client": "^5.0.0"
+    "@prisma/client": "^5.0.0",
+    "@metrix/auth": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
