@@ -1,4 +1,4 @@
-# <img src="apps/web/public/images/icon-remove.png" width="32" style="vertical-align:middle" /> Metrix
+<img src="apps/web/public/images/banner.png" alt="Metrix" />
 
 ## Инфраструктура бронирования для современных офисов
 
@@ -282,6 +282,7 @@ npm run start
 * [Queues and events](./docs/architecture/QUEUES_AND_EVENTS.md)
 * [Analytics architecture](./docs/architecture/ANALYTICS.md)
 * [Deployment](./docs/architecture/DEPLOYMENT.md)
+* [Security architecture](./docs/architecture/SECURITY.md)
 
 ### API и backend
 
