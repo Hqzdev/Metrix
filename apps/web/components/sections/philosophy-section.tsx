@@ -73,7 +73,7 @@ export function PhilosophySection() {
   return (
     <section id="products" className="bg-background">
       {/* Scroll-Animated Product Grid */}
-      <div ref={sectionRef} className="relative" style={{ height: "200vh" }}>
+      <div ref={sectionRef} className="relative" style={{ height: "350vh" }}>
         <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden">
           <div className="relative w-full max-w-7xl px-4">
             {/* Title - centered with 3D rotation */}
@@ -141,7 +141,7 @@ export function PhilosophySection() {
       </div>
 
       {/* Description */}
-      <div ref={descriptionRef} className="px-6 pt-8 pb-20 md:px-12 md:pt-12 md:pb-28 lg:px-20 lg:pt-16 lg:pb-36">
+      <div ref={descriptionRef} className="px-6 pt-16 pb-32 md:px-12 md:pt-24 md:pb-48 lg:px-20 lg:pt-32 lg:pb-56">
         <div className="text-center">
           
           <p className="mt-8 leading-relaxed text-muted-foreground text-3xl text-center">

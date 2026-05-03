@@ -64,7 +64,7 @@ export function GallerySection() {
       id="gallery"
       ref={galleryRef}
       className="relative bg-black"
-      style={{ minHeight: `${(images.length + 1) * 100}vh` }}
+      style={{ minHeight: `${(images.length + 3) * 100}vh` }}
     >
       {/* Sticky container */}
       <div className="sticky top-0 h-screen overflow-hidden flex items-center justify-center px-4">

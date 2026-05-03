@@ -41,7 +41,7 @@ export function HeroSection() {
       if (!sectionRef.current) return;
       
       const rect = sectionRef.current.getBoundingClientRect();
-      const scrollableHeight = window.innerHeight * 2;
+      const scrollableHeight = window.innerHeight * 3.5;
       const scrolled = -rect.top;
       const progress = Math.max(0, Math.min(1, scrolled / scrollableHeight));
       
@@ -202,7 +202,7 @@ export function HeroSection() {
       </div>
 
       {/* Scroll space to enable animation */}
-      <div className="h-[200vh]" />
+      <div className="h-[350vh]" />
     </section>
   );
 }

@@ -96,7 +96,7 @@ export function TechnologySection() {
       if (!sectionRef.current) return;
       
       const rect = sectionRef.current.getBoundingClientRect();
-      const scrollableHeight = window.innerHeight * 4; // Increased for 3 text cycles
+      const scrollableHeight = window.innerHeight * 6; // Increased for 3 text cycles
       const scrolled = -rect.top;
       const progress = Math.max(0, Math.min(1, scrolled / scrollableHeight));
       
@@ -322,12 +322,12 @@ export function TechnologySection() {
       </div>
 
       {/* Scroll space to enable animation - increased for 3 text cycles */}
-      <div className="h-[400vh]" />
+      <div className="h-[600vh]" />
 
       {/* Description Section with Background Image and Scroll Reveal */}
-      <div 
+      <div
         ref={textSectionRef}
-        className="relative overflow-hidden px-6 py-24 md:px-12 md:py-32 lg:px-20 lg:py-40 bg-black"
+        className="relative overflow-hidden px-6 py-40 md:px-12 md:py-52 lg:px-20 lg:py-64 bg-black"
       >
         {/* Gradient Overlay - Top to transparent */}
         <div 

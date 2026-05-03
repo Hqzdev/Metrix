@@ -47,7 +47,7 @@ const features = [
 
 export function FeaturedProductsSection() {
   return (
-    <section id="technology" className="relative bg-background py-20 md:py-32">
+    <section id="technology" className="relative bg-background py-32 md:py-52">
       <div className="px-4 md:px-12 lg:px-20">
         <div className="mx-auto mb-12 flex max-w-7xl flex-col gap-4 md:mb-16 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">

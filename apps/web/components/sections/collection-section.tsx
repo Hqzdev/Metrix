@@ -30,14 +30,14 @@ export function CollectionSection() {
   return (
     <section id="accessories" className="bg-background">
       {/* Section Title */}
-      <div className="px-6 py-20 md:px-12 lg:px-20 md:py-10">
+      <div className="px-6 py-32 md:px-12 lg:px-20 md:py-20">
         <h2 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl">
           Memberships
         </h2>
       </div>
 
       {/* Accessories Grid/Carousel */}
-      <div className="pb-24">
+      <div className="pb-44">
         {/* Mobile: Horizontal Carousel */}
         <div className="flex gap-6 overflow-x-auto px-6 pb-4 md:hidden snap-x snap-mandatory scrollbar-hide">
           {accessories.map((accessory) => (
