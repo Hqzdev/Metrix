@@ -1,0 +1,17 @@
+[sources.docker]
+type = "docker_logs"
+
+[transforms.parse_json]
+type = "remap"
+inputs = ["docker"]
+source = '''
+parsed, err = parse_json(.message)
+if err == null {
+  . = merge(., parsed)
+}
+'''
+
+[sinks.stdout]
+type = "console"
+inputs = ["parse_json"]
+encoding.codec = "json"
