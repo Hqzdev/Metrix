@@ -209,6 +209,8 @@ Rate limit сохраняется при рестарте и корректно 
 Функция rate limit передаётся в Bot как зависимость через BotOptions.rateLimit.
 Это позволяет подменять реализацию в тестах.
 
+Таблица лимитов по guest, admin и internal traffic описана в RATE_LIMIT_STRATEGY.md.
+
 8. Telegram update idempotency
 
 Telegram может прислать update повторно.
