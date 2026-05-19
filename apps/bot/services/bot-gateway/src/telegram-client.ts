@@ -1,15 +1,24 @@
 import type { InlineKeyboardMarkup, TelegramApiResponse, TelegramUpdate } from './telegram-types.js'
 
-type SendOptions = { reply_markup?: InlineKeyboardMarkup }
-type EditOptions = { reply_markup?: InlineKeyboardMarkup }
+type SendOptions = { reply_markup?: InlineKeyboardMarkup; parse_mode?: string }
+type EditOptions = { reply_markup?: InlineKeyboardMarkup; parse_mode?: string }
 
+/**
+ * Оборачивает методы Telegram Bot API, используемые сервисом.
+ */
 export class TelegramClient {
   private readonly base: string
 
+  /**
+   * Сохраняет зависимости класса для последующих обработчиков.
+   */
   constructor(token: string) {
     this.base = `https://api.telegram.org/bot${token}`
   }
 
+  /**
+   * Получает данные из downstream-сервиса или хранилища.
+   */
   async getUpdates(offset?: number): Promise<TelegramUpdate[]> {
     return this.call<TelegramUpdate[]>('getUpdates', {
       allowed_updates: ['message', 'callback_query', 'pre_checkout_query'],
@@ -26,6 +35,9 @@ export class TelegramClient {
     await this.call('editMessageText', { chat_id: chatId, message_id: messageId, text, ...options })
   }
 
+  /**
+   * Отвечает на служебный Telegram callback или payment query.
+   */
   async answerCallbackQuery(id: string, text?: string): Promise<void> {
     await this.call('answerCallbackQuery', { callback_query_id: id, text })
   }
@@ -58,16 +70,32 @@ export class TelegramClient {
     })
   }
 
+  /**
+   * Выполняет шаг setMyCommands внутри сервисного сценария.
+   */
   async setMyCommands(): Promise<void> {
     await this.call('setMyCommands', {
       commands: [
         { command: 'start', description: 'Open the booking menu' },
         { command: 'book', description: 'Book a room or desk' },
         { command: 'slots', description: 'See available slots' },
+        { command: 'resume', description: 'Continue current booking flow' },
         { command: 'my_bookings', description: 'See your active bookings' },
         { command: 'calendar', description: 'Connect Google Calendar' },
         { command: 'help', description: 'Show help' },
+        { command: 'stats', description: 'Admin: show booking statistics' },
       ],
+    })
+  }
+
+  /**
+   * Регистрирует production webhook для горизонтального scaling.
+   */
+  async setWebhook(url: string, secretToken: string): Promise<void> {
+    await this.call('setWebhook', {
+      allowed_updates: ['message', 'callback_query', 'pre_checkout_query'],
+      secret_token: secretToken || undefined,
+      url,
     })
   }
 
