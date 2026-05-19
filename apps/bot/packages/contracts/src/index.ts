@@ -63,6 +63,8 @@ export type CalendarConnection = {
 export type PendingInvoice = {
   id: string
   amountMinorUnits: number
+  status: 'pending' | 'paid_part' | 'completed' | 'failed' | 'expired'
+  holdId?: string
   locationId: string
   paidAmountMinorUnits: number
   partNumber: number
@@ -83,6 +85,12 @@ export type Report = {
 
 // ─── redis stream names ────────────────────────────────────────────────────────
 
+/**
+ * Имена Redis Streams для межсервисного обмена событиями.
+ *
+ * Константы — единственный источник истины для имён стримов.
+ * Имя стрима нельзя менять без миграции всех consumer groups в Redis.
+ */
 export const STREAMS = {
   BOOKING_CREATED: 'stream:booking.created',
   BOOKING_CANCELLED: 'stream:booking.cancelled',
@@ -123,6 +131,17 @@ export type NotificationSendEvent =
       messageId: number
       text: string
       replyMarkup?: unknown
+    }
+  | {
+      type: 'send_invoice'
+      chatId: number
+      invoiceId: string
+      title: string
+      description: string
+      payload: string
+      providerToken: string
+      currency: string
+      amount: number
     }
   | {
       type: 'send_document'
