@@ -40,6 +40,30 @@ npm run prisma:validate — проверяет schema.prisma
 npm run prisma:migrate — применяет dev migration
 npm run prisma:seed — запускает seed-данные
 
+Backup
+
+npm run db:backup — создаёт PostgreSQL backup через scripts/backup-postgres.sh
+npm run openapi:validate — проверяет базовую структуру docs/openapi/metrix-bot-api.yaml
+
+Переменные:
+
+DATABASE_URL — обязательная строка подключения к PostgreSQL
+BACKUP_DIR — опциональная директория для backup-файлов, по умолчанию backups/postgres
+
+Формат backup:
+
+pg_dump custom format
+
+Restore выполняется через pg_restore.
+
+OpenAPI
+
+scripts/validate-openapi.mjs выполняет lightweight-проверку без внешних npm-зависимостей.
+Скрипт проверяет наличие обязательных top-level sections, runtime paths, основных domain paths и HMAC security scheme.
+
+Это не заменяет полноценный OpenAPI linter.
+После выбора инструмента можно добавить Spectral или Redocly.
+
 Env
 
 Для Prisma-команд нужен DATABASE_URL.
@@ -59,6 +83,7 @@ Env
 Если команда становится длинной, её нужно вынести в отдельный файл внутри scripts.
 
 Нельзя добавлять в scripts реальные токены, пароли или production URL.
+Backup-файлы не должны попадать в git.
 
 Расширение
 
