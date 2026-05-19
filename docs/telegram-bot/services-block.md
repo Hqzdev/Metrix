@@ -1,89 +1,145 @@
-Telegram Bot src/services
+Telegram Bot services
 
-Этот документ описывает блок apps/bot/src/services: интерфейс бронирования, его реализация, генерация слотов и начальные данные.
+Этот документ описывает сервисы в apps/bot.
+Telegram-бот в проекте — это не один большой файл, а набор маленьких сервисов.
 
 Назначение
 
-Блок src/services реализует слой бизнес-логики и хранилища бронирований.
-Он не зависит от Telegram и не знает о формате сообщений, клавиатурах или HTTP-транспорте.
+Каждый сервис отвечает за свою часть работы.
+Так проще понимать код, запускать систему и менять одну часть, не ломая остальные.
 
-В этом слое не должно находиться взаимодействие с Telegram API, формирование текстов, генерация ссылок или чтение переменных окружения.
+Главные сервисы
 
-Структура файлов
+bot-gateway
 
-booking-service.ts — контракт BookingService: типы и интерфейс для всех операций с бронированием
-mock-booking-service.ts — реализация BookingService с файловым JSON-хранилищем
-booking-slots.ts — генерация временных слотов на текущий день для ресурса
-booking-seed.ts — начальные данные: 10 локаций и 50 ресурсов по Москве
+Общается с Telegram.
+Принимает команды, кнопки, платежные события и передаёт задачи другим сервисам.
 
-Контракт
+bot-gateway не хранит бронирования в базе.
+Он только ведёт диалог с пользователем.
 
-booking-service.ts экспортирует интерфейс BookingService и типы:
+booking-service
 
-* BookingLocation — локация с адресом и статистикой
-* BookingResource — рабочее место с ценой, типом и статусом
-* AvailableSlot — временной слот с ISO-датами и форматированным временем
-* Booking — запись о бронировании с историей оплаты
-* AdminLocationUpdate, AdminResourceUpdate — типы для обновления полей
+Отвечает за бронирования.
 
-Методы BookingService:
+Он знает:
 
-* listLocations() — список всех локаций
-* listResources(locationId) — ресурсы указанной локации
-* listAvailableSlots(resourceId) — доступные слоты
-* createBooking(input) — создаёт бронирование
-* listUserBookings(telegramUserId) — активные бронирования пользователя
-* cancelBooking(input) — отменяет бронирование, возвращает null если не найдено
-* updateLocation(input) — обновляет поля локации
-* updateResource(input) — обновляет поля ресурса
+- какие есть локации
+- какие есть комнаты или ресурсы
+- какие слоты свободны
+- какие бронирования есть у пользователя
+- можно ли отменить бронь
 
-Реализация
+payment-service
 
-mock-booking-service.ts содержит MockBookingService — реализацию BookingService.
+Отвечает за оплату.
 
-Хранение данных:
+Он создаёт счёт, принимает результат оплаты и связывает оплату с бронью.
+Для Telegram Payments используется provider token, например YooKassa.
 
-* локации и ресурсы хранятся в памяти (массивы из booking-seed.ts)
-* бронирования хранятся в Map<telegramUserId, Booking[]>
-* при первом вызове состояние загружается из JSON-файла (data/booking-store.json)
-* каждое изменение сохраняется в файл
+calendar-service
 
-FileBookingService — псевдоним MockBookingService, используется в index.ts.
+Отвечает за подключение календаря.
 
-Слоты
+Сейчас основной сценарий — Google Calendar:
 
-booking-slots.ts генерирует три слота на сегодня для любого ресурса:
+- создать ссылку на подключение
+- принять OAuth callback
+- сохранить подключение
+- отключить календарь
 
-* утро: 09:00 — 12:00
-* день: 13:00 — 17:00
-* вечер: 18:00 — 21:00
+analytics-service
 
-Идентификатор слота: {resourceId}m, {resourceId}a, {resourceId}e.
-Слоты не хранятся — пересчитываются при каждом запросе.
+Отвечает за аналитику и статистику.
+bot-gateway обращается к нему, когда администратор открывает /stats.
 
-Начальные данные
+admin-service
 
-booking-seed.ts содержит 10 московских локаций и по 5 ресурсов в каждой.
-Цена в seed может быть записана как условная долларовая цена вида "$390 / desk / month".
-При создании ресурса она умножается на 100 и показывается в рублях: "$390" становится "39 000 ₽".
-priceMinorUnits хранит сумму в копейках для оплаты в RUB.
-Тип ресурса определяется по строке описания: room, office, team, desk.
+Отвечает за административные операции.
+Например, за работу с аудитом и внутренними admin endpoints.
 
-Расширение
+worker-service
 
-Добавление метода в BookingService:
+Выполняет фоновые задачи.
 
-1. объявить сигнатуру в интерфейсе booking-service.ts
-2. реализовать в MockBookingService
-3. вызвать saveStore() после изменения данных
+Например:
 
-Замена реализации хранилища:
+- напоминания
+- обновление календаря
+- генерация отчётов
 
-1. создать новый класс, реализующий BookingService
-2. передать экземпляр в createBot через опцию bookingService
-3. mock-booking-service.ts не трогать
+notification-service
 
-Изменение начальных данных:
+Отправляет уведомления в Telegram, когда событие пришло не напрямую от пользователя, а из очереди или другого сервиса.
 
-* редактировать locations и rawResourcesByLocationId в booking-seed.ts
-* при наличии существующего JSON-файла сбросить его вручную
+Как сервисы общаются
+
+bot-gateway ходит во внутренние сервисы через ServicesClient.
+Код находится в apps/bot/services/bot-gateway/src/services-client.ts.
+
+Для событий и фоновых задач используется Redis и BullMQ.
+Redis также хранит состояние пользователя и обработанные Telegram update.
+
+База данных
+
+Основная база — PostgreSQL.
+К ней подключаются сервисы, которым нужны постоянные данные.
+
+Для работы с базой используется Prisma.
+Схема базы для bot-приложения находится в apps/bot/prisma/schema.prisma.
+
+Локальный запуск
+
+Локальная инфраструктура описана в apps/bot/docker-compose.yml.
+
+В docker-compose поднимаются:
+
+- PostgreSQL
+- PgBouncer
+- Redis
+- db-init
+- booking-service
+- calendar-service
+- payment-service
+- notification-service
+- worker-service
+- analytics-service
+- admin-service
+- bot-gateway
+
+Зачем нужен PgBouncer
+
+PgBouncer стоит между сервисами и PostgreSQL.
+Он помогает не открывать слишком много соединений к базе.
+Для пользователя это невидимая часть системы, но для стабильной работы сервера она важна.
+
+Зачем нужен Redis
+
+Redis используется для быстрых временных данных:
+
+- состояние пользователя в Telegram
+- защита от повторной обработки update
+- rate limit
+- очереди и события
+
+Секреты и доступы
+
+Сервисы не должны получать лишние секреты.
+Например, Telegram token нужен bot-gateway и notification-service, но не нужен booking-service.
+
+Внутренние запросы между сервисами подписываются secret-ключами.
+Это нужно, чтобы один сервис мог проверить, что запрос пришёл от доверенной части системы.
+
+Где смотреть код
+
+- apps/bot/docker-compose.yml — список сервисов для локального запуска
+- apps/bot/Dockerfile.service — общий Dockerfile для сервисов
+- apps/bot/services/bot-gateway — вход из Telegram
+- apps/bot/services/booking-service — бронирования
+- apps/bot/services/payment-service — платежи
+- apps/bot/services/calendar-service — календарь
+- apps/bot/services/analytics-service — аналитика
+- apps/bot/services/admin-service — админские функции
+- apps/bot/services/worker-service — фоновые задачи
+- apps/bot/services/notification-service — уведомления
+- apps/bot/packages — общие внутренние пакеты
