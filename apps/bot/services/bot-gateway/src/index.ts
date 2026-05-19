@@ -1,87 +1,95 @@
 import { setDefaultResultOrder } from 'node:dns'
-import { createServer } from 'node:http'
-import { buildAuthHeaders } from '@metrix/auth'
+import { installGracefulShutdown, MetricsRegistry } from '@metrix/observability'
+import Redis from 'ioredis'
 import { Bot } from './bot.js'
+import { readBotGatewayConfig } from './config.js'
+import { startHealthServer } from './health-server.js'
+import { BotGatewayLogger } from './logger.js'
+import { createRateLimiter } from './rate-limiter.js'
 import { ServicesClient } from './services-client.js'
 import { TelegramClient } from './telegram-client.js'
+import { RedisTelegramUpdateStore } from './telegram-update-store.js'
+import { RedisUserSessionStore } from './user-session-store.js'
 
 setDefaultResultOrder('ipv4first')
 
-const token = process.env.TELEGRAM_BOT_TOKEN
-if (!token) throw new Error('TELEGRAM_BOT_TOKEN is required')
+const logger = new BotGatewayLogger()
+const config = readBotGatewayConfig(process.env)
+const redis = new Redis(config.redisUrl, { lazyConnect: true, password: process.env.REDIS_PASSWORD })
+const metrics = new MetricsRegistry('bot-gateway')
 
-const gatewaySigning = process.env.GATEWAY_SIGNING_SECRET ?? ''
-const userIdSecret = process.env.USER_ID_SIGNING_SECRET ?? ''
+await redis.connect()
 
-if (!gatewaySigning) console.warn('bot-gateway: GATEWAY_SIGNING_SECRET not set — service auth disabled')
-if (!userIdSecret) console.warn('bot-gateway: USER_ID_SIGNING_SECRET not set — user identity signing disabled')
+const services = new ServicesClient(config.serviceUrls, {
+  signing: config.signingSecret,
+  userId: config.userIdSigningSecret,
+})
+const telegram = new TelegramClient(config.telegramBotToken)
+const bot = new Bot({
+  adminTelegramIds: config.adminTelegramIds,
+  logger,
+  metrics,
+  rateLimit: createRateLimiter(redis),
+  services,
+  sessionStore: new RedisUserSessionStore(redis),
+  telegram,
+  updateStore: new RedisTelegramUpdateStore(redis),
+})
 
-const healthPort = Number(process.env.HEALTH_PORT ?? 3000)
-const calendarServiceUrl = process.env.CALENDAR_SERVICE_URL ?? 'http://localhost:3002'
-
-const adminIds = (process.env.ADMIN_TELEGRAM_IDS ?? '')
-  .split(',')
-  .map((s) => Number(s.trim()))
-  .filter(Boolean)
-
-const services = new ServicesClient(
-  {
-    booking: process.env.BOOKING_SERVICE_URL ?? 'http://localhost:3001',
-    calendar: calendarServiceUrl,
-    payment: process.env.PAYMENT_SERVICE_URL ?? 'http://localhost:3003',
-    analytics: process.env.ANALYTICS_SERVICE_URL ?? 'http://localhost:3005',
-    admin: process.env.ADMIN_SERVICE_URL ?? 'http://localhost:3006',
+const healthServer = startHealthServer({
+  calendarServiceUrl: config.serviceUrls.calendar,
+  logger,
+  metrics,
+  port: config.healthPort,
+  readinessChecks: {
+    redis: async () => {
+      await redis.ping()
+    },
   },
-  { signing: gatewaySigning, userId: userIdSecret },
-)
+  signingSecret: config.signingSecret,
+  telegramWebhookSecret: config.telegramWebhookSecret,
+  webhookHandler: (update) => bot.handleWebhookUpdate(update),
+})
 
-const telegram = new TelegramClient(token)
-const bot = new Bot({ adminTelegramIds: adminIds, services, telegram })
+installGracefulShutdown({
+  logger,
+  resources: [
+    async () => {
+      bot.stop()
+    },
+    async () => {
+      await redis.quit()
+    },
+  ],
+  server: healthServer,
+  service: 'bot-gateway',
+})
 
-// health endpoint + Google OAuth callback receiver
-const server = createServer((req, res) => {
-  if (req.url?.startsWith('/calendar/google/callback')) {
-    const url = new URL(req.url, `http://localhost:${healthPort}`)
-    const code = url.searchParams.get('code')
-    const state = url.searchParams.get('state')
-
-    if (!code || !state) {
-      res.writeHead(400)
-      res.end('missing code or state')
-      return
-    }
-
-    // forward to calendar-service as a signed internal request
-    const body = JSON.stringify({ code, state })
-    const headers = buildAuthHeaders('POST', '/oauth-callback', body, 'bot-gateway', gatewaySigning)
-
-    fetch(`${calendarServiceUrl}/oauth-callback`, { method: 'POST', headers, body })
-      .then(() => {
-        res.writeHead(200, { 'content-type': 'text/html' })
-        res.end('<html><body><h2>Calendar connected. Return to Telegram.</h2></body></html>')
-      })
-      .catch(() => {
-        res.writeHead(500)
-        res.end('Connection failed.')
-      })
-    return
+if (config.telegramMode === 'polling') {
+  bot.start().catch((error: unknown) => {
+    logger.error({
+      error,
+      message: 'Bot failed to start',
+      service: 'bot-gateway',
+    })
+    process.exitCode = 1
+  })
+} else {
+  try {
+    await Promise.all([
+      telegram.setMyCommands(),
+      telegram.setWebhook(config.telegramWebhookUrl, config.telegramWebhookSecret),
+    ])
+  } catch (error) {
+    logger.error({
+      error,
+      message: 'Failed to initialize Telegram webhook mode',
+      service: 'bot-gateway',
+    })
+    process.exit(1)
   }
-
-  if (req.url === '/health') {
-    res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ ok: true }))
-    return
-  }
-
-  res.writeHead(404)
-  res.end()
-})
-
-server.listen(healthPort, () => {
-  console.log(`bot-gateway health server listening on :${healthPort}`)
-})
-
-bot.start().catch((err: unknown) => {
-  console.error('bot failed to start', err)
-  process.exitCode = 1
-})
+  logger.info({
+    message: 'bot-gateway running in webhook mode',
+    service: 'bot-gateway',
+  })
+}

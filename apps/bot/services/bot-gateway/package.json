@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@metrix/contracts": "*",
+    "@metrix/observability": "*",
+    "@metrix/rbac": "*",
     "@metrix/redis-bus": "*",
     "@metrix/auth": "*"
   },

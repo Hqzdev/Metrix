@@ -1,6 +1,9 @@
 import type { AvailableSlot, Booking, BookingLocation, BookingResource } from '@metrix/contracts'
 import type { InlineKeyboardMarkup } from './telegram-types.js'
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function mainMenuKeyboard(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -12,6 +15,9 @@ export function mainMenuKeyboard(): InlineKeyboardMarkup {
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function locationKeyboard(locations: BookingLocation[]): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -21,6 +27,9 @@ export function locationKeyboard(locations: BookingLocation[]): InlineKeyboardMa
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function resourceKeyboard(resources: BookingResource[]): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -30,6 +39,9 @@ export function resourceKeyboard(resources: BookingResource[]): InlineKeyboardMa
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function slotsKeyboard(resource: BookingResource, slots: AvailableSlot[]): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -39,6 +51,9 @@ export function slotsKeyboard(resource: BookingResource, slots: AvailableSlot[])
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function confirmBookingKeyboard(resource: BookingResource, slotId: string): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -48,6 +63,9 @@ export function confirmBookingKeyboard(resource: BookingResource, slotId: string
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function bookingsKeyboard(bookings: Booking[]): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -57,6 +75,9 @@ export function bookingsKeyboard(bookings: Booking[]): InlineKeyboardMarkup {
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function confirmCancelKeyboard(bookingId: string): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -66,6 +87,9 @@ export function confirmCancelKeyboard(bookingId: string): InlineKeyboardMarkup {
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function calendarAuthKeyboard(googleUrl: string): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
@@ -75,6 +99,9 @@ export function calendarAuthKeyboard(googleUrl: string): InlineKeyboardMarkup {
   }
 }
 
+/**
+ * Формирует inline-клавиатуру Telegram для текущего сценария.
+ */
 export function calendarStatusKeyboard(input: { connectedProviders: string[]; googleUrl?: string }): InlineKeyboardMarkup {
   const rows: InlineKeyboardMarkup['inline_keyboard'] = []
   if (input.googleUrl && !input.connectedProviders.includes('google')) {
