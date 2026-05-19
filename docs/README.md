@@ -6,6 +6,7 @@
 Структура
 
 architecture/ — системная архитектура, модули, база данных, API, очереди, деплой
+operations/ — operator runbooks для production incident response
 deployment/ — runbook локального запуска, Docker, env, ports и startup sequence
 testing/ — testing evidence, скриншоты, Postman, load testing и ручные сценарии
 security/ — security policy summary, checks и ссылки на security-документы
@@ -23,9 +24,14 @@ telegram-bot-diagrams/ — диаграммы потоков Telegram-бота
 - [Диаграммы архитектуры](./architecture/DIAGRAMS.md)
 - [База данных](./architecture/DATABASE_SCHEMA.md)
 - [Очереди и события](./architecture/QUEUES_AND_EVENTS.md)
+- [Retry strategy](./architecture/RETRY_STRATEGY.md)
+- [Caching strategy](./architecture/CACHING_STRATEGY.md)
 - [Интеграции](./architecture/INTEGRATIONS.md)
 - [Инфраструктура и деплой](./architecture/DEPLOYMENT.md)
 - [Аналитика](./architecture/ANALYTICS.md)
+- [Error catalog](./architecture/ERROR_CATALOG.md)
+- [Monorepo tooling](./architecture/MONOREPO_TOOLING.md)
+- [Zero downtime migrations](./architecture/ZERO_DOWNTIME_MIGRATIONS.md)
 
 Инженерная документация
 
@@ -33,8 +39,12 @@ telegram-bot-diagrams/ — диаграммы потоков Telegram-бота
 - [Deployment runbook](./deployment/README.md)
 - [Testing evidence](./testing/README.md)
 - [Production readiness test report](./testing/PRODUCTION_READINESS_TEST_REPORT.md)
+- [Operations runbooks](./operations/README.md)
+- [Technical debt](./TECHNICAL_DEBT.md)
 - [Security documentation](./security/README.md)
 - [Architecture decisions](./decisions/README.md)
+- [Restore drill evidence](./testing/RESTORE_DRILL_EVIDENCE.md)
+- [Incident drill evidence](./testing/INCIDENT_DRILL_EVIDENCE.md)
 
 Telegram-бот
 
