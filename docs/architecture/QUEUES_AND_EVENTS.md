@@ -112,6 +112,8 @@ handler должен быть идемпотентным, потому что re
 Ручной replay описан в DLQ_REPLAY.md.
 Replay нельзя выполнять автоматически без диагностики причины ошибки.
 
+Единая retry policy описана в RETRY_STRATEGY.md.
+
 Admin tooling
 
 admin-service предоставляет минимальный operator API для DLQ:
