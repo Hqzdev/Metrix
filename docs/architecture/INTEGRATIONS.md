@@ -1,50 +1,64 @@
 Integrations
 
-О чем этот файл
+Этот документ описывает внешние интеграции системы и правила работы с ними.
 
-Этот документ описывает внешние интеграции системы и правила работы с ними. Он нужен, чтобы Google, Microsoft и Telegram были оформлены как отдельные адаптеры, а не были размазаны по бизнес-логике.
+Назначение
+
+Интеграции должны быть оформлены как отдельные адаптеры.
+Google, Microsoft и Telegram не должны быть размазаны по бизнес-логике.
+Доменная логика не должна зависеть от формата внешних API.
 
 Какие интеграции есть
 
-- Google Calendar
-- Microsoft Outlook / Microsoft 365
-- Telegram Bot
+Google Calendar
+Microsoft Outlook / Microsoft 365
+Telegram Bot
 
-Что здесь должно быть описано
+Что описывает документ
 
-- механизм авторизации;
-- какие действия поддерживает каждая интеграция;
-- структура адаптеров;
-- политика retry;
-- обработка временных ошибок;
-- хранение токенов и секретов;
-- маппинг внешних сущностей во внутренние модели.
+механизм авторизации
+поддерживаемые действия каждой интеграции
+структуру адаптеров
+retry policy
+обработку временных ошибок
+хранение токенов и секретов
+маппинг внешних сущностей во внутренние модели
 
-Какие файлы появятся в проекте
+Ожидаемые файлы
 
-```txt
 src/integrations/google-calendar/google-calendar-adapter.ts
 src/integrations/google-calendar/google-calendar-auth.ts
 src/integrations/google-calendar/google-calendar-mapper.ts
-
 src/integrations/microsoft-calendar/microsoft-calendar-adapter.ts
 src/integrations/microsoft-calendar/microsoft-calendar-auth.ts
 src/integrations/microsoft-calendar/microsoft-calendar-mapper.ts
-
 src/integrations/telegram-bot/telegram-bot-client.ts
 src/integrations/telegram-bot/telegram-command-router.ts
 src/integrations/telegram-bot/telegram-message-builder.ts
-```
 
-Какие модули это затрагивает
+Затронутые модули
 
-```txt
-src/modules/calendar-integrations/
-src/modules/telegram/
-src/modules/notifications/
-src/shared/config/
-```
+src/modules/calendar-integrations
+src/modules/telegram
+src/modules/notifications
+src/shared/config
 
-Зачем нужен этот файл
+Правила интеграций
 
-Чтобы интеграции были сменяемыми и изолированными, а доменная логика не зависела от формата внешних API.
+Внешние API вызываются только через адаптеры.
+Адаптеры не должны содержать бизнес-логику.
+OAuth-токены хранятся только в зашифрованном виде.
+Ошибки внешних API нормализуются перед передачей в application-слой.
+Временные ошибки обрабатываются через retry.
+Данные внешних сущностей маппятся во внутренние модели.
+
+Расширение
+
+Добавление новой интеграции:
+
+1. создать adapter
+2. описать auth flow
+3. описать mapper
+4. добавить env-переменные
+5. добавить retry policy
+6. описать ошибки и ограничения
