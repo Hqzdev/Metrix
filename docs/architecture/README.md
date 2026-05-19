@@ -19,19 +19,25 @@ DIAGRAMS.md — Mermaid-схемы микросервисов, request flow, aut
 ../openapi/metrix-bot-api.yaml — machine-readable OpenAPI спецификация apps/bot
 DATABASE_SCHEMA.md — сущности БД и связи между ними
 QUEUES_AND_EVENTS.md — фоновые задачи, события и асинхронные процессы
+RETRY_STRATEGY.md — attempts, backoff, jitter и DLQ threshold по потокам
+CACHING_STRATEGY.md — Redis cache/state, TTL, invalidation и запреты на кеширование
 PAYMENTS_AND_HOLDS.md — payment flow, временная бронь слота и idempotency
 ANALYTICS.md — метрики занятости, utilization, peak hours и PDF reports
 INTEGRATIONS.md — Google, Microsoft, Telegram и адаптеры
 DEPLOYMENT.md — окружения, сервисы, деплой и мониторинг
 SECURITY.md — модель безопасности, доверенные границы и production-защита
+RATE_LIMIT_STRATEGY.md — лимиты guest, admin и internal traffic
 SECURITY_HEADERS_AND_CORS.md — web security headers и CORS policy
 SECRET_ROTATION.md — правила ротации service, infrastructure и integration secrets
 BACKUP_STRATEGY.md — backup, restore, RPO/RTO и retention
+ZERO_DOWNTIME_MIGRATIONS.md — expand/contract, backfill, rollback и deploy order
 RBAC_AND_AUDIT.md — роли, permissions, policy checks и persistent audit log
 AUDIT_LOG_POLICY.md — чтение audit log, redaction policy и retention
 OBSERVABILITY.md — health, readiness, metrics, logs и graceful shutdown
 ALERTING.md — базовые production alerts и правила labels
 DLQ_REPLAY.md — ручная процедура replay сообщений из dead letter queue
+ERROR_CATALOG.md — canonical error codes и migration policy для API errors
+MONOREPO_TOOLING.md — npm workspaces, root scripts и критерии для Turbo/Nx
 PRODUCTION_READINESS.md — дорожная карта production-grade системных свойств
 
 Порядок чтения
