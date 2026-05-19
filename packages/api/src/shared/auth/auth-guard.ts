@@ -1,15 +1,20 @@
 import { verifyJwt } from './jwt.js'
 
-type AuthUser = {
+export type AuthUser = {
   id: string
   role: 'admin' | 'employee'
 }
 
-type AuthResult =
+export type AuthResult =
   | { status: 'ok'; user: AuthUser }
   | { status: 'error'; message: string }
 
-// достаёт пользователя из authorization header
+/**
+ * Извлекает и верифицирует пользователя из Authorization: Bearer <token>.
+ *
+ * Возвращает discriminated union вместо исключений — caller явно обязан
+ * обработать оба случая, что исключает случайный пропуск auth-проверки.
+ */
 export function authenticateRequest(input: { authorization?: string; jwtSecret: string }): AuthResult {
   const token = input.authorization?.replace(/^Bearer\s+/i, '')
 
@@ -31,7 +36,12 @@ export function authenticateRequest(input: { authorization?: string; jwtSecret: 
   }
 }
 
-// проверяет что пользователь админ
+/**
+ * Проверяет, что аутентифицированный пользователь имеет роль admin.
+ *
+ * Вызывается после authenticateRequest — разделение аутентификации
+ * и авторизации позволяет применять разные политики доступа к разным эндпоинтам.
+ */
 export function requireAdmin(user: AuthUser): AuthResult {
   if (user.role !== 'admin') {
     return { status: 'error', message: 'admin role is required' }
