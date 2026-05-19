@@ -1,15 +1,8 @@
-version: '3.9'
-
-# ─── secrets reference ────────────────────────────────────────────────────────
-# Copy .env.example to .env and fill in all values before running.
-# Required env vars:
-#   POSTGRES_PASSWORD, REDIS_PASSWORD
-#   TELEGRAM_BOT_TOKEN, ADMIN_TELEGRAM_IDS
-#   GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, GOOGLE_CALENDAR_REDIRECT_URI
-#   CALENDAR_TOKEN_SECRET, YOOKASSA_PROVIDER_TOKEN
-#   GATEWAY_SIGNING_SECRET, PAYMENT_SIGNING_SECRET
-#   ANALYTICS_SIGNING_SECRET, ADMIN_SIGNING_SECRET
-#   USER_ID_SIGNING_SECRET
+# ─── local compose env ────────────────────────────────────────────────────────
+# apps/bot/.env.example is only a local docker-compose convenience file.
+# Production must inject env per service through Docker/Kubernetes/Vault/etc.
+# Each service also has services/<name>/.env.example with its own least-privilege
+# contract. Do not give a service secrets it does not use.
 
 services:
   postgres:
@@ -30,6 +23,24 @@ services:
       timeout: 5s
       retries: 10
 
+  pgbouncer:
+    image: edoburu/pgbouncer:1.24.1-p1
+    environment:
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_NAME: metrix
+      DB_USER: metrix
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: '200'
+      DEFAULT_POOL_SIZE: '20'
+    expose:
+      - '6432'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   redis:
     image: redis:7-alpine
     command: >
@@ -49,116 +60,227 @@ services:
       timeout: 3s
       retries: 5
 
-  booking-service:
-    build: ./services/booking-service
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: booking-service
+    command: >
+      sh -c "npx prisma db push --schema=/app/prisma/schema.prisma &&
+      npx prisma db execute --schema=/app/prisma/schema.prisma --file=/app/prisma/post-init.sql &&
+      npx prisma db execute --schema=/app/prisma/schema.prisma --file=/app/prisma/migrations/20260519_production_hardening.sql"
     environment:
       DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: booking-service
+    environment:
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3001'
-      # callers allowed to reach this service
       TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET_NEXT: ${GATEWAY_SIGNING_SECRET_NEXT:-}
       TRUSTED_PAYMENT_SECRET: ${PAYMENT_SIGNING_SECRET}
+      TRUSTED_PAYMENT_SECRET_NEXT: ${PAYMENT_SIGNING_SECRET_NEXT:-}
       TRUSTED_ANALYTICS_SECRET: ${ANALYTICS_SIGNING_SECRET}
+      TRUSTED_ANALYTICS_SECRET_NEXT: ${ANALYTICS_SIGNING_SECRET_NEXT:-}
       TRUSTED_ADMIN_SECRET: ${ADMIN_SIGNING_SECRET}
+      TRUSTED_ADMIN_SECRET_NEXT: ${ADMIN_SIGNING_SECRET_NEXT:-}
       USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
     expose:
       - '3001'
     depends_on:
+      pgbouncer:
+        condition: service_started
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   calendar-service:
-    build: ./services/calendar-service
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: calendar-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3002'
-      GOOGLE_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CALENDAR_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CALENDAR_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_CALENDAR_REDIRECT_URI}
       CALENDAR_TOKEN_SECRET: ${CALENDAR_TOKEN_SECRET}
       TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET_NEXT: ${GATEWAY_SIGNING_SECRET_NEXT:-}
       USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
     expose:
       - '3002'
     depends_on:
+      pgbouncer:
+        condition: service_started
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   payment-service:
-    build: ./services/payment-service
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: payment-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3003'
       YOOKASSA_PROVIDER_TOKEN: ${YOOKASSA_PROVIDER_TOKEN}
       PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-RUB}
       BOOKING_SERVICE_URL: http://booking-service:3001
-      # payment-service calls booking-service → needs signing secret
       PAYMENT_SIGNING_SECRET: ${PAYMENT_SIGNING_SECRET}
       TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET_NEXT: ${GATEWAY_SIGNING_SECRET_NEXT:-}
+      TRUSTED_ADMIN_SECRET: ${ADMIN_SIGNING_SECRET}
+      TRUSTED_ADMIN_SECRET_NEXT: ${ADMIN_SIGNING_SECRET_NEXT:-}
       USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
     expose:
       - '3003'
     depends_on:
+      pgbouncer:
+        condition: service_started
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       booking-service:
         condition: service_started
 
   notification-service:
-    build: ./services/notification-service
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: notification-service
     environment:
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
     depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: worker-service
+    environment:
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CALENDAR_SERVICE_URL: http://calendar-service:3002
+      CALENDAR_SIGNING_SECRET: ${GATEWAY_SIGNING_SECRET}
+      REPORTS_DIR: /app/reports
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   analytics-service:
-    build: ./services/analytics-service
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: analytics-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@postgres:5432/metrix
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3005'
       BOOKING_SERVICE_URL: http://booking-service:3001
       ANALYTICS_SIGNING_SECRET: ${ANALYTICS_SIGNING_SECRET}
       TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET_NEXT: ${GATEWAY_SIGNING_SECRET_NEXT:-}
       TRUSTED_ADMIN_SECRET: ${ADMIN_SIGNING_SECRET}
+      TRUSTED_ADMIN_SECRET_NEXT: ${ADMIN_SIGNING_SECRET_NEXT:-}
     expose:
       - '3005'
     depends_on:
+      pgbouncer:
+        condition: service_started
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   admin-service:
-    build: ./services/admin-service
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: admin-service
     environment:
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3006'
       BOOKING_SERVICE_URL: http://booking-service:3001
+      PAYMENT_SERVICE_URL: http://payment-service:3003
       ANALYTICS_SERVICE_URL: http://analytics-service:3005
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-180}
+      AUDIT_RETENTION_INTERVAL_MS: ${AUDIT_RETENTION_INTERVAL_MS:-86400000}
       ADMIN_SIGNING_SECRET: ${ADMIN_SIGNING_SECRET}
       TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET_NEXT: ${GATEWAY_SIGNING_SECRET_NEXT:-}
     expose:
       - '3006'
     depends_on:
+      pgbouncer:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
+      payment-service:
+        condition: service_started
 
   bot-gateway:
-    build: ./services/bot-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: bot-gateway
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       HEALTH_PORT: '3000'
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS}
       BOOKING_SERVICE_URL: http://booking-service:3001
@@ -166,9 +288,11 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:3003
       ANALYTICS_SERVICE_URL: http://analytics-service:3005
       ADMIN_SERVICE_URL: http://admin-service:3006
-      # bot-gateway is the only external-facing service
       GATEWAY_SIGNING_SECRET: ${GATEWAY_SIGNING_SECRET}
       USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-polling}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
     ports:
       - '3000:3000'
     depends_on:
