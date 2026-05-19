@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  api:
+    name: API and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Typecheck API package
+        run: npm run typecheck:api
+
+      - name: Run tests
+        run: npm test
+
+      - name: Validate OpenAPI spec
+        run: npm run openapi:validate
+
+  bot:
+    name: Bot microservices
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/bot/package-lock.json
+
+      - name: Install bot dependencies
+        run: npm --prefix apps/bot install
+
+      - name: Build bot workspaces
+        run: npm --prefix apps/bot run build
+
+  web:
+    name: Web typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install web dependencies
+        run: npm --prefix apps/web install
+
+      - name: Typecheck web
+        run: npm --prefix apps/web run typecheck
+
+  security:
+    name: Dependency scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Audit root dependencies
+        run: npm audit --audit-level=high
+
+      - name: Install bot dependencies
+        run: npm --prefix apps/bot install
+
+      - name: Audit bot dependencies
+        run: npm --prefix apps/bot audit --audit-level=high
+
+      - name: Install web dependencies
+        run: npm --prefix apps/web install
+
+      - name: Audit web dependencies
+        run: npm --prefix apps/web audit --audit-level=high
