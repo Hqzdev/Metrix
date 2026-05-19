@@ -7,6 +7,9 @@
 [Website](https://metrixplatform.vercel.app) · [Telegram Bot](https://t.me/metritxsxbot) · [Docs](./docs/README.md) · [Engineering Report](./docs/REPORT.md) · [API](./docs/openapi/README.md)
 
 ![CI](https://github.com/Hqzdev/Metrix/actions/workflows/ci.yml/badge.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-green)
+![Quality gates](https://img.shields.io/badge/quality%20gates-typecheck%20%7C%20tests%20%7C%20openapi%20%7C%20audit-informational)
 
 ---
 
