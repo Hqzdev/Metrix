@@ -1,0 +1,1314 @@
+openapi: 3.1.0
+info:
+  title: Metrix Bot Microservices API
+  version: 0.1.0
+  description: Internal HTTP contracts for apps/bot services.
+servers:
+  - url: http://bot-gateway:3000
+    description: bot-gateway
+  - url: http://booking-service:3001
+    description: booking-service
+  - url: http://calendar-service:3002
+    description: calendar-service
+  - url: http://payment-service:3003
+    description: payment-service
+  - url: http://analytics-service:3005
+    description: analytics-service
+  - url: http://admin-service:3006
+    description: admin-service
+tags:
+  - name: runtime
+  - name: booking
+  - name: payment
+  - name: analytics
+  - name: admin
+  - name: calendar
+security:
+  - serviceHmac: []
+paths:
+  /health:
+    get:
+      tags:
+        - runtime
+      summary: Process health check.
+      security: []
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /ready:
+    get:
+      tags:
+        - runtime
+      summary: Dependency readiness check.
+      security: []
+      responses:
+        '200':
+          description: Service is ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Required dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+  /metrics:
+    get:
+      tags:
+        - runtime
+      summary: Prometheus-compatible metrics.
+      security: []
+      responses:
+        '200':
+          description: Metrics in text exposition format.
+          content:
+            text/plain:
+              schema:
+                type: string
+  /locations:
+    get:
+      tags:
+        - booking
+      summary: List locations.
+      responses:
+        '200':
+          description: Locations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Location'
+  /locations/{locationId}:
+    patch:
+      tags:
+        - booking
+        - admin
+      summary: Update location.
+      parameters:
+        - $ref: '#/components/parameters/LocationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocationInput'
+      responses:
+        '200':
+          description: Updated location.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /resources:
+    get:
+      tags:
+        - booking
+      summary: List resources.
+      parameters:
+        - name: locationId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resources.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Resource'
+  /resources/{resourceId}:
+    get:
+      tags:
+        - booking
+      summary: Get resource.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - booking
+        - admin
+      summary: Update resource.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateResourceInput'
+      responses:
+        '200':
+          description: Updated resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /slots:
+    get:
+      tags:
+        - booking
+      summary: List available slots for a resource.
+      parameters:
+        - $ref: '#/components/parameters/ResourceIdQuery'
+      responses:
+        '200':
+          description: Available slots.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableSlot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /slots/block:
+    post:
+      tags:
+        - booking
+      summary: Block slots for a resource.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockSlotsInput'
+      responses:
+        '200':
+          description: Slots were blocked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /bookings:
+    get:
+      tags:
+        - booking
+        - admin
+      summary: List bookings.
+      parameters:
+        - name: telegramUserId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bookings.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+    post:
+      tags:
+        - booking
+      summary: Create booking.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingInput'
+      responses:
+        '201':
+          description: Booking created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /bookings/{bookingId}:
+    patch:
+      tags:
+        - booking
+      summary: Update booking status.
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookingStatusInput'
+      responses:
+        '200':
+          description: Updated booking.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /invoices:
+    post:
+      tags:
+        - payment
+      summary: Create payment invoice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceInput'
+      responses:
+        '201':
+          description: Invoice created and queued for Telegram delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInvoiceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pre-checkout:
+    post:
+      tags:
+        - payment
+      summary: Validate Telegram pre-checkout query.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  $ref: '#/components/schemas/TelegramPreCheckoutQuery'
+      responses:
+        '200':
+          description: Pre-checkout decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentDecision'
+  /successful-payment:
+    post:
+      tags:
+        - payment
+      summary: Handle Telegram successful payment update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  $ref: '#/components/schemas/TelegramSuccessfulPaymentMessage'
+      responses:
+        '200':
+          description: Payment event accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+  /stats:
+    get:
+      tags:
+        - analytics
+        - admin
+      summary: Get calculated booking stats.
+      responses:
+        '200':
+          description: Stats payload.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /summary:
+    get:
+      tags:
+        - analytics
+        - admin
+      summary: Get analytics summary.
+      responses:
+        '200':
+          description: Summary payload.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /audit-logs:
+    get:
+      tags:
+        - admin
+      summary: Query persistent audit log.
+      parameters:
+        - name: service
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entityType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: requestId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Audit log records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /dlq:
+    get:
+      tags:
+        - admin
+      summary: List DLQ messages for an original stream.
+      parameters:
+        - name: stream
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: DLQ messages.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DlqMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /dlq/streams:
+    get:
+      tags:
+        - admin
+      summary: List DLQ streams for operator dashboard.
+      responses:
+        '200':
+          description: DLQ streams.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DlqStreamList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /dlq/replay:
+    post:
+      tags:
+        - admin
+      summary: Replay one DLQ message into its original or target stream.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayDlqInput'
+      responses:
+        '200':
+          description: DLQ message was replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayDlqResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /payment-sagas:
+    get:
+      tags:
+        - admin
+        - payment
+      summary: List PaymentSaga recovery queue.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Payment saga queue.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSagaList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /payment-sagas/{invoiceId}:
+    get:
+      tags:
+        - admin
+        - payment
+      summary: Inspect PaymentSaga state for manual recovery.
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment saga state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSaga'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /payment-sagas/{invoiceId}/compensate:
+    post:
+      tags:
+        - admin
+        - payment
+      summary: Start manual compensation for failed PaymentSaga.
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Compensation started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /payment-sagas/{invoiceId}/retry-booking:
+    post:
+      tags:
+        - admin
+        - payment
+      summary: Retry Booking creation for paid PaymentSaga.
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Booking retry was queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /payment-sagas/{invoiceId}/mark-compensated:
+    post:
+      tags:
+        - admin
+        - payment
+      summary: Mark external compensation as completed.
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Compensation was marked completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /reports:
+    post:
+      tags:
+        - analytics
+        - admin
+      summary: Create analytics report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportInput'
+      responses:
+        '201':
+          description: Report record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateReportResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /reports/{reportId}:
+    get:
+      tags:
+        - analytics
+        - admin
+      summary: Get report status.
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /calendar/google/callback:
+    get:
+      tags:
+        - calendar
+      summary: Google OAuth callback boundary on bot-gateway.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Calendar connected HTML response.
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Missing code or state.
+        '500':
+          description: Calendar callback forwarding failed.
+components:
+  securitySchemes:
+    serviceHmac:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: HMAC service-to-service signature. Requires X-Service-Name, X-Timestamp and X-Request-Id.
+  parameters:
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema:
+        type: string
+    LocationId:
+      name: locationId
+      in: path
+      required: true
+      schema:
+        type: string
+    ResourceId:
+      name: resourceId
+      in: path
+      required: true
+      schema:
+        type: string
+    ResourceIdQuery:
+      name: resourceId
+      in: query
+      required: true
+      schema:
+        type: string
+    ReportId:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid service signature.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated caller cannot perform this action.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Request conflicts with current state or replay protection.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+    ReadinessResponse:
+      type: object
+      required:
+        - ok
+        - checks
+      properties:
+        ok:
+          type: boolean
+        checks:
+          type: object
+          additionalProperties:
+            type: object
+            required:
+              - ok
+            properties:
+              ok:
+                type: boolean
+              error:
+                type: string
+    OkResponse:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+    Location:
+      type: object
+      required:
+        - id
+        - name
+        - city
+        - address
+        - occupancy
+        - members
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        address:
+          type: string
+        occupancy:
+          type: string
+        members:
+          type: string
+    Resource:
+      type: object
+      required:
+        - id
+        - locationId
+        - name
+        - type
+        - seats
+        - occupancy
+        - priceLabel
+        - priceMinorUnits
+        - status
+      properties:
+        id:
+          type: string
+        locationId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        seats:
+          type: string
+        occupancy:
+          type: string
+        priceLabel:
+          type: string
+        priceMinorUnits:
+          type: integer
+        status:
+          type: string
+    AvailableSlot:
+      type: object
+      required:
+        - id
+        - startsAt
+        - startsAtIso
+        - endsAt
+        - endsAtIso
+      properties:
+        id:
+          type: string
+        startsAt:
+          type: string
+        startsAtIso:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+        endsAtIso:
+          type: string
+          format: date-time
+    Booking:
+      type: object
+      required:
+        - id
+        - locationId
+        - locationName
+        - resourceId
+        - resourceName
+        - slotId
+        - telegramUserId
+        - paidAmountMinorUnits
+        - priceLabel
+        - startsAt
+        - startsAtIso
+        - endsAt
+        - endsAtIso
+        - status
+      properties:
+        id:
+          type: string
+        locationId:
+          type: string
+        locationName:
+          type: string
+        resourceId:
+          type: string
+        resourceName:
+          type: string
+        slotId:
+          type: string
+        telegramUserId:
+          type: integer
+        paidAmountMinorUnits:
+          type: integer
+        priceLabel:
+          type: string
+        startsAt:
+          type: string
+        startsAtIso:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+        endsAtIso:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - active
+            - cancelled
+            - rescheduled
+        calendarEventGoogle:
+          type: string
+        calendarEventMicrosoft:
+          type: string
+    CreateBookingInput:
+      type: object
+      required:
+        - telegramUserId
+        - resourceId
+        - slotId
+      properties:
+        telegramUserId:
+          type: integer
+        resourceId:
+          type: string
+        slotId:
+          type: string
+        idempotencyKey:
+          type: string
+    UpdateBookingStatusInput:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - cancelled
+            - rescheduled
+    BlockSlotsInput:
+      type: object
+      required:
+        - resourceId
+        - slotIds
+      properties:
+        resourceId:
+          type: string
+        slotIds:
+          type: array
+          items:
+            type: string
+    UpdateLocationInput:
+      type: object
+      properties:
+        occupancy:
+          type: string
+        members:
+          type: string
+    UpdateResourceInput:
+      type: object
+      properties:
+        priceLabel:
+          type: string
+        priceMinorUnits:
+          type: integer
+        occupancy:
+          type: string
+        status:
+          type: string
+    CreateInvoiceInput:
+      type: object
+      required:
+        - chatId
+        - telegramUserId
+        - resourceId
+        - slotId
+      properties:
+        chatId:
+          type: integer
+        telegramUserId:
+          type: integer
+        resourceId:
+          type: string
+        slotId:
+          type: string
+    CreateInvoiceResponse:
+      type: object
+      required:
+        - ok
+        - invoiceId
+      properties:
+        ok:
+          type: boolean
+        invoiceId:
+          type: string
+    TelegramPreCheckoutQuery:
+      type: object
+      required:
+        - id
+        - from
+        - currency
+        - total_amount
+        - invoice_payload
+      properties:
+        id:
+          type: string
+        from:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        currency:
+          type: string
+        total_amount:
+          type: integer
+        invoice_payload:
+          type: string
+    TelegramSuccessfulPaymentMessage:
+      type: object
+      required:
+        - chat
+        - successful_payment
+      properties:
+        chat:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+        from:
+          type: object
+          properties:
+            id:
+              type: integer
+        successful_payment:
+          type: object
+          required:
+            - invoice_payload
+            - total_amount
+          properties:
+            invoice_payload:
+              type: string
+            total_amount:
+              type: integer
+    PaymentDecision:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+        errorMessage:
+          type: string
+    CreateReportInput:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+        requestedBy:
+          type: integer
+    CreateReportResponse:
+      type: object
+      required:
+        - reportId
+        - status
+      properties:
+        reportId:
+          type: string
+        status:
+          type: string
+    Report:
+      type: object
+      required:
+        - id
+        - type
+        - status
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - done
+            - failed
+        filePath:
+          type: string
+        error:
+          type: string
+    AuditLogList:
+      type: object
+      required:
+        - items
+        - limit
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogRecord'
+        limit:
+          type: integer
+        nextCursor:
+          type:
+            - string
+            - 'null'
+    AuditLogRecord:
+      type: object
+      required:
+        - id
+        - ts
+        - service
+        - action
+      properties:
+        id:
+          type: string
+        ts:
+          type: string
+          format: date-time
+        service:
+          type: string
+        action:
+          type: string
+        actorUserId:
+          type:
+            - string
+            - 'null'
+        entityType:
+          type:
+            - string
+            - 'null'
+        entityId:
+          type:
+            - string
+            - 'null'
+        requestId:
+          type:
+            - string
+            - 'null'
+        callerService:
+          type:
+            - string
+            - 'null'
+        payload:
+          type:
+            - object
+            - array
+            - string
+            - number
+            - boolean
+            - 'null'
+    DlqMessage:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+        data:
+          type: string
+        deliveryCount:
+          type: string
+        originalId:
+          type: string
+        originalStream:
+          type: string
+    DlqStreamList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - stream
+            properties:
+              stream:
+                type: string
+    ReplayDlqInput:
+      type: object
+      required:
+        - dlqStream
+        - messageId
+      properties:
+        dlqStream:
+          type: string
+        messageId:
+          type: string
+        targetStream:
+          type: string
+    ReplayDlqResponse:
+      type: object
+      required:
+        - ok
+        - replayedId
+      properties:
+        ok:
+          type: boolean
+        replayedId:
+          type: string
+    PaymentSaga:
+      type: object
+      required:
+        - invoiceId
+        - telegramUserId
+        - chatId
+        - resourceId
+        - slotId
+        - totalAmount
+        - paidAmount
+        - currentPart
+        - totalParts
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        invoiceId:
+          type: string
+        telegramUserId:
+          type: string
+        chatId:
+          type: string
+        resourceId:
+          type: string
+        slotId:
+          type: string
+        totalAmount:
+          type: integer
+        paidAmount:
+          type: integer
+        currentPart:
+          type: integer
+        totalParts:
+          type: integer
+        status:
+          type: string
+          enum:
+            - pending
+            - awaiting_next_part
+            - awaiting_booking
+            - completed
+            - failed
+            - compensating
+            - compensated
+        bookingId:
+          type:
+            - string
+            - 'null'
+        failureReason:
+          type:
+            - string
+            - 'null'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PaymentSagaList:
+      type: object
+      required:
+        - items
+        - limit
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentSaga'
+        limit:
+          type: integer
