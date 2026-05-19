@@ -28,7 +28,14 @@ const resourceDefs: Array<{ locationId: string; name: string; type: string; seat
   { locationId: 'sokol', name: 'Airline Desks', type: 'desk', seats: '12 desks', occupancy: '6 of 12 occupied', price: '$270/desk/month', status: 'Low pressure' },
 ]
 
-export async function seedDatabase(prisma: PrismaClient): Promise<void> {
+type SeedLogger = {
+  info(entry: { message: string; service: 'booking-service'; [key: string]: unknown }): void
+}
+
+/**
+ * Заполняет пустую базу стартовыми локациями и ресурсами.
+ */
+export async function seedDatabase(prisma: PrismaClient, logger?: SeedLogger): Promise<void> {
   const count = await prisma.location.count()
   if (count > 0) return
 
@@ -61,9 +68,16 @@ export async function seedDatabase(prisma: PrismaClient): Promise<void> {
     idx++
   }
 
-  console.log('booking-service: database seeded')
+  logger?.info({
+    action: 'database.seed',
+    message: 'Booking seed data created',
+    service: 'booking-service',
+  })
 }
 
+/**
+ * Парсит и валидирует входное значение.
+ */
 function parsePrice(s: string): number {
   const match = s.match(/[\d,]+/)
   const amount = Number(match?.[0]?.replaceAll(',', '') ?? 0)
@@ -71,6 +85,9 @@ function parsePrice(s: string): number {
   return rub * 100
 }
 
+/**
+ * Форматирует минорные единицы в человекочитаемую цену в рублях.
+ */
 function formatRub(minor: number): string {
   const rub = minor / 100
   return `${new Intl.NumberFormat('ru-RU').format(rub)} ₽ / month`
