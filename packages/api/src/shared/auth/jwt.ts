@@ -6,11 +6,16 @@ type JwtPayload = {
   sub: string
 }
 
-type VerifyJwtResult =
+export type VerifyJwtResult =
   | { status: 'ok'; payload: JwtPayload }
   | { status: 'error'; message: string }
 
-// создаёт jwt для api-сессии
+/**
+ * Создаёт подписанный JWT для API-сессии.
+ *
+ * Используется HS256 — симметричная подпись достаточна для внутреннего API,
+ * где верификатор и эмитент — один сервис.
+ */
 export function createJwt(input: {
   expiresInSeconds: number
   role: 'admin' | 'employee'
@@ -28,7 +33,14 @@ export function createJwt(input: {
   return `${header}.${payload}.${signature}`
 }
 
-// проверяет jwt и срок жизни
+/**
+ * Верифицирует JWT и проверяет срок жизни.
+ *
+ * Подпись проверяется через timingSafeEqual — защита от timing attack.
+ * Разная длина буферов проверяется отдельно: timingSafeEqual требует
+ * одинаковую длину, а сравнивать разные длины небезопасно даже за
+ * константное время.
+ */
 export function verifyJwt(token: string, secret: string): VerifyJwtResult {
   const [header, payload, signature] = token.split('.')
 
@@ -61,6 +73,7 @@ function safeEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left)
   const rightBuffer = Buffer.from(right)
 
+  // timingSafeEqual требует одинаковую длину — проверяем сначала
   if (leftBuffer.length !== rightBuffer.length) {
     return false
   }
