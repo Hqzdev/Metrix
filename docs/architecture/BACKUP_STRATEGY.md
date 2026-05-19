@@ -64,6 +64,10 @@ Restore drill
 4. проверить наличие ключевых таблиц
 5. проверить несколько критичных записей
 
+Первый evidence record:
+
+docs/testing/RESTORE_DRILL_EVIDENCE.md
+
 RPO и RTO
 
 Учебный production profile:
