@@ -73,6 +73,28 @@ jobs:
       - name: Typecheck web
         run: npm --prefix apps/web run typecheck
 
+  docker:
+    name: Docker builds
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - admin-service
+          - analytics-service
+          - booking-service
+          - bot-gateway
+          - calendar-service
+          - notification-service
+          - payment-service
+          - worker-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build service image
+        run: docker build apps/bot --file apps/bot/Dockerfile.service --build-arg SERVICE_NAME=${{ matrix.service }}
+
   security:
     name: Dependency scanning
     runs-on: ubuntu-latest
