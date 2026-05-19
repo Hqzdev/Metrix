@@ -1,498 +1,529 @@
-# Security Architecture
+Security Architecture
 
-Этот документ описывает модель безопасности микросервисной части Metrix (`apps/bot`).
+Этот документ описывает модель безопасности микросервисной части Metrix в apps/bot.
 
----
+Назначение
 
-## Модель угроз
+Система работает на localhost и предназначена для тестирования, но реализует production-уровень защиты.
+Это нужно, потому что Telegram-бот доступен любому пользователю в интернете, компрометация одного сервиса не должна давать доступ ко всем остальным, а токены Google и платёжные данные требуют строгой изоляции.
 
-Система работает на localhost и предназначена для тестирования, но реализует production-уровень защиты, потому что:
+Доверенная граница
 
-- Telegram-бот доступен любому пользователю в интернете
-- Скомпрометированный один сервис не должен давать доступ ко всем остальным
-- Данные пользователей (токены Google, платёжные инвойсы) требуют строгой изоляции
+Единственная публичная точка входа — bot-gateway на порту 3000.
+Локально Telegram API может взаимодействовать с bot-gateway через long polling.
+В production рекомендуется webhook mode.
 
-### Доверенная граница
+Внутренние сервисы доступны только внутри Docker internal network.
 
-```
-Интернет
-    │
-    ▼
-[Telegram API] ──long-polling──▶ [bot-gateway :3000]  ◀── единственная публичная точка
-                                        │
-                          Docker internal network
-                ┌───────────┬───────────┬───────────┐
-                ▼           ▼           ▼           ▼
-          booking      calendar     payment     admin
-          :3001        :3002        :3003       :3006
-                                ▲
-                          analytics
-                           :3005
-```
+Внутренние сервисы:
 
-Все сервисы кроме `bot-gateway:3000` видны **только внутри Docker-сети** — без `ports:` в docker-compose.
+booking-service — порт 3001
+calendar-service — порт 3002
+payment-service — порт 3003
+analytics-service — порт 3005
+admin-service — порт 3006
 
----
+PostgreSQL и Redis не должны быть доступны снаружи.
+Все сервисы кроме bot-gateway должны быть скрыты внутри Docker-сети.
 
-## 1. Сетевая изоляция
+1. Сетевая изоляция
 
-### Что сделано
+docker-compose.yml использует expose вместо ports для всех внутренних сервисов.
+bot-gateway — единственный сервис с публичным port mapping.
+PostgreSQL и Redis также используют expose и не пробрасываются на host.
 
-`docker-compose.yml` использует `expose:` вместо `ports:` для всех внутренних сервисов:
+Итог:
 
-```yaml
-booking-service:
-  expose:
-    - '3001'   # виден только внутри docker network
+атакующий снаружи не может напрямую обратиться к booking-service
+атакующий снаружи не может напрямую обратиться к admin-service
+атакующий снаружи не может напрямую обратиться к БД
+все внешние запросы проходят через bot-gateway
 
-bot-gateway:
-  ports:
-    - '3000:3000'  # единственный публичный порт
-```
+2. Service-to-Service аутентификация
 
-PostgreSQL и Redis тоже не пробрасываются на хост:
+Единый INTERNAL_SECRET запрещён.
+Если один сервис скомпрометирован, общий секрет скомпрометирует всю систему.
 
-```yaml
-postgres:
-  expose:
-    - '5432'   # недоступен с хоста
-
-redis:
-  expose:
-    - '6379'
-```
-
-### Итог
-
-Атакующий снаружи не может напрямую обратиться к `booking-service`, `admin-service` или БД — только через bot-gateway.
-
----
-
-## 2. Service-to-Service аутентификация
-
-### Проблема с одним общим секретом
-
-Единый `INTERNAL_SECRET` означает: скомпрометирован один сервис → скомпрометированы все.
-
-### Решение: per-service HMAC подписи
-
-Каждый вызывающий сервис имеет **свой** signing secret. Принимающий сервис хранит список доверенных вызывающих и их секреты.
-
-#### Структура запроса
+Каждый вызывающий сервис имеет собственный signing secret.
+Принимающий сервис хранит список доверенных вызывающих и их секреты.
+Во время ротации принимающий сервис может принимать TRUSTED_*_SECRET и TRUSTED_*_SECRET_NEXT.
 
 Каждый межсервисный HTTP-запрос содержит заголовки:
 
-```
-X-Service-Name: bot-gateway
-X-Timestamp:    1746140400
-X-Request-Id:   550e8400-e29b-41d4-a716-446655440000
-X-Signature:    a3f2c1d4...  (hex, 64 символа)
-Content-Type:   application/json
-```
-
-#### Формула подписи
-
-```
-message = METHOD + "\n"
-        + path    + "\n"
-        + timestamp + "\n"
-        + request_id + "\n"
-        + sha256(body_bytes)
-
-signature = HMAC-SHA256(service_signing_secret, message)
-```
-
-Подпись покрывает **метод, путь, время, уникальный ID и хэш тела** — подмена любого из этих компонентов делает подпись невалидной.
-
-#### Матрица доверия
-
-| Принимающий сервис | Доверяет вызовам от |
-|---|---|
-| `booking-service` | bot-gateway, payment-service, analytics-service, admin-service |
-| `calendar-service` | bot-gateway |
-| `payment-service` | bot-gateway |
-| `analytics-service` | bot-gateway, admin-service |
-| `admin-service` | bot-gateway |
-
-#### Переменные окружения
-
-```env
-# Каждый сервис имеет свой signing secret
-GATEWAY_SIGNING_SECRET=<32+ символов>
-PAYMENT_SIGNING_SECRET=<32+ символов>
-ANALYTICS_SIGNING_SECRET=<32+ символов>
-ADMIN_SIGNING_SECRET=<32+ символов>
-
-# booking-service знает секреты всех своих вызывающих
-TRUSTED_GATEWAY_SECRET=<= GATEWAY_SIGNING_SECRET>
-TRUSTED_PAYMENT_SECRET=<= PAYMENT_SIGNING_SECRET>
-TRUSTED_ANALYTICS_SECRET=<= ANALYTICS_SIGNING_SECRET>
-TRUSTED_ADMIN_SECRET=<= ADMIN_SIGNING_SECRET>
-```
-
-#### Код верификации (`packages/auth/src/index.ts`)
-
-```typescript
-export function verifyServiceRequest(
-  req: IncomingMessage,
-  rawBody: string,
-  trusted: TrustedCaller[],
-): VerifyResult {
-  // 1. проверить наличие всех заголовков
-  // 2. проверить что timestamp в пределах 30 секунд
-  // 3. найти вызывающий сервис в списке доверенных
-  // 4. воспроизвести подпись и сравнить через timingSafeEqual
-}
-```
+X-Service-Name — имя вызывающего сервиса
+X-Timestamp — Unix timestamp запроса
+X-Request-Id — UUID запроса
+X-Signature — HMAC-SHA256 подпись в hex
+Content-Type — application/json
 
-`timingSafeEqual` защищает от timing-атак при сравнении HMAC.
+Формула подписи:
 
----
+message строится из HTTP method, path, timestamp, request id и sha256 тела запроса.
+signature создаётся через HMAC-SHA256 с service signing secret.
 
-## 3. Защита от Replay-атак
+Подпись покрывает метод, путь, время, уникальный ID и хэш тела.
+Подмена любого компонента делает подпись невалидной.
 
-### Проблема
+Матрица доверия:
 
-Даже валидный подписанный запрос можно повторить (перехватить и отправить снова).
+booking-service доверяет bot-gateway, payment-service, analytics-service и admin-service
+calendar-service доверяет bot-gateway
+payment-service доверяет bot-gateway и admin-service
+analytics-service доверяет bot-gateway и admin-service
+admin-service доверяет bot-gateway
 
-### Решение: Request-Id + Redis TTL
+Переменные окружения:
 
-Каждый запрос содержит уникальный `X-Request-Id` (UUID v4). Принимающий сервис:
+GATEWAY_SIGNING_SECRET — секрет bot-gateway
+PAYMENT_SIGNING_SECRET — секрет payment-service
+ANALYTICS_SIGNING_SECRET — секрет analytics-service
+ADMIN_SIGNING_SECRET — секрет admin-service
+TRUSTED_GATEWAY_SECRET — секрет bot-gateway для принимающего сервиса
+TRUSTED_PAYMENT_SECRET — секрет payment-service для принимающего сервиса
+TRUSTED_ANALYTICS_SECRET — секрет analytics-service для принимающего сервиса
+TRUSTED_ADMIN_SECRET — секрет admin-service для принимающего сервиса
+TRUSTED_*_SECRET_NEXT — опциональный next secret для dual-read во время ротации
 
-1. Пытается записать `SET replay:<request_id> 1 EX 60 NX` в Redis
-2. Если Redis вернул `OK` — запрос новый, пропускаем
-3. Если `null` — ID уже видели, возвращаем **409 Conflict**
+Верификация выполняется в packages/auth/src/index.ts.
 
-```typescript
-// redis-bus/src/index.ts
-async checkReplay(requestId: string, ttlSeconds = 60): Promise<boolean> {
-  const result = await this.pub.set(`replay:${requestId}`, '1', 'EX', ttlSeconds, 'NX')
-  return result === 'OK'
-}
-```
+Алгоритм:
 
-Временное окно `X-Timestamp` дополнительно ограничено **30 секундами** — запрос старше этого порога отклоняется ещё до проверки replay.
+1. проверить наличие обязательных заголовков
+2. проверить timestamp в пределах 30 секунд
+3. найти вызывающий сервис в списке доверенных
+4. воспроизвести подпись
+5. сравнить подпись через timingSafeEqual
 
-### Цепочка защиты
+timingSafeEqual защищает от timing-атак при сравнении HMAC.
+При неизвестном имени сервиса возвращается нейтральный unauthorized без раскрытия ожидаемых имён.
 
-```
-запрос получен
-      │
-      ▼
-timestamp в пределах 30s?  ──нет──▶ 401
-      │да
-      ▼
-HMAC подпись верна?  ──нет──▶ 401
-      │да
-      ▼
-request-id не видели?  ──нет──▶ 409 (replay)
-      │да
-      ▼
-обработка запроса
-```
+3. Защита от replay-атак
 
----
+Даже валидный подписанный запрос можно повторить.
+Для защиты используется X-Request-Id и Redis TTL.
 
-## 4. Идентификация пользователя (X-User-Id)
+Каждый запрос содержит уникальный X-Request-Id в формате UUID v4.
 
-### Проблема
+Принимающий сервис:
 
-Если `telegramUserId` передаётся в теле запроса, любой аутентифицированный сервис может подделать его.
+1. пытается записать replay:{requestId} в Redis с TTL 60 секунд и NX
+2. если запись создана — запрос новый
+3. если запись уже существует — возвращается 409 Conflict
 
-### Решение: подписанный заголовок от bot-gateway
+X-Timestamp дополнительно ограничен 30 секундами.
+Запрос старше этого порога отклоняется до проверки replay.
 
-Bot-gateway — единственный сервис, взаимодействующий с Telegram. Он подписывает userId отдельным секретом:
+Цепочка защиты:
 
-```
-X-User-Id:  123456789
-X-User-Sig: HMAC-SHA256(USER_ID_SIGNING_SECRET, "123456789")
-```
+1. запрос получен
+2. проверяется timestamp
+3. проверяется HMAC подпись
+4. проверяется request id в Redis
+5. запрос обрабатывается
 
-Принимающий сервис верифицирует подпись через `timingSafeEqual`. Если заголовок отсутствует — запрос автоматический (например, payment-service после оплаты), `telegramUserId` берётся из тела.
+Если timestamp невалиден — 401.
+Если подпись невалидна — 401.
+Если request id уже использован — 409.
 
-```typescript
-// packages/auth/src/index.ts
-export function extractUserId(req: IncomingMessage, secret: string): number | undefined {
-  const rawId = req.headers['x-user-id']
-  const rawSig = req.headers['x-user-sig']
-  if (!rawId) return undefined        // автоматический вызов, userId в body
-  if (!rawSig) throw new Error(...)   // заголовок есть, но подпись отсутствует
-  // timingSafeEqual(expected, given)
-}
-```
+4. Идентификация пользователя
 
-### Проверка владельца брони
+telegramUserId не должен передаваться как доверенное поле тела запроса.
+Иначе любой аутентифицированный сервис сможет подделать пользователя.
 
-`booking-service` при отмене брони:
+Bot-gateway — единственный сервис, взаимодействующий с Telegram.
+Он подписывает userId отдельным секретом USER_ID_SIGNING_SECRET.
 
-```typescript
-if (callerUserId !== undefined && Number(existing.telegramUserId) !== callerUserId) {
-  audit({ action: 'booking.cancel.forbidden', userId: callerUserId, bookingId })
-  return json(res, { error: 'forbidden' }, 403)
-}
-```
+Заголовки:
 
-Пользователь не может отменить чужую бронь даже зная её ID.
+X-User-Id — Telegram user id
+X-User-Sig — HMAC-SHA256 подпись user id
 
----
+Принимающий сервис верифицирует подпись через timingSafeEqual.
+Если заголовок отсутствует, запрос считается автоматическим, например от payment-service после оплаты, и telegramUserId берётся из тела.
 
-## 5. OAuth State — защита от подмены userId
+Проверка владельца брони обязательна.
+booking-service при отмене брони сравнивает callerUserId с telegramUserId бронирования.
+Пользователь не может отменить чужую бронь даже зная bookingId.
+Запрещённая попытка пишется в audit log как booking.cancel.forbidden.
 
-### Проблема
+5. OAuth State
 
-Google OAuth возвращает `state` параметр в redirect. Без подписи атакующий может подменить `telegramUserId` в state и привязать чужой Google-аккаунт.
+Google OAuth возвращает state в redirect.
+Без подписи атакующий может подменить telegramUserId в state и привязать чужой Google-аккаунт.
 
-### Решение: HMAC-SHA256 подпись state
+state должен подписываться через HMAC-SHA256.
 
-При генерации auth URL:
-```typescript
-// state = base64url(JSON) + "." + HMAC-SHA256(base64url(JSON), TOKEN_SECRET)
-const state = signOAuthState({ telegramUserId, scope, resourceId }, TOKEN_SECRET)
-```
+При генерации auth URL в state помещаются telegramUserId, scope и resourceId.
+Payload кодируется и подписывается через TOKEN_SECRET.
 
-При обработке callback:
-```typescript
-// timingSafeEqual(expected_hmac, given_hmac) — иначе throw
-const stateData = verifyOAuthState(body.state, TOKEN_SECRET)
-```
+При обработке callback подпись state проверяется через timingSafeEqual.
+Если state подделан или повреждён, calendar-service возвращает 400 и не создаёт подключение.
 
-Если `state` подделан или повреждён — `calendar-service` возвращает 400 и не создаёт подключение.
+6. Шифрование и жизненный цикл токенов Google
 
----
+OAuth access token и refresh token хранятся в PostgreSQL только в зашифрованном виде.
 
-## 6. Шифрование токенов Google
+Используется AES-256-GCM.
+Ключ выводится через HKDF-SHA256 из CALENDAR_TOKEN_SECRET с контекстом metrix-calendar-tokens-v1.
+Формат хранения: base64(iv).base64(auth_tag).base64(ciphertext).
 
-OAuth access/refresh токены хранятся в PostgreSQL в зашифрованном виде:
+Правила хранения:
 
-```
-AES-256-GCM(token, SHA256(CALENDAR_TOKEN_SECRET))
-```
+AES-256-GCM обеспечивает аутентифицированное шифрование и обнаруживает модификацию
+HKDF-SHA256 используется для корректной деривации ключа из секрета
+случайный IV длиной 12 байт создаётся для каждого шифрования
+CALENDAR_TOKEN_SECRET обязателен
+сервис не должен запускаться без CALENDAR_TOKEN_SECRET
+в production GOOGLE_REDIRECT_URI должен начинаться с https
 
-Формат хранения: `base64(iv).base64(auth_tag).base64(ciphertext)`
+Правила получения токена (oauth-callback):
 
-- **AES-256-GCM** — аутентифицированное шифрование (AEAD), обнаруживает модификацию
-- **Случайный IV** (12 байт) — каждое шифрование уникально
-- `CALENDAR_TOKEN_SECRET` **обязателен** — сервис не запустится без него:
+exchangeCode бросает ошибку если Google не вернул refresh_token.
+Сохранение access_token в поле refreshToken запрещено — access token живёт ~1 час, после чего подключение молча ломается.
+Если refresh_token отсутствует в ответе Google — пользователь должен пройти OAuth повторно с prompt=consent.
 
-```typescript
-const TOKEN_SECRET = process.env.CALENDAR_TOKEN_SECRET
-if (!TOKEN_SECRET) throw new Error('CALENDAR_TOKEN_SECRET env var is required')
-```
+Обновление access token (POST /refresh-token):
 
----
+Когда caller обнаруживает, что expiresAt < now, он вызывает POST /refresh-token.
+calendar-service расшифровывает refresh token из БД, обменивает его на новый access_token через Google, сохраняет результат.
+Refresh token при этом не меняется — Google не ротирует его при обычном refresh.
 
-## 7. Rate Limiting
+Отзыв токена при disconnect:
 
-Bot-gateway ограничивает частоту запросов от каждого пользователя:
+Удаление записи из БД не отзывает доступ на стороне Google.
+При DELETE /connections calendar-service вызывает POST https://oauth2.googleapis.com/revoke с refresh token перед удалением из БД.
+Ошибка revoke логируется, но не блокирует disconnect — пользователь должен иметь возможность отвязать аккаунт даже при недоступности Google API.
+400 от Google при revoke означает, что токен уже истёк или не существует — не ошибка.
 
-- **Лимит**: 10 запросов за 10 секунд (sliding window)
-- **Реализация**: in-memory Map (single-process bot)
-- **При превышении**: бот отвечает "Too many requests." и игнорирует update
+7. Rate limiting
 
-```typescript
-class RateLimiter {
-  isAllowed(userId: number): boolean {
-    const now = Date.now()
-    const hits = (this.buckets.get(userId) ?? []).filter((t) => now - t < this.windowMs)
-    if (hits.length >= this.limit) return false
-    hits.push(now)
-    this.buckets.set(userId, hits)
-    // prune stale entries when map > 10 000 entries
-    return true
-  }
-}
-```
+Bot-gateway ограничивает частоту запросов от каждого пользователя.
 
----
+Лимит — 10 запросов за 10 секунд.
+Алгоритм — fixed window.
+Реализация — Redis INCR и EXPIRE.
 
-## 8. Защита от Double Booking (Race Condition)
+Rate limit сохраняется при рестарте и корректно работает при горизонтальном масштабировании.
+При превышении бот отвечает Too many requests. и игнорирует update.
 
-Два слоя защиты:
+Функция rate limit передаётся в Bot как зависимость через BotOptions.rateLimit.
+Это позволяет подменять реализацию в тестах.
 
-### Слой 1: Prisma transaction
+8. Telegram update idempotency
 
-```typescript
-const booking = await prisma.$transaction(async (tx) => {
-  const taken = await tx.booking.findFirst({
-    where: { resourceId, slotId, status: 'active' }
-  })
-  if (taken) throw Object.assign(new Error('slot taken'), { code: 'SLOT_TAKEN' })
-  return tx.booking.create({ ... })
-})
-```
+Telegram может прислать update повторно.
+Bot-gateway также может перезапуститься между polling cycles.
 
-### Слой 2: PostgreSQL partial unique index (финальный guard)
+In-memory Set недостаточен:
 
-```sql
--- init.sql
-CREATE UNIQUE INDEX booking_active_slot_unique
-  ON booking."Booking" ("resourceId", "slotId")
-  WHERE status = 'active';
-```
+рестарт процесса очищает память
+несколько gateway instances не делят состояние
+offset теряется и старые updates могут прийти снова
 
-Даже при двух параллельных запросах, которые одновременно прошли transaction-check, PostgreSQL откажет второму через unique constraint violation (`P2002`).
+Bot-gateway хранит состояние Telegram polling в Redis.
 
----
+Ключи:
 
-## 9. Валидация входных данных
+telegram:updates:processed:{updateId} — факт обработки update
+telegram:updates:offset — последний сохранённый polling offset
 
-Каждый сервис проверяет:
+Правила:
 
-- **Content-Type**: только `application/json` для POST/PATCH/DELETE
-- **Размер тела**: максимум 64 KB
-- **Типы полей**: `telegramUserId` — положительное целое число, `resourceId`/`slotId` — непустые строки
-- **status при отмене**: только `cancelled` или `rescheduled`
+processed key создаётся через SET NX EX
+TTL processed key — 7 дней
+offset сохраняется монотонно через Lua script
+старый gateway instance не может перезаписать новый offset меньшим значением
 
-```typescript
-// packages/auth/src/index.ts
-export function readJsonBody<T>(req: IncomingMessage): Promise<{ raw: string; parsed: T }> {
-  const ct = req.headers['content-type'] ?? ''
-  if (!ct.includes('application/json')) {
-    return Promise.reject(new Error('content-type must be application/json'))
-  }
-  return readBody(req).then(...)  // MAX_BODY_BYTES = 64 * 1024
-}
-```
+Алгоритм:
 
----
+1. при старте gateway читает telegram:updates:offset
+2. для каждого update пытается создать processed key
+3. если ключ уже есть, update пропускается
+4. после обработки сохраняется offset = update_id + 1
 
-## 10. Redis Security
+Эта защита не заменяет idempotency в booking-service и payment-service.
+Она только защищает Telegram boundary от повторной обработки одного update.
 
-```yaml
-redis:
-  command: >
-    redis-server
-    --requirepass ${REDIS_PASSWORD}
-    --rename-command FLUSHALL ""
-    --rename-command FLUSHDB ""
-    --rename-command DEBUG ""
-    --rename-command CONFIG ""
-```
+9. Защита от double booking
 
-- Пароль обязателен
-- Опасные команды отключены через `rename-command ""`
-- Redis доступен только внутри Docker-сети
+Двойное бронирование предотвращается двумя слоями.
 
----
+Слой 1 — Prisma transaction.
+В transaction проверяется существующая активная бронь для resourceId и slotId.
+Если слот занят, выбрасывается ошибка SLOT_TAKEN.
+Если слот свободен, создаётся booking.
 
-## 11. Audit Log
+Слой 2 — PostgreSQL partial unique index.
+Индекс запрещает две активные брони на одну пару resourceId и slotId.
 
-Мутирующие действия пишут структурированный JSON в stdout:
+Даже если два параллельных запроса одновременно прошли transaction-check, PostgreSQL отклонит второй через unique constraint violation.
 
-```json
-{
-  "ts": "2026-05-02T10:00:00.000Z",
-  "service": "booking",
-  "action": "booking.cancelled",
-  "userId": 123456789,
-  "bookingId": "booking-1746140400000",
-  "requestId": "550e8400-...",
-  "callerService": "bot-gateway"
-}
-```
+10. Валидация входных данных
+
+Каждый сервис проверяет входные данные.
+
+Правила:
+
+Content-Type для POST, PATCH и DELETE должен быть application/json
+размер тела запроса не больше 64 KB
+telegramUserId должен быть положительным целым числом
+resourceId должен быть непустой строкой
+slotId должен быть непустой строкой
+status при отмене может быть только cancelled или rescheduled
+
+readJsonBody в packages/auth/src/index.ts проверяет content type и размер тела до парсинга JSON.
+
+Telegram callback data
+
+callback_data валидируется в bot-gateway до вызова service layer.
+Даже если callback создан нашими inline-кнопками, вход считается недоверенным.
+
+Правила:
+
+callback_data не больше 64 bytes
+команда должна иметь известный prefix
+количество сегментов должно точно совпадать с ожидаемым форматом
+resourceId, slotId, bookingId и locationId проходят safe-token проверку
+calendar provider может быть только google или microsoft
+
+Невалидный callback логируется как telegram.callback.invalid и не вызывает downstream-сервисы.
+
+11. Redis Security
+
+Redis должен быть защищён паролем.
+Опасные команды должны быть отключены через rename-command.
+Redis доступен только внутри Docker-сети.
+
+Отключаются команды:
+
+FLUSHALL
+FLUSHDB
+DEBUG
+CONFIG
+
+12. Идентификаторы ресурсов
+
+Все идентификаторы, создаваемые в системе, используют randomUUID() из node:crypto.
+
+Booking ID создаётся через randomUUID().
+Invoice ID создаётся через randomUUID().
+
+Запрещены идентификаторы на базе Date.now() и Math.random().
+Это исключает атаки перебора и предсказания ID.
+
+13. Защита от межсервисных зависаний
+
+Все межсервисные fetch-вызовы выполняются с таймаутом 5 секунд.
+Внешние OAuth-запросы выполняются с таймаутом 10 секунд.
+
+Это предотвращает каскадный отказ, при котором зависание одного сервиса накапливает незавершённые запросы во всех вызывающих сервисах.
+
+14. Административный доступ
+
+Команда /stats доступна только пользователям из ADMIN_TELEGRAM_IDS.
+ADMIN_TELEGRAM_IDS используется только как источник назначения роли admin.
+Проверка доступа выполняется через RBAC policy helpers из apps/bot/packages/rbac.
+
+Все admin-команды обязаны проверять permission admin:read или admin:write перед обращением к admin или analytics сервисам.
+Неавторизованному пользователю возвращается нейтральный ответ Access denied.
+Ответ не должен раскрывать детали проверки.
+
+15. Whitelist полей при обновлении ресурсов
+
+admin-service при PATCH-запросах явно перечисляет допустимые поля.
+Все остальные поля отклоняются.
+
+Допустимые поля UpdateResourceInput:
+
+priceLabel
+priceMinorUnits
+occupancy
+status
+
+Системные поля запрещены к обновлению через API.
+К запрещённым полям относятся id и locationId.
+
+Это защищает от mass assignment.
+
+16. Audit Log
+
+Мутирующие действия пишут структурированный JSON в stdout и persistent audit log в PostgreSQL.
+
+Запись audit log содержит:
+
+ts — время события
+service — имя сервиса
+action — действие
+actorUserId — пользователь, если применимо
+entityType — тип сущности
+entityId — идентификатор сущности
+requestId — идентификатор запроса
+callerService — вызывающий сервис
+payload — безопасные дополнительные детали события
+
+Persistent audit хранится в audit."AuditLog".
+Сервисная запись выполняется через @metrix/audit-log.
+RBAC decisions описаны в RBAC_AND_AUDIT.md и реализуются через @metrix/rbac.
+Правила чтения, redaction и retention описаны в AUDIT_LOG_POLICY.md.
+admin-service выполняет scheduled cleanup старых audit records по AUDIT_RETENTION_DAYS.
+
+Ошибка записи persistent audit логируется как audit.persist.failed.
+Текущий режим — non-blocking audit: бизнес-операция не откатывается только из-за ошибки audit insert.
+Это временный компромисс до транзакционного audit для критичных money operations.
 
 Покрытые события:
 
-| Событие | Сервис |
-|---|---|
-| `booking.created` | booking-service |
-| `booking.cancelled` | booking-service |
-| `booking.cancel.forbidden` | booking-service |
-| `invoice.created` | payment-service |
-| `payment.completed` | payment-service |
-| `calendar.connected` | calendar-service |
-| `calendar.disconnected` | calendar-service |
-| `location.updated` | admin-service |
-| `resource.updated` | admin-service |
+booking.created — booking-service
+booking.cancelled — booking-service
+booking.cancel.forbidden — booking-service
+invoice.created — payment-service
+payment.completed — payment-service
+payment.hold_expired — payment-service
+payment.part_completed — payment-service
+payment.booking_created — payment-service
+payment.booking_failed — payment-service
+payment.compensation_started — payment-service
+payment.booking_retry_requested — payment-service
+payment.compensated — payment-service
+calendar.connected — calendar-service
+calendar.disconnected — calendar-service
+location.updated — admin-service
+resource.updated — admin-service
+dlq.replayed — admin-service
 
----
+17. SSRF Protection
 
-## 12. SSRF Protection
+calendar-service делает внешние HTTP-запросы только к разрешённым Google OAuth hosts.
 
-`calendar-service` делает внешние HTTP-запросы только к Google OAuth. Список разрешённых хостов захардкожен:
+Разрешённые hosts:
 
-```typescript
-const ALLOWED_EXTERNAL_HOSTS = new Set([
-  'oauth2.googleapis.com',
-  'accounts.google.com',
-])
+oauth2.googleapis.com
+accounts.google.com
 
-async function exchangeGoogleCode(code: string) {
-  const target = new URL('https://oauth2.googleapis.com/token')
-  if (!ALLOWED_EXTERNAL_HOSTS.has(target.hostname)) {
-    throw new Error(`SSRF: disallowed host ${target.hostname}`)
-  }
-  // ...
-}
-```
+Перед внешним запросом target hostname проверяется по allowlist.
+Запрос к неизвестному host отклоняется.
 
----
+18. Security headers и CORS
 
-## 13. Конфигурация (.env)
+Web boundary задаёт security headers в apps/web/next.config.mjs.
 
-Полный список переменных окружения для production:
+Обязательные headers:
 
-```env
-# Инфраструктура
-POSTGRES_PASSWORD=<случайный 32+ символа>
-REDIS_PASSWORD=<случайный 32+ символа>
+Strict-Transport-Security
+X-Frame-Options
+X-Content-Type-Options
+Referrer-Policy
+Permissions-Policy
+Content-Security-Policy
 
-# Telegram
-TELEGRAM_BOT_TOKEN=<токен от @BotFather>
-ADMIN_TELEGRAM_IDS=<id1,id2>
+CORS policy по умолчанию закрытая.
+Internal services не должны быть доступны браузеру напрямую.
+Новые public API routes должны явно описывать allowed origins.
 
-# Google Calendar OAuth
-GOOGLE_CALENDAR_CLIENT_ID=<из GCP Console>
-GOOGLE_CALENDAR_CLIENT_SECRET=<из GCP Console>
-GOOGLE_CALENDAR_REDIRECT_URI=https://yourdomain.com/calendar/google/callback
-CALENDAR_TOKEN_SECRET=<случайный 32+ символа, ОБЯЗАТЕЛЕН>
+Подробности:
 
-# Оплата
-YOOKASSA_PROVIDER_TOKEN=<провайдер токен>
-PAYMENT_CURRENCY=RUB
+SECURITY_HEADERS_AND_CORS.md
 
-# Service signing secrets (каждый уникален)
-GATEWAY_SIGNING_SECRET=<случайный 32+ символа>
-PAYMENT_SIGNING_SECRET=<случайный 32+ символа>
-ANALYTICS_SIGNING_SECRET=<случайный 32+ символа>
-ADMIN_SIGNING_SECRET=<случайный 32+ символа>
+19. Конфигурация production
 
-# User identity
-USER_ID_SIGNING_SECRET=<случайный 32+ символа>
-```
+Полный набор production-переменных должен включать infrastructure, Telegram, Google Calendar OAuth, payment, service signing secrets и user identity secret.
 
-Сгенерировать все секреты сразу:
+Infrastructure:
 
-```bash
-node -e "
-const { randomBytes } = require('crypto')
-const keys = [
-  'POSTGRES_PASSWORD', 'REDIS_PASSWORD', 'CALENDAR_TOKEN_SECRET',
-  'GATEWAY_SIGNING_SECRET', 'PAYMENT_SIGNING_SECRET',
-  'ANALYTICS_SIGNING_SECRET', 'ADMIN_SIGNING_SECRET', 'USER_ID_SIGNING_SECRET'
-]
-keys.forEach(k => console.log(k + '=' + randomBytes(32).toString('hex')))
-"
-```
+POSTGRES_PASSWORD
+REDIS_PASSWORD
 
----
+Telegram:
 
-## 14. Что остаётся для production
+TELEGRAM_BOT_TOKEN
+ADMIN_TELEGRAM_IDS
+TELEGRAM_MODE
+TELEGRAM_WEBHOOK_URL
+TELEGRAM_WEBHOOK_SECRET
 
-| Задача | Приоритет |
-|---|---|
-| HTTPS на OAuth callback URI | 🔴 обязательно |
-| Telegram webhook + `secret_token` (вместо long polling) | 🟠 рекомендуется |
-| Ротация секретов (GATEWAY_SIGNING_SECRET и др.) | 🟠 рекомендуется |
-| Централизованные логи (Loki / Datadog) | 🟡 желательно |
-| Redis ACL (per-user permissions вместо rename-command) | 🟡 желательно |
-| Dependency scanning (npm audit в CI) | 🟡 желательно |
+Google Calendar OAuth:
 
----
+GOOGLE_CALENDAR_CLIENT_ID
+GOOGLE_CALENDAR_CLIENT_SECRET
+GOOGLE_CALENDAR_REDIRECT_URI
+CALENDAR_TOKEN_SECRET
 
-## Связанные документы
+Payment:
 
-- [System Overview](./SYSTEM_OVERVIEW.md)
-- [Deployment](./DEPLOYMENT.md)
-- [Queues and Events](./QUEUES_AND_EVENTS.md)
-- [Source: packages/auth](../../apps/bot/packages/auth/src/index.ts)
+YOOKASSA_PROVIDER_TOKEN
+PAYMENT_CURRENCY
+
+Service signing secrets:
+
+GATEWAY_SIGNING_SECRET
+PAYMENT_SIGNING_SECRET
+ANALYTICS_SIGNING_SECRET
+ADMIN_SIGNING_SECRET
+
+User identity:
+
+USER_ID_SIGNING_SECRET
+
+Все секреты должны быть случайными значениями длиной не меньше 32 символов.
+Секреты должны генерироваться через криптографически стойкий генератор.
+
+Ротация секретов описана в SECRET_ROTATION.md.
+
+19. Хеширование паролей web API
+
+packages/api/src/shared/auth/password.ts использует PBKDF2-SHA512 с 120 000 итерациями.
+
+Правила:
+
+pbkdf2 вызывается асинхронно через promisify и не блокирует event loop
+verifyPassword отклоняет хранимые хеши с iterations меньше 100 000
+соль создаётся через randomBytes
+длина соли — 16 байт
+
+Проверка минимального числа итераций защищает от подделки записей в БД.
+
+20. Защита от path traversal в notification-service
+
+send_document события из Redis обрабатываются с проверкой пути.
+Файлы разрешены только из директории /reports.
+
+Алгоритм:
+
+1. определить REPORTS_DIR как /reports
+2. взять basename из входного filePath
+3. построить safePath внутри REPORTS_DIR
+4. проверить, что safePath начинается с REPORTS_DIR
+5. отклонить событие при нарушении проверки
+
+Небезопасный filePath логируется и не обрабатывается.
+
+21. Что остаётся для production
+
+ротация GATEWAY_SIGNING_SECRET и других service secrets — рекомендуется
+централизованные логи через Loki, Datadog или аналог — желательно
+Redis ACL вместо rename-command — желательно
+secret scanning provider для pull requests — желательно
+re-encrypt существующих Calendar-токенов после смены keyFrom с SHA256 на HKDF — обязательно при деплое на production с данными
+настроить Google OAuth на refresh token rotation и обновлять хранимый refresh_token при каждом /refresh-token вызове — желательно для долгоживущих подключений
+
+22. Telegram Webhook Security
+
+В production bot-gateway должен работать в webhook mode.
+
+Правила:
+
+TELEGRAM_WEBHOOK_URL должен быть HTTPS URL
+TELEGRAM_WEBHOOK_SECRET должен быть случайным значением длиной не меньше 32 символов
+bot-gateway передаёт secret_token в Telegram setWebhook
+POST /telegram/webhook проверяет X-Telegram-Bot-Api-Secret-Token
+update всё равно проходит Redis idempotency по update_id
+
+Webhook secret защищает endpoint от прямых запросов без Telegram.
+Он не заменяет idempotency, rate limiting и бизнес-транзакции.
+
+Связанные документы
+
+SYSTEM_OVERVIEW.md — общий обзор системы
+DEPLOYMENT.md — деплой и окружения
+QUEUES_AND_EVENTS.md — очереди и события
+packages/auth/src/index.ts — исходный код auth helpers
