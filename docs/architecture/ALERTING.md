@@ -12,12 +12,12 @@ Alert должен говорить не только что сломалось,
 High error rate:
 
 ошибка: доля 5xx больше 5% за 5 минут
-реакция: проверить logs по service и requestId
+реакция: проверить logs по service и requestId, открыть docs/operations/failed-deploy-rollback.md
 
 High latency:
 
 ошибка: p95 HTTP latency выше SLO за 10 минут
-реакция: проверить downstream dependency, PostgreSQL и Redis
+реакция: проверить downstream dependency, PostgreSQL и Redis, открыть docs/operations/SLO.md
 
 Redis stream lag:
 
@@ -27,12 +27,12 @@ Redis stream lag:
 Readiness failure:
 
 ошибка: /ready возвращает 503
-реакция: проверить dependency check, connection strings и provider status
+реакция: проверить dependency check, connection strings и provider status, открыть docs/operations/redis-outage.md или docs/operations/db-restore.md
 
 DLQ activity:
 
 ошибка: появились новые сообщения в dlq:* stream
-реакция: не replay-ить автоматически, сначала расследовать причину
+реакция: не replay-ить автоматически, сначала открыть docs/operations/dlq-replay.md
 
 Telegram duplicate updates:
 
