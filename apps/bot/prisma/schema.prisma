@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["booking", "calendar", "payment", "analytics"]
+  schemas  = ["booking", "calendar", "payment", "analytics", "audit"]
 }
 
 // ─── booking schema ───────────────────────────────────────────────────────────
@@ -55,6 +55,8 @@ model Booking {
   endsAt                 String
   endsAtIso              DateTime
   status                 String   @default("active")
+  // idempotency: уникальный ключ от клиента — защищает от дублей при retry
+  idempotencyKey         String?  @unique
   calendarEventGoogle    String?
   calendarEventMicrosoft String?
   createdAt              DateTime @default(now())
@@ -97,6 +99,9 @@ model CalendarConnection {
 model PendingInvoice {
   id                    String   @id
   amountMinorUnits      Int
+  // pending | paid_part | completed | failed | expired
+  status                String   @default("pending")
+  holdId                String?
   locationId            String
   paidAmountMinorUnits  Int      @default(0)
   partNumber            Int      @default(1)
@@ -105,7 +110,59 @@ model PendingInvoice {
   telegramUserId        BigInt
   totalAmountMinorUnits Int
   totalParts            Int      @default(1)
+  completedAt           DateTime?
+  supersededByInvoiceId String?
   createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@schema("payment")
+}
+
+// SlotHold — временная бронь слота до завершения оплаты.
+//
+// Задача: не дать двум пользователям оплатить один и тот же слот.
+// Hold создаётся перед отправкой invoice и живёт ограниченное время.
+// После успешного создания Booking он переводится в paid.
+model SlotHold {
+  id             String   @id @default(cuid())
+  resourceId     String
+  slotId         String
+  telegramUserId BigInt
+  invoiceId      String?  @unique
+  // held | paid | expired | cancelled
+  status         String   @default("held")
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@schema("payment")
+}
+
+// PaymentSaga — хранит состояние saga-паттерна для многочастных платежей.
+//
+// Проблема: оплата бронирования разбивается на N частей (лимит Telegram Stars).
+// Если сервис падает между частями — нет информации о том, какие части оплачены
+// и нужно ли создавать бронирование или компенсировать уже оплаченное.
+//
+// Решение: PaymentSaga фиксирует полное состояние flow и позволяет
+// при восстановлении продолжить с последнего успешного шага.
+model PaymentSaga {
+  id             String   @id @default(cuid())
+  invoiceId      String   @unique
+  resourceId     String
+  slotId         String
+  telegramUserId BigInt
+  chatId         BigInt
+  totalAmount    Int
+  paidAmount     Int      @default(0)
+  // pending | awaiting_next_part | awaiting_booking | completed | failed | compensating | compensated
+  status         String   @default("pending")
+  currentPart    Int      @default(1)
+  totalParts     Int      @default(1)
+  failureReason  String?
+  bookingId      String?  // заполняется когда бронирование создано
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@schema("payment")
 }
@@ -123,4 +180,23 @@ model Report {
   updatedAt   DateTime @updatedAt
 
   @@schema("analytics")
+}
+
+// ─── audit schema ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  ts            DateTime @default(now())
+  service       String
+  action        String
+  actorUserId   BigInt?
+  entityType    String?
+  entityId      String?
+  requestId     String?
+  callerService String?
+  payload       Json?
+
+  @@index([service, action, ts])
+  @@index([entityType, entityId])
+  @@schema("audit")
 }
