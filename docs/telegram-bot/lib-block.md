@@ -21,51 +21,62 @@ calendar-links.ts — генерация ссылок на Google Calendar и Ou
 
 telegram-types.ts
 
-Содержит только типы, без логики. Экспортирует:
+Содержит только типы, без логики.
 
-* TelegramUpdate — входящее обновление
-* TelegramMessage, TelegramCallbackQuery, TelegramPreCheckoutQuery — типы обновлений
-* TelegramUser, TelegramChat — участники
-* InlineKeyboardMarkup, InlineKeyboardButton — клавиатуры
-* SendMessageOptions, EditMessageOptions, SendInvoiceInput — параметры методов
-* TelegramApiResponse — обёртка ответа API
+Экспортирует:
+
+TelegramUpdate — входящее обновление
+TelegramMessage — сообщение пользователя
+TelegramCallbackQuery — нажатие inline-кнопки
+TelegramPreCheckoutQuery — запрос проверки платежа
+TelegramUser — пользователь Telegram
+TelegramChat — чат Telegram
+InlineKeyboardMarkup — inline-клавиатура
+InlineKeyboardButton — inline-кнопка
+SendMessageOptions — параметры отправки сообщения
+EditMessageOptions — параметры редактирования сообщения
+SendInvoiceInput — параметры инвойса
+TelegramApiResponse — обёртка ответа API
 
 telegram-client.ts
 
-Класс TelegramClient. Принимает токен через конструктор. Все методы выполняют POST-запрос к Telegram Bot API.
+Класс TelegramClient принимает токен через constructor.
+Все методы выполняют запросы к Telegram Bot API.
 
 Методы:
 
-* getUpdates(options) — long polling, возвращает список обновлений
-* sendMessage(chatId, text, options) — отправляет сообщение
-* sendInvoice(input) — отправляет инвойс для оплаты
-* editMessageText(chatId, messageId, text, options) — редактирует сообщение
-* answerCallbackQuery(callbackQueryId, text?) — подтверждает нажатие кнопки
-* answerPreCheckoutQuery(preCheckoutQueryId, input) — отвечает на pre-checkout
-* setMyCommands() — регистрирует список команд бота
+getUpdates(options) — long polling, возвращает список обновлений
+sendMessage(chatId, text, options) — отправляет сообщение
+sendInvoice(input) — отправляет инвойс для оплаты
+editMessageText(chatId, messageId, text, options) — редактирует сообщение
+answerCallbackQuery(callbackQueryId, text?) — подтверждает нажатие кнопки
+answerPreCheckoutQuery(preCheckoutQueryId, input) — отвечает на pre-checkout
+setMyCommands() — регистрирует список команд бота
 
 При ошибке API выбрасывает Error с описанием из ответа.
 
 logger.ts
 
-Интерфейс Logger с методами info, warn, error.
-ConsoleLogger выводит JSON-строки в console. Ошибки сериализуются в { message, name, stack }.
+Интерфейс Logger содержит методы info, warn и error.
+ConsoleLogger выводит JSON-строки в console.
+Ошибки сериализуются в объект с message, name и stack.
 
 env.ts
 
-Функция readEnv() читает TELEGRAM_BOT_TOKEN, YOOKASSA_PROVIDER_TOKEN, PAYMENT_CURRENCY, ADMIN_TELEGRAM_IDS.
-Выбрасывает Error при отсутствии обязательных токенов.
+Функция readEnv() читает TELEGRAM_BOT_TOKEN, YOOKASSA_PROVIDER_TOKEN, PAYMENT_CURRENCY и ADMIN_TELEGRAM_IDS.
+При отсутствии обязательных токенов выбрасывается Error.
 ADMIN_TELEGRAM_IDS парсится как список чисел через запятую.
 
 calendar-links.ts
 
-Функция createBookingCalendarLinks(booking) возвращает { google, outlook }.
-Ссылки формируются из полей Booking: startsAtIso, endsAtIso, locationName, resourceName, priceLabel.
+Функция createBookingCalendarLinks(booking) возвращает ссылки Google Calendar и Outlook.
+Ссылки формируются из полей Booking: startsAtIso, endsAtIso, locationName, resourceName и priceLabel.
 
 Зависимости
 
 src/lib не импортирует ничего из src/bot, src/commands или src/services.
-Это базовый слой — зависимости идут только снизу вверх.
+Это базовый слой.
+Зависимости идут только снизу вверх.
 
 Расширение
 
@@ -78,5 +89,5 @@ src/lib не импортирует ничего из src/bot, src/commands ил
 Добавление переменной окружения:
 
 1. добавить поле в BotEnv
-2. прочитать и валидировать в readEnv
-3. передать через опции в нужный модуль
+2. прочитать и валидировать значение в readEnv
+3. передать значение через options в нужный модуль
