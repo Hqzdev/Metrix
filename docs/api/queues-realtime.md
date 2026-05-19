@@ -24,14 +24,7 @@ Redis
 
 redis-client.ts экспортирует createRedisConnection().
 
-Пример:
-
-```ts
-const redis = createRedisConnection({
-  url: process.env.REDIS_URL!,
-})
-```
-
+createRedisConnection принимает url и создаёт Redis connection для BullMQ.
 process.env читается на уровне приложения.
 Внутри доменных modules переменные окружения не используются.
 
@@ -39,60 +32,57 @@ Calendar sync queue
 
 calendar-sync-queue.ts содержит:
 
-* CalendarSyncJobData — payload события бронирования
-* createCalendarSyncQueue(connection) — создаёт BullMQ queue
-* enqueueCalendarSyncJob(queue, data) — добавляет job
-* createCalendarSyncWorker(connection, handler) — создаёт worker
+CalendarSyncJobData — payload события бронирования
+createCalendarSyncQueue(connection) — создаёт BullMQ queue
+enqueueCalendarSyncJob(queue, data) — добавляет job
+createCalendarSyncWorker(connection, handler) — создаёт worker
 
 Очередь используется для событий:
 
-* booking.created — создать событие в календаре
-* booking.cancelled — удалить или отменить событие
-* booking.updated — обновить время события
+booking.created — создать событие в календаре
+booking.cancelled — удалить или отменить событие
+booking.updated — обновить время события
 
 Настройки job:
 
-* attempts: 3
-* exponential backoff от 5 секунд
-* removeOnComplete: 100
-* removeOnFail: 500
+attempts — 3
+backoff — exponential от 5 секунд
+removeOnComplete — 100
+removeOnFail — 500
 
 Booking reminder queue
 
 booking-reminder-queue.ts содержит:
 
-* BookingReminderJobData — booking для напоминания
-* createBookingReminderQueue(connection) — создаёт BullMQ queue
-* enqueueBookingReminderJob(queue, booking) — ставит отложенную job
-* createBookingReminderWorker(connection, handler) — создаёт worker
+BookingReminderJobData — booking для напоминания
+createBookingReminderQueue(connection) — создаёт BullMQ queue
+enqueueBookingReminderJob(queue, booking) — ставит отложенную job
+createBookingReminderWorker(connection, handler) — создаёт worker
 
 Напоминание ставится на 15 минут до startsAt.
 Если время уже прошло, delay становится 0 и job выполняется сразу.
 
 Worker не отправляет сообщение сам.
-Он вызывает handler, а handler уже может использовать Telegram transport.
+Он вызывает handler.
+Handler может использовать Telegram transport.
 
 Booking events
 
-booking-events.ts содержит event bus и имена событий:
+booking-events.ts содержит event bus и имена событий.
 
-* booking.created
-* booking.cancelled
-* booking.updated
+События:
+
+booking.created
+booking.cancelled
+booking.updated
 
 Payload:
 
-* booking — BookingResponse
-* occurredAt — ISO-дата события
+booking — BookingResponse
+occurredAt — ISO-дата события
 
 createBooking() после успешной транзакции может получить eventPublisher.
 Если publisher передан, он публикует booking.created.
-
-Пример:
-
-```ts
-await createBooking(input, repository, bookingEventBus)
-```
 
 Event handlers
 
@@ -100,19 +90,19 @@ register-booking-event-handlers.ts связывает события с инфр
 
 booking.created:
 
-* отправляет availability.changed в WebSocket
-* добавляет calendar sync job
-* добавляет reminder job
+отправляет availability.changed в WebSocket
+добавляет calendar sync job
+добавляет reminder job
 
 booking.cancelled:
 
-* отправляет availability.changed в WebSocket
-* добавляет calendar sync job
+отправляет availability.changed в WebSocket
+добавляет calendar sync job
 
 booking.updated:
 
-* отправляет availability.changed в WebSocket
-* добавляет calendar sync job
+отправляет availability.changed в WebSocket
+добавляет calendar sync job
 
 Все зависимости optional.
 Можно подключить только очереди, только WebSocket или всё вместе.
@@ -121,65 +111,37 @@ WebSocket availability
 
 availability-hub.ts содержит AvailabilityHub.
 
-Подключение:
+AvailabilityHub создаётся от httpServer.
+Путь по умолчанию — /ws/availability.
 
-```ts
-const availabilityHub = AvailabilityHub.create(httpServer)
-```
-
-Путь по умолчанию:
-
-```text
-/ws/availability
-```
-
-Клиент может подписаться на конкретные ресурсы или локации:
-
-```json
-{
-  "type": "subscribe",
-  "resourceIds": ["resource-id"],
-  "locationIds": ["location-id"]
-}
-```
+Клиент может подписаться на конкретные ресурсы или локации.
+Подписка передаёт type subscribe, resourceIds и locationIds.
 
 Если подписка пустая, клиент получает все изменения.
 
-Событие изменения:
+Событие изменения имеет type availability.changed.
 
-```json
-{
-  "type": "availability.changed",
-  "bookingId": "booking-id",
-  "locationId": "location-id",
-  "resourceId": "resource-id",
-  "status": "active",
-  "occurredAt": "2026-04-30T00:00:00.000Z"
-}
-```
+Payload события изменения:
+
+bookingId
+locationId
+resourceId
+status
+occurredAt
 
 Запуск
 
 Минимальный env:
 
-```bash
-REDIS_URL=redis://localhost:6379
-```
+REDIS_URL — URL подключения к Redis
 
-Пример сборки инфраструктуры:
+Сборка инфраструктуры:
 
-```ts
-const redis = createRedisConnection({ url: process.env.REDIS_URL! })
-const calendarSyncQueue = createCalendarSyncQueue(redis)
-const bookingReminderQueue = createBookingReminderQueue(redis)
-const availabilityHub = AvailabilityHub.create(httpServer)
-
-registerBookingEventHandlers(bookingEventBus, {
-  availabilityHub,
-  bookingReminderQueue,
-  calendarSyncQueue,
-})
-```
+1. создать Redis connection
+2. создать calendar sync queue
+3. создать booking reminder queue
+4. создать AvailabilityHub от httpServer
+5. зарегистрировать handlers через registerBookingEventHandlers
 
 Расширение
 
