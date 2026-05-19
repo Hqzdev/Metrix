@@ -311,6 +311,33 @@ Follow-up:
 ![Backup file](./screenshots/production-backup-file.png)
 ![Restore drill](./screenshots/production-restore-drill.png)
 
+Restore drill evidence:
+
+docs/testing/RESTORE_DRILL_EVIDENCE.md
+
+Incident simulation
+
+Что проверить:
+
+analytics down
+Redis down
+payment retry
+DLQ replay
+
+Evidence:
+
+Дата:
+Окружение:
+Analytics down:
+Redis down:
+Payment retry:
+DLQ replay:
+Follow-up:
+
+Drill evidence:
+
+docs/testing/INCIDENT_DRILL_EVIDENCE.md
+
 CI/CD и dependency scanning
 
 Что проверить:
