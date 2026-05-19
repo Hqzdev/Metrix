@@ -1,17 +1,19 @@
-import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage } from 'node:http'
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const MAX_DRIFT_MS = 30_000
+
+// 64 KB достаточно для любого межсервисного JSON — защита от OOM при намеренно большом body
 const MAX_BODY_BYTES = 64 * 1024
 
 // ─── service-to-service signing ───────────────────────────────────────────────
 
-export type TrustedCaller = { name: string; secret: string }
+export type TrustedCaller = { name: string; secret: string | string[] }
 
 export type VerifyResult =
-  | { ok: true; callerName: string; requestId: string }
+  | { ok: true; callerName: string; requestId: string; traceparent: string }
   | { ok: false; error: string }
 
 /**
@@ -27,6 +29,7 @@ export function buildAuthHeaders(
 ): Record<string, string> {
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const requestId = randomUUID()
+  const traceparent = createTraceparent()
   const bodyHash = createHash('sha256').update(body).digest('hex')
   const message = [method.toUpperCase(), path, timestamp, requestId, bodyHash].join('\n')
   const signature = createHmac('sha256', signingSecret).update(message).digest('hex')
@@ -36,6 +39,7 @@ export function buildAuthHeaders(
     'x-timestamp': timestamp,
     'x-request-id': requestId,
     'x-signature': signature,
+    traceparent,
   }
 }
 
@@ -64,23 +68,46 @@ export function verifyServiceRequest(
 
   const caller = trusted.find((c) => c.name === name)
   if (!caller) {
-    return { ok: false, error: `unknown service: ${name}` }
+    return { ok: false, error: 'unauthorized' }
   }
 
   const method = (req.method ?? 'GET').toUpperCase()
-  const urlPath = new URL(req.url ?? '/', 'http://localhost').pathname
+  const url = new URL(req.url ?? '/', 'http://localhost')
+  const urlPath = `${url.pathname}${url.search}`
   const bodyHash = createHash('sha256').update(rawBody).digest('hex')
   const message = [method, urlPath, timestamp, requestId, bodyHash].join('\n')
-  const expected = createHmac('sha256', caller.secret).update(message).digest('hex')
+  const secrets = Array.isArray(caller.secret) ? caller.secret : [caller.secret]
+  const matched = secrets.some((secret) => signatureMatches(message, signature, secret))
 
-  const givenBuf = Buffer.from(signature, 'hex')
-  const expectedBuf = Buffer.from(expected, 'hex')
-
-  if (givenBuf.length !== expectedBuf.length || !timingSafeEqual(givenBuf, expectedBuf)) {
+  if (!matched) {
     return { ok: false, error: 'invalid signature' }
   }
 
-  return { ok: true, callerName: name, requestId }
+  return { ok: true, callerName: name, requestId, traceparent: readTraceparent(req) }
+}
+
+export function createTraceparent(): string {
+  const traceId = randomBytes(16).toString('hex')
+  const spanId = randomBytes(8).toString('hex')
+  return `00-${traceId}-${spanId}-01`
+}
+
+export function readTraceparent(req: IncomingMessage): string {
+  const header = req.headers.traceparent
+  const value = Array.isArray(header) ? header[0] : header
+  return typeof value === 'string' && isValidTraceparent(value) ? value : createTraceparent()
+}
+
+function isValidTraceparent(value: string): boolean {
+  return /^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$/.test(value)
+}
+
+function signatureMatches(message: string, signature: string, secret: string): boolean {
+  const expected = createHmac('sha256', secret).update(message).digest('hex')
+  const givenBuf = Buffer.from(signature, 'hex')
+  const expectedBuf = Buffer.from(expected, 'hex')
+
+  return givenBuf.length === expectedBuf.length && timingSafeEqual(givenBuf, expectedBuf)
 }
 
 // ─── user identity (set only by bot-gateway) ──────────────────────────────────
@@ -156,6 +183,12 @@ export function verifyOAuthState(state: string, secret: string): OAuthStateData 
 
 // ─── body reader with size limit ──────────────────────────────────────────────
 
+/**
+ * Читает тело HTTP-запроса с ограничением размера.
+ *
+ * Превышение MAX_BODY_BYTES разрушает соединение немедленно —
+ * продолжать чтение при DoS-атаке бессмысленно и опасно.
+ */
 export function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let raw = ''
@@ -193,6 +226,13 @@ type AuditEntry = {
   [key: string]: unknown
 }
 
+/**
+ * Записывает структурированную audit-запись в stdout.
+ *
+ * Audit log обязателен для мутирующих административных и платёжных действий.
+ * Пишется в stdout (не stderr), чтобы log collector мог маршрутизировать
+ * audit отдельно от error-логов.
+ */
 export function audit(entry: AuditEntry): void {
   console.log(JSON.stringify(entry))
 }
