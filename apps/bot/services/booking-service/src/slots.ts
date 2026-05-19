@@ -1,5 +1,8 @@
 import type { AvailableSlot } from '@metrix/contracts'
 
+/**
+ * Выполняет createSlots как отдельный шаг сервисной логики.
+ */
 export function createSlots(resourceId: string): AvailableSlot[] {
   const today = new Date()
   today.setMinutes(0, 0, 0)
@@ -10,6 +13,9 @@ export function createSlots(resourceId: string): AvailableSlot[] {
   ]
 }
 
+/**
+ * Выполняет makeSlot как отдельный шаг сервисной логики.
+ */
 function makeSlot(resourceId: string, suffix: string, base: Date, startH: number, endH: number): AvailableSlot {
   const s = new Date(base)
   s.setHours(startH, 0, 0, 0)
@@ -24,6 +30,9 @@ function makeSlot(resourceId: string, suffix: string, base: Date, startH: number
   }
 }
 
+/**
+ * Выполняет fmt как отдельный шаг сервисной логики.
+ */
 function fmt(d: Date): string {
   return new Intl.DateTimeFormat('en', { day: '2-digit', hour: '2-digit', minute: '2-digit', month: 'short' }).format(d)
 }
