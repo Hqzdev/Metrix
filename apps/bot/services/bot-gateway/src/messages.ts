@@ -1,10 +1,16 @@
 import type { AvailableSlot, Booking, BookingLocation, BookingResource } from '@metrix/contracts'
 
+/**
+ * Формирует приветственное сообщение для Telegram-пользователя.
+ */
 export function welcomeMessage(firstName?: string): string {
   const name = firstName ? `, ${firstName}` : ''
   return [`Welcome${name}.`, '', 'Smart Booking helps you reserve rooms and desks in a few taps.', 'Choose an action below.'].join('\n')
 }
 
+/**
+ * Формирует справочное сообщение со списком команд.
+ */
 export function helpMessage(): string {
   return [
     'What I can do:',
@@ -17,41 +23,65 @@ export function helpMessage(): string {
   ].join('\n')
 }
 
+/**
+ * Формирует текст сообщения для Telegram-интерфейса.
+ */
 export function locationsMessage(locations: BookingLocation[]): string {
   const list = locations.map((l) => `• ${l.name}, ${l.address} (${l.occupancy})`).join('\n')
   return ['Choose a location:', '', list].join('\n')
 }
 
+/**
+ * Формирует текст сообщения для Telegram-интерфейса.
+ */
 export function resourcesMessage(resources: BookingResource[]): string {
   if (resources.length === 0) return 'No offices available at this location.'
   const list = resources.map((r) => `• ${r.name} (${r.seats}, ${r.priceLabel})`).join('\n')
   return ['Choose an office or workspace:', '', list].join('\n')
 }
 
+/**
+ * Формирует текст сообщения для Telegram-интерфейса.
+ */
 export function slotsMessage(resource: BookingResource, slots: AvailableSlot[]): string {
   if (slots.length === 0) return `${resource.name} has no available slots right now.`
   return `Available slots for ${resource.name}:`
 }
 
+/**
+ * Выполняет bookingConfirmationPrompt как отдельный шаг сервисной логики.
+ */
 export function bookingConfirmationPrompt(resource: BookingResource, slot: AvailableSlot): string {
   return ['Please confirm your booking:', '', `Office: ${resource.name}`, `Seats: ${resource.seats}`, `Time: ${slot.startsAt} - ${slot.endsAt}`, `Due now: ${resource.priceLabel}`].join('\n')
 }
 
+/**
+ * Формирует текст сообщения для Telegram-интерфейса.
+ */
 export function bookingsMessage(bookings: Booking[]): string {
   if (bookings.length === 0) return 'You have no active bookings.'
   const list = bookings.map((b) => `• ${b.locationName}, ${b.resourceName}: ${b.startsAt} – ${b.endsAt}`).join('\n')
   return ['Your active bookings:', '', list, '', 'Choose a booking to manage it.'].join('\n')
 }
 
+/**
+ * Формирует текст сообщения для Telegram-интерфейса.
+ */
 export function bookingCreatedMessage(booking: Booking): string {
   return ['Booking confirmed.', '', booking.locationName, booking.resourceName, `${booking.startsAt} - ${booking.endsAt}`, `Paid: ${booking.priceLabel}`].join('\n')
 }
 
+/**
+ * Формирует текст сообщения для Telegram-интерфейса.
+ */
 export function calendarAuthMessage(input: { googleUrl?: string }): string {
   if (!input.googleUrl) return 'Google Calendar is not configured.'
   return ['Calendar connection', '', 'Press the button below and choose your Google account.', 'After approval I will connect the calendar automatically.'].join('\n')
 }
 
+/**
+ * Формирует текст сообщения для Telegram-интерфейса.
+ */
 export function calendarStatusMessage(connectedProviders: string[]): string {
   const lines = ['Calendar', '']
   for (const p of connectedProviders) {
