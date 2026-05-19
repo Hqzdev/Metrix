@@ -4,20 +4,20 @@ Telegram Bot Operations and Security
 
 Назначение
 
-Документ охватывает только Telegram-бот (apps/bot).
+Документ охватывает только Telegram-бот apps/bot.
 Deployment API, базы данных и Redis описаны в docs/architecture/DEPLOYMENT.md.
 
 Требования перед production-деплоем
 
 Каждый пункт обязателен для production:
 
-* TELEGRAM_BOT_TOKEN — токен бота из BotFather
-* YOOKASSA_PROVIDER_TOKEN — токен провайдера платежей
-* ADMIN_TELEGRAM_IDS — список id администраторов через запятую
-* CALENDAR_TOKEN_SECRET — секрет шифрования OAuth-токенов (min 32 символа)
-* LOG_LEVEL — уровень логирования (info, warn, error)
-* HEALTH_PORT — порт health check сервера (например 3001)
-* UPTIME_MONITOR_URL — URL для heartbeat (например UptimeRobot)
+TELEGRAM_BOT_TOKEN — токен бота из BotFather
+YOOKASSA_PROVIDER_TOKEN — токен провайдера платежей
+ADMIN_TELEGRAM_IDS — список id администраторов через запятую
+CALENDAR_TOKEN_SECRET — секрет шифрования OAuth-токенов, минимум 32 символа
+LOG_LEVEL — уровень логирования: info, warn или error
+HEALTH_PORT — порт health check сервера
+UPTIME_MONITOR_URL — URL для heartbeat
 
 Локальная разработка работает без HEALTH_PORT и UPTIME_MONITOR_URL.
 CALENDAR_TOKEN_SECRET имеет встроенный fallback, но не должен использоваться в production.
@@ -25,60 +25,72 @@ CALENDAR_TOKEN_SECRET имеет встроенный fallback, но не дол
 Переменные окружения
 
 TELEGRAM_BOT_TOKEN
-  обязательная
-  токен бота, полученный от BotFather
-  не передавать через аргументы командной строки
+
+Обязательная переменная.
+Содержит токен бота, полученный от BotFather.
+Не должна передаваться через аргументы командной строки.
 
 YOOKASSA_PROVIDER_TOKEN
-  обязательная
-  токен провайдера платежей YooKassa
-  не передавать через аргументы командной строки
+
+Обязательная переменная.
+Содержит токен провайдера платежей YooKassa.
+Не должна передаваться через аргументы командной строки.
 
 ADMIN_TELEGRAM_IDS
-  обязательная в production
-  числа через запятую: 123456,789012
-  пустое значение не даёт прав ни одному пользователю
+
+Обязательная переменная в production.
+Содержит числа через запятую.
+Пустое значение не даёт прав ни одному пользователю.
 
 PAYMENT_CURRENCY
-  необязательная, по умолчанию USD
-  трёхбуквенный код ISO 4217
+
+Необязательная переменная.
+По умолчанию используется USD.
+Значение должно быть трёхбуквенным кодом ISO 4217.
 
 CALENDAR_TOKEN_SECRET
-  обязательная в production, необязательная локально
-  используется для шифрования access_token и refresh_token
-  если не задана — применяется небезопасный fallback только для разработки
-  рекомендуемый способ генерации: openssl rand -hex 32
+
+Обязательная переменная в production.
+В локальной разработке необязательна.
+Используется для шифрования access_token и refresh_token.
+Если значение не задано, применяется небезопасный fallback только для разработки.
+Рекомендуемый способ генерации — openssl rand -hex 32.
 
 LOG_LEVEL
-  необязательная, по умолчанию info
-  допустимые значения: info, warn, error
-  в production рекомендуется info или warn
+
+Необязательная переменная.
+По умолчанию используется info.
+Допустимые значения: info, warn, error.
+В production рекомендуется info или warn.
 
 HEALTH_PORT
-  необязательная
-  порт HTTP-сервера health check
-  если не задана — health check сервер не запускается
-  рекомендуемый порт: 3001
+
+Необязательная переменная.
+Определяет порт HTTP-сервера health check.
+Если значение не задано, health check сервер не запускается.
+Рекомендуемый порт — 3001.
 
 UPTIME_MONITOR_URL
-  необязательная
-  URL для heartbeat-пинга каждые 60 секунд
-  если не задана — uptime monitoring не запускается
-  пример для UptimeRobot: https://heartbeat.uptimerobot.com/m123-abc
+
+Необязательная переменная.
+Содержит URL для heartbeat-пинга каждые 60 секунд.
+Если значение не задано, uptime monitoring не запускается.
 
 HTTPS
 
-Telegram bot API используется в режиме long polling.
-Бот сам инициирует HTTPS-запросы к api.telegram.org — транспорт всегда зашифрован.
+Telegram Bot API используется в режиме long polling.
+Бот сам инициирует HTTPS-запросы к api.telegram.org.
+Транспорт всегда зашифрован.
+
 HTTP-сервер health check не должен быть доступен из интернета.
 
 Рекомендуемая схема:
 
-* health check сервер слушает только 127.0.0.1
-* uptime monitor обращается только к внешним heartbeat URL (HTTPS)
-* OAuth redirect URI должен использовать HTTPS в production (настраивается в Google / Microsoft console)
+health check сервер слушает только 127.0.0.1
+uptime monitor обращается только к внешним heartbeat URL по HTTPS
+OAuth redirect URI использует HTTPS в production и настраивается в Google или Microsoft console
 
-Если health check должен быть доступен снаружи (например для load balancer), нужен nginx с TLS-терминацией перед ботом.
+Если health check должен быть доступен снаружи, например для load balancer, нужен nginx с TLS-терминацией перед ботом.
 
 Шифрование токенов OAuth
 
@@ -86,16 +98,16 @@ HTTP-сервер health check не должен быть доступен из 
 
 Алгоритм:
 
-* IV: 12 случайных байт через crypto.randomBytes
-* Auth tag: 16 байт (GCM)
-* Ключ: SHA-256 от CALENDAR_TOKEN_SECRET
+IV — 12 случайных байт через crypto.randomBytes
+Auth tag — 16 байт GCM
+Ключ — SHA-256 от CALENDAR_TOKEN_SECRET
 
-Формат хранения: base64(iv).base64(tag).base64(ciphertext)
+Формат хранения: base64(iv).base64(tag).base64(ciphertext).
 
 Риски при default-секрете:
 
-* данные всех установок читаются одним ключом
-* смена секрета требует удаления data/calendar-connections.json и повторного подключения всех календарей
+данные всех установок читаются одним ключом
+смена секрета требует удаления data/calendar-connections.json и повторного подключения всех календарей
 
 Смена CALENDAR_TOKEN_SECRET:
 
@@ -107,43 +119,36 @@ HTTP-сервер health check не должен быть доступен из 
 
 Структурированное логирование
 
-Все уровни логируются в JSON-формат.
+Все уровни логируются в JSON-формате.
 
 Поля каждой записи:
 
-* level — info, warn, error
-* timestamp — ISO 8601
-* message — строка
-* дополнительные поля из meta при наличии
-* error.message, error.name, error.stack при передаче объекта Error
+level — info, warn или error
+timestamp — ISO 8601
+message — строка
+дополнительные поля из meta при наличии
+error.message, error.name и error.stack при передаче объекта Error
 
 Записи уровня info и warn идут в stdout.
 Записи уровня error идут в stderr.
 
 LOG_LEVEL управляет минимальным уровнем вывода.
-В production при LOG_LEVEL=warn — info-сообщения не выводятся.
-
-Пример записи:
-
-  {"level":"info","timestamp":"2026-04-30T10:00:00.000Z","message":"Telegram bot started"}
+В production при LOG_LEVEL=warn info-сообщения не выводятся.
 
 Агрегация логов:
 
-* Docker: stdout/stderr перехватывается драйвером логирования
-* systemd: journald собирает вывод автоматически
-* рекомендуется: Datadog, Grafana Loki или аналог с JSON-парсером
+Docker — stdout и stderr перехватываются драйвером логирования
+systemd — journald собирает вывод автоматически
+рекомендуется использовать Datadog, Grafana Loki или аналог с JSON-парсером
 
 Health check
 
-Если задан HEALTH_PORT, бот запускает HTTP-сервер на порту.
+Если задан HEALTH_PORT, бот запускает HTTP-сервер на этом порту.
 
 Маршруты:
 
-  GET /health
-    ответ: 200 OK
-    тело: {"status":"ok","uptime_seconds":N}
-
-  все остальные пути: 404
+GET /health — возвращает 200 OK и тело со статусом ok и uptime_seconds
+все остальные пути — возвращают 404
 
 Uptime monitoring
 
@@ -153,35 +158,35 @@ Uptime monitoring
 
 Совместимые сервисы:
 
-* UptimeRobot — heartbeat monitor, URL вида heartbeat.uptimerobot.com/m...
-* Better Uptime — аналогично, heartbeat URL
-* Healthchecks.io — поддерживает GET ping из коробки
+UptimeRobot — heartbeat monitor
+Better Uptime — heartbeat URL
+Healthchecks.io — GET ping из коробки
 
 Деплой
 
 Системные требования:
 
-* Node.js 20 LTS или выше
-* файловая система с доступом на запись для data/
+Node.js 20 LTS или выше
+файловая система с доступом на запись для data/
 
 Шаги:
 
 1. скопировать .env.example в .env и заполнить все обязательные переменные
-2. npm install --prefix apps/bot
-3. npm run build --prefix apps/bot
-4. запустить: node apps/bot/dist/index.js
+2. установить зависимости для apps/bot
+3. собрать apps/bot
+4. запустить собранный bot runtime
 
 С systemd:
 
-* создать unit-файл с переменными из .env
-* Restart=always
-* StandardOutput=journal
-* StandardError=journal
+создать unit-файл с переменными из .env
+установить Restart=always
+направить StandardOutput в journal
+направить StandardError в journal
 
 С Docker:
 
-* передать переменные через --env-file .env
-* примонтировать data/ как volume для сохранения данных между перезапусками
+передать переменные через env-file
+примонтировать data/ как volume для сохранения данных между перезапусками
 
 Допустимо запускать несколько экземпляров с разными токенами.
 Запуск нескольких экземпляров с одним токеном вызовет конфликт long polling.
@@ -192,7 +197,7 @@ Uptime monitoring
 
 1. объявить поле в BotEnv
 2. добавить чтение и валидацию в readEnv()
-3. описать в этом документе
+3. описать параметр в этом документе
 
 Добавление нового health-маршрута:
 
