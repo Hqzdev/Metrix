@@ -1,0 +1,33 @@
+groups:
+  - name: metrix-production
+    rules:
+      - alert: MetrixHighHttpErrorRate
+        expr: |
+          sum(rate(metrix_http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(metrix_http_requests_total[5m])) by (service)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate for {{ $labels.service }}"
+          runbook: "docs/architecture/OBSERVABILITY.md"
+
+      - alert: MetrixRedisStreamLag
+        expr: metrix_redis_stream_lag > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis Stream lag is high for {{ $labels.service }}"
+          runbook: "docs/architecture/QUEUES_AND_EVENTS.md"
+
+      - alert: MetrixTelegramDuplicateUpdates
+        expr: increase(metrix_telegram_duplicate_updates_total[10m]) > 20
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Telegram duplicate updates increased"
+          runbook: "docs/architecture/SECURITY.md"
