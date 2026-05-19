@@ -8,7 +8,12 @@ export type ObjectShape<TData> = {
 
 export type FieldValidator<TValue> = (value: unknown, field: string) => ValidationResult<TValue>
 
-// валидирует объект по описанию полей
+/**
+ * Валидирует объект по описанию полей, останавливаясь на первой ошибке.
+ *
+ * Fail-fast: первое невалидное поле прекращает обработку.
+ * Это позволяет возвращать конкретное сообщение, а не список всех ошибок.
+ */
 export function validateObject<TData>(value: unknown, shape: ObjectShape<TData>): ValidationResult<TData> {
   if (!isRecord(value)) {
     return { status: 'error', message: 'input should be an object' }
@@ -26,7 +31,9 @@ export function validateObject<TData>(value: unknown, shape: ObjectShape<TData>)
   return { status: 'ok', data: data as TData }
 }
 
-// проверяет обязательную строку
+/**
+ * Проверяет обязательную непустую строку. Обрезает пробелы на краях.
+ */
 export function stringField(value: unknown, field: string): ValidationResult<string> {
   if (typeof value !== 'string' || value.trim().length === 0) {
     return { status: 'error', message: `${field} should be a non-empty string` }
@@ -35,7 +42,9 @@ export function stringField(value: unknown, field: string): ValidationResult<str
   return { status: 'ok', data: value.trim() }
 }
 
-// проверяет необязательную строку
+/**
+ * Проверяет необязательную строку. Возвращает undefined для null/undefined/''.
+ */
 export function optionalStringField(value: unknown, field: string): ValidationResult<string | undefined> {
   if (value === undefined || value === null || value === '') {
     return { status: 'ok', data: undefined }
@@ -44,7 +53,9 @@ export function optionalStringField(value: unknown, field: string): ValidationRe
   return stringField(value, field)
 }
 
-// проверяет необязательное число
+/**
+ * Проверяет необязательное конечное число.
+ */
 export function optionalNumberField(value: unknown, field: string): ValidationResult<number | undefined> {
   if (value === undefined || value === null || value === '') {
     return { status: 'ok', data: undefined }
@@ -57,7 +68,27 @@ export function optionalNumberField(value: unknown, field: string): ValidationRe
   return { status: 'ok', data: value }
 }
 
-// проверяет iso дату
+/**
+ * Проверяет необязательное положительное целое число.
+ *
+ * Используется для идентификаторов вроде telegramUserId, где дробные
+ * и отрицательные значения семантически невалидны.
+ */
+export function optionalPositiveIntegerField(value: unknown, field: string): ValidationResult<number | undefined> {
+  if (value === undefined || value === null || value === '') {
+    return { status: 'ok', data: undefined }
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    return { status: 'error', message: `${field} should be a positive integer` }
+  }
+
+  return { status: 'ok', data: value }
+}
+
+/**
+ * Проверяет необязательную дату в формате ISO 8601.
+ */
 export function optionalIsoDateField(value: unknown, field: string): ValidationResult<string | undefined> {
   const result = optionalStringField(value, field)
   if (result.status === 'error' || !result.data) {
