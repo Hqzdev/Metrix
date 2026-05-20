@@ -51,6 +51,10 @@ type RequestContext = {
   url: URL
 }
 
+const ROOMS_PER_LOCATION = 10
+const SLOTS_PER_RESOURCE = 3
+const MANAGED_ROOM_ID = /-room-\d{2}$/
+
 /**
  * Обрабатывает HTTP API booking-service.
  *
@@ -155,18 +159,59 @@ export class BookingRouter {
   /**
    * Возвращает список сущностей для текущего запроса.
    */
-  private listLocations(): Promise<unknown> {
-    return this.dependencies.prisma.location.findMany()
+  private async listLocations(): Promise<unknown> {
+    const [locations, activeBookings] = await Promise.all([
+      this.dependencies.prisma.location.findMany(),
+      this.dependencies.prisma.booking.findMany({
+        select: { locationId: true },
+        where: { status: 'active' },
+      }),
+    ])
+
+    const activeByLocation = countBy(activeBookings, (booking) => booking.locationId)
+
+    return locations.map((location) => {
+      const activeCount = activeByLocation.get(location.id) ?? 0
+      const bookedRooms = Math.min(activeCount, ROOMS_PER_LOCATION)
+
+      return {
+        ...location,
+        members: `${activeCount} active booking${activeCount === 1 ? '' : 's'}`,
+        occupancy: `${bookedRooms}/${ROOMS_PER_LOCATION} booked`,
+      }
+    })
   }
 
   /**
    * Возвращает список сущностей для текущего запроса.
    */
-  private listResources(context: RequestContext): Promise<unknown> {
+  private async listResources(context: RequestContext): Promise<unknown> {
     const locationId = context.url.searchParams.get('locationId')
-    return locationId
-      ? this.dependencies.prisma.resource.findMany({ where: { locationId } })
-      : this.dependencies.prisma.resource.findMany()
+    const resources = locationId
+      ? await this.dependencies.prisma.resource.findMany({ where: { locationId } })
+      : await this.dependencies.prisma.resource.findMany()
+
+    const bookableResources = resources
+      .filter((resource) => MANAGED_ROOM_ID.test(resource.id))
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .slice(0, locationId ? ROOMS_PER_LOCATION : undefined)
+
+    const activeBookings = await this.dependencies.prisma.booking.findMany({
+      select: { resourceId: true },
+      where: { resourceId: { in: bookableResources.map((resource) => resource.id) }, status: 'active' },
+    })
+    const activeByResource = countBy(activeBookings, (booking) => booking.resourceId)
+
+    return bookableResources.map((resource) => {
+      const activeCount = activeByResource.get(resource.id) ?? 0
+      const slotsLeft = Math.max(SLOTS_PER_RESOURCE - activeCount, 0)
+
+      return {
+        ...resource,
+        occupancy: `${activeCount} booking${activeCount === 1 ? '' : 's'}`,
+        status: activeCount >= SLOTS_PER_RESOURCE ? 'Fully booked' : slotsLeft === SLOTS_PER_RESOURCE ? 'Available' : `${slotsLeft} slots left`,
+      }
+    })
   }
 
   /**
@@ -501,4 +546,15 @@ async function readRequestBody(req: IncomingMessage, method: string): Promise<{ 
     parsedBody: result.parsed,
     rawBody: result.raw,
   }
+}
+
+function countBy<TItem>(items: TItem[], getKey: (item: TItem) => string): Map<string, number> {
+  const counts = new Map<string, number>()
+
+  for (const item of items) {
+    const key = getKey(item)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+
+  return counts
 }

@@ -32,7 +32,12 @@ export class TelegramClient {
   }
 
   async editMessageText(chatId: number, messageId: number, text: string, options: EditOptions = {}): Promise<void> {
-    await this.call('editMessageText', { chat_id: chatId, message_id: messageId, text, ...options })
+    try {
+      await this.call('editMessageText', { chat_id: chatId, message_id: messageId, text, ...options })
+    } catch (error) {
+      if (isMessageNotModifiedError(error)) return
+      throw error
+    }
   }
 
   /**
@@ -113,4 +118,8 @@ export class TelegramClient {
     if (!res.ok || !body.ok) throw new Error(body.description ?? `Telegram ${method} failed`)
     return body.result as T
   }
+}
+
+function isMessageNotModifiedError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('message is not modified')
 }

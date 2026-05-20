@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, DollarSign, MapPin, Minus, Plus, TrendingUp, Users } from "lucide-react";
 
 type Location = {
@@ -33,6 +33,17 @@ type Zone = {
   height: string;
 };
 
+type SharedBooking = {
+  id: string;
+  locationId: string;
+  resourceId: string;
+  resourceName: string;
+  slotId: string;
+  startsAt: string;
+  startsAtIso: string;
+  status: string;
+};
+
 type Viewport = {
   lat: number;
   lng: number;
@@ -44,6 +55,79 @@ const MAX_ZOOM = 13;
 const CITY_NAME = "Moscow";
 const MAP_CENTER = { lat: 55.7558, lng: 37.6176 };
 const TILE_GRID_SIZE = 5;
+
+const zoneResourceIds: Record<string, Record<string, string>> = {
+  patriarchy: {
+    "design-team": "patriarchy-room-01",
+    "private-office-a": "patriarchy-room-02",
+    "client-suite": "patriarchy-room-03",
+    "quiet-desks": "patriarchy-room-04",
+    "ops-team": "patriarchy-room-05",
+  },
+  belorusskaya: {
+    "product-bay": "belorusskaya-room-01",
+    "founder-office": "belorusskaya-room-02",
+    "townhall-room": "belorusskaya-room-03",
+    "focus-lane": "belorusskaya-room-04",
+    "sales-cluster": "belorusskaya-room-05",
+  },
+  paveletskaya: {
+    "growth-pod": "paveletskaya-room-01",
+    "private-office-b": "paveletskaya-room-02",
+    "boardroom": "paveletskaya-room-03",
+    "flex-desks": "paveletskaya-room-04",
+    "engineering-room": "paveletskaya-room-05",
+  },
+  "city-north": {
+    "skyline-pod": "city-north-room-01",
+    "corner-office": "city-north-room-02",
+    "summit-room": "city-north-room-03",
+    "panorama-desks": "city-north-room-04",
+    "finance-suite": "city-north-room-05",
+  },
+  kurskaya: {
+    "switchyard-desks": "kurskaya-room-01",
+    "brick-office": "kurskaya-room-02",
+    "cargo-room": "kurskaya-room-03",
+    "ring-desks": "kurskaya-room-04",
+    "station-pod": "kurskaya-room-05",
+  },
+  "park-kultury": {
+    "garden-desks": "park-kultury-room-01",
+    "boulevard-office": "park-kultury-room-02",
+    "atrium-room": "park-kultury-room-03",
+    "river-lane": "park-kultury-room-04",
+    "wellness-suite": "park-kultury-room-05",
+  },
+  tverskaya: {
+    "avenue-desks": "tverskaya-room-01",
+    "tverskaya-office": "tverskaya-room-02",
+    "boulevard-room": "tverskaya-room-03",
+    "rush-line": "tverskaya-room-04",
+    "client-suite-t": "tverskaya-room-05",
+  },
+  "chistye-prudy": {
+    "pond-desks": "chistye-prudy-room-01",
+    "heritage-office": "chistye-prudy-room-02",
+    "reading-room": "chistye-prudy-room-03",
+    "tram-desks": "chistye-prudy-room-04",
+    "prudy-pod": "chistye-prudy-room-05",
+  },
+  taganskaya: {
+    "ring-hub": "taganskaya-room-01",
+    "taganskaya-office": "taganskaya-room-02",
+    "forum-room": "taganskaya-room-03",
+    "east-desks": "taganskaya-room-04",
+    "tagan-pod": "taganskaya-room-05",
+  },
+  sokol: {
+    "airline-desks": "sokol-room-01",
+    "runway-office": "sokol-room-02",
+    "north-room": "sokol-room-03",
+    "sokol-line": "sokol-room-04",
+    "signal-room": "sokol-room-05",
+  },
+};
 
 const locations: Location[] = [
   {
@@ -1133,6 +1217,7 @@ function MapCanvas({
 export function BookingMapExplorer() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [hoveredLocationId, setHoveredLocationId] = useState<string>(locations[0].id);
+  const [sharedBookings, setSharedBookings] = useState<SharedBooking[]>([]);
   const [viewport, setViewport] = useState<Viewport>({
     lat: MAP_CENTER.lat,
     lng: MAP_CENTER.lng,
@@ -1147,6 +1232,57 @@ export function BookingMapExplorer() {
   const [hoveredZoneId, setHoveredZoneId] = useState<string>(zones[0].id);
 
   const hoveredZone = zones.find((zone) => zone.id === hoveredZoneId) ?? zones[0];
+  const activeBookingsByResource = useMemo(() => {
+    return sharedBookings.reduce<Record<string, SharedBooking[]>>((acc, booking) => {
+      acc[booking.resourceId] ??= [];
+      acc[booking.resourceId].push(booking);
+      return acc;
+    }, {});
+  }, [sharedBookings]);
+  const activeBookingsByLocation = useMemo(() => {
+    return sharedBookings.reduce<Record<string, SharedBooking[]>>((acc, booking) => {
+      acc[booking.locationId] ??= [];
+      acc[booking.locationId].push(booking);
+      return acc;
+    }, {});
+  }, [sharedBookings]);
+  const activeLocationBookingCount = activeBookingsByLocation[activeLocation.id]?.length ?? 0;
+  const activeLocationOccupancy = `${Math.min(activeLocationBookingCount, 10)}/10 booked`;
+  const activeLocationActivity = `${activeLocationBookingCount} active Telegram booking${activeLocationBookingCount === 1 ? "" : "s"}`;
+  const hoveredZoneResourceId = zoneResourceIds[activeLocation.id]?.[hoveredZone.id];
+  const hoveredZoneBookings = hoveredZoneResourceId ? (activeBookingsByResource[hoveredZoneResourceId] ?? []) : [];
+  const hoveredZoneStatus = hoveredZoneBookings.length > 0 ? "Booked via Telegram" : "Available";
+  const hoveredZoneOccupancy =
+    hoveredZoneBookings.length > 0
+      ? `${hoveredZoneBookings.length} active Telegram booking${hoveredZoneBookings.length === 1 ? "" : "s"}`
+      : "0 bookings";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSharedBookings() {
+      try {
+        const response = await fetch("/api/shared-bookings", { cache: "no-store" });
+        if (!response.ok) {
+          if (isMounted) setSharedBookings([]);
+          return;
+        }
+
+        const data = (await response.json()) as { bookings?: SharedBooking[] };
+        if (isMounted) setSharedBookings(data.bookings ?? []);
+      } catch {
+        if (isMounted) setSharedBookings([]);
+      }
+    }
+
+    void loadSharedBookings();
+    const intervalId = window.setInterval(loadSharedBookings, 15000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const openLocation = (locationId: string) => {
     const location = locations.find((item) => item.id === locationId);
@@ -1197,6 +1333,9 @@ export function BookingMapExplorer() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {zones.map((zone) => {
                   const isActive = hoveredZone.id === zone.id;
+                  const resourceId = zoneResourceIds[activeLocation.id]?.[zone.id];
+                  const bookingCount = resourceId ? (activeBookingsByResource[resourceId]?.length ?? 0) : 0;
+                  const displayStatus = bookingCount > 0 ? "Booked via Telegram" : "Available";
 
                   return (
                     <button
@@ -1218,10 +1357,16 @@ export function BookingMapExplorer() {
                         <span className={isActive ? "text-[#efe3cf]" : "text-[#6a5a44]"}>{zone.seats}</span>
                         <span
                           className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.16em] ${
-                            isActive ? "bg-white/10 text-[#f7f1e6]" : "bg-[#f2ebdf] text-[#6f5d45]"
+                            bookingCount > 0
+                              ? isActive
+                                ? "bg-[#a84b36] text-white"
+                                : "bg-[#f0d3ca] text-[#8a2f1f]"
+                              : isActive
+                                ? "bg-white/10 text-[#f7f1e6]"
+                                : "bg-[#f2ebdf] text-[#6f5d45]"
                           }`}
                         >
-                          {zone.status}
+                          {displayStatus}
                         </span>
                       </div>
                     </button>
@@ -1242,6 +1387,8 @@ export function BookingMapExplorer() {
 
                 {zones.map((zone) => {
                   const isActive = hoveredZone.id === zone.id;
+                  const resourceId = zoneResourceIds[activeLocation.id]?.[zone.id];
+                  const bookingCount = resourceId ? (activeBookingsByResource[resourceId]?.length ?? 0) : 0;
 
                   return (
                     <button
@@ -1272,10 +1419,16 @@ export function BookingMapExplorer() {
                           <p className={`text-sm ${isActive ? "text-stone-200" : "text-stone-600"}`}>{zone.seats}</p>
                           <span
                             className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] ${
-                              isActive ? "bg-white/10 text-white" : "bg-[#f1ebdf] text-[#6f5d45]"
+                              bookingCount > 0
+                                ? isActive
+                                  ? "bg-[#a84b36] text-white"
+                                  : "bg-[#f0d3ca] text-[#8a2f1f]"
+                                : isActive
+                                  ? "bg-white/10 text-white"
+                                  : "bg-[#f1ebdf] text-[#6f5d45]"
                             }`}
                           >
-                            {zone.price}
+                            {bookingCount > 0 ? "Booked" : zone.price}
                           </span>
                         </div>
                       </div>
@@ -1299,7 +1452,7 @@ export function BookingMapExplorer() {
           <div className="grid gap-4 p-6">
             <div className="border border-border bg-background p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Occupancy</p>
-              <p className="mt-3 text-xl font-medium tracking-tight">{hoveredZone.occupancy}</p>
+              <p className="mt-3 text-xl font-medium tracking-tight">{hoveredZoneOccupancy}</p>
             </div>
             <div className="border border-border bg-background p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Price</p>
@@ -1307,7 +1460,12 @@ export function BookingMapExplorer() {
             </div>
             <div className="border border-border bg-background p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Status</p>
-              <p className="mt-3 text-xl font-medium tracking-tight">{hoveredZone.status}</p>
+              <p className="mt-3 text-xl font-medium tracking-tight">{hoveredZoneStatus}</p>
+              {hoveredZoneBookings[0] ? (
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Nearest slot: {hoveredZoneBookings[0].startsAt}
+                </p>
+              ) : null}
             </div>
 
             <div className="border border-border bg-background p-5">
@@ -1367,7 +1525,7 @@ export function BookingMapExplorer() {
               <TrendingUp className="h-4 w-4" />
               <p className="text-xs uppercase tracking-[0.2em]">Occupancy</p>
             </div>
-            <p className="mt-3 text-xl font-medium tracking-tight">{activeLocation.occupancy}</p>
+            <p className="mt-3 text-xl font-medium tracking-tight">{activeLocationOccupancy}</p>
           </div>
 
           <div className="border border-[#e3dacb] bg-[#fcfaf5] p-5 shadow-[0_14px_30px_rgba(36,27,15,0.04)]">
@@ -1384,7 +1542,7 @@ export function BookingMapExplorer() {
               <Users className="h-4 w-4" />
               <p className="text-xs uppercase tracking-[0.2em]">Activity</p>
             </div>
-            <p className="mt-3 text-xl font-medium tracking-tight">{activeLocation.members}</p>
+            <p className="mt-3 text-xl font-medium tracking-tight">{activeLocationActivity}</p>
             <p className="mt-2 text-sm text-muted-foreground">Inside {CITY_NAME}, ready for same-city booking flow.</p>
           </div>
         </div>

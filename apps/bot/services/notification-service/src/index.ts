@@ -52,6 +52,20 @@ await bus.consume<SendEvent>(
       }
 
       if (error instanceof TelegramApiError) {
+        if (event.type === 'send_invoice' && error.body.includes('PAYMENT_PROVIDER_INVALID')) {
+          await telegram.sendMessage(
+            event.chatId,
+            'Payment provider token is invalid. Use a Telegram provider token from BotFather Payments, not a YooKassa API key.',
+          )
+          logger.warn({
+            message: 'Telegram payment provider is not configured correctly',
+            service: 'notification-service',
+            action: 'telegram.sendInvoice.provider_invalid',
+            statusCode: error.statusCode,
+          })
+          return
+        }
+
         logger.error({
           message: error.message,
           service: 'notification-service',

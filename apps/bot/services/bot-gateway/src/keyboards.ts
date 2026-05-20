@@ -33,7 +33,7 @@ export function locationKeyboard(locations: BookingLocation[]): InlineKeyboardMa
 export function resourceKeyboard(resources: BookingResource[]): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
-      ...resources.map((r) => [{ text: `${r.name} · ${r.priceLabel}`, callback_data: `resource:${r.locationId}:${r.id}` }]),
+      ...resources.map((r) => [{ text: `${r.name} · ${r.status}`, callback_data: `resource:${r.locationId}:${r.id}` }]),
       [{ text: 'Back to locations', callback_data: 'menu:book' }],
     ],
   }

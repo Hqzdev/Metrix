@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import { PrismaClient } from '@prisma/client'
 import { RedisBus } from '@metrix/redis-bus'
 import { MetricsRegistry, createObservedHandler, installGracefulShutdown, sendMetrics, sendReadiness } from '@metrix/observability'
-import { readPaymentServiceConfig } from './config.js'
+import { isLikelyYooKassaApiKey, readPaymentServiceConfig } from './config.js'
 import { PaymentServiceLogger } from './logger.js'
 import { BookingServiceClient } from './booking-service-client.js'
 import { PaymentRouter } from './payment-router.js'
@@ -11,6 +11,21 @@ import { startExpiredHoldCleaner } from './expired-hold-cleaner.js'
 
 const logger = new PaymentServiceLogger()
 const config = readPaymentServiceConfig(process.env)
+
+if (!config.providerToken) {
+  logger.warn({
+    action: 'payment.provider_token.missing',
+    message: 'Telegram payment provider token is not configured',
+    service: 'payment-service',
+  })
+} else if (isLikelyYooKassaApiKey(config.providerToken)) {
+  logger.warn({
+    action: 'payment.provider_token.invalid_shape',
+    message: 'Configured token looks like a YooKassa API key, but Telegram sendInvoice requires a BotFather provider token',
+    providerTokenSource: config.providerTokenSource,
+    service: 'payment-service',
+  })
+}
 
 const prisma = new PrismaClient()
 const bus = new RedisBus(config.redisUrl, undefined, { password: process.env.REDIS_PASSWORD })

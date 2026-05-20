@@ -11,6 +11,7 @@ export type PaymentServiceConfig = {
   paymentSigningSecret: string
   port: number
   providerToken: string
+  providerTokenSource: string
   redisUrl: string
   trustedCallers: TrustedCaller[]
   userIdSigningSecret: string
@@ -22,18 +23,20 @@ export type PaymentServiceConfig = {
  * важно:
  * - paymentSigningSecret нужен для подписи запросов в booking-service.
  *   Его отсутствие означает, что созданные бронирования не будут авторизованы.
- * - YOOKASSA_PROVIDER_TOKEN не помечен обязательным — сервис может запуститься
- *   в тестовом режиме без реального провайдера.
+ * - TELEGRAM_PAYMENT_PROVIDER_TOKEN — это provider token из BotFather.
+ *   Старый YOOKASSA_PROVIDER_TOKEN оставлен как fallback для совместимости.
  */
 export function readPaymentServiceConfig(env: NodeJS.ProcessEnv): PaymentServiceConfig {
   const paymentSigningSecret = requireEnv(env, 'PAYMENT_SIGNING_SECRET')
+  const tokenConfig = readProviderToken(env)
 
   return {
     bookingServiceUrl: env.BOOKING_SERVICE_URL ?? DEFAULT_BOOKING_SERVICE_URL,
     currency: env.PAYMENT_CURRENCY ?? DEFAULT_CURRENCY,
     paymentSigningSecret,
     port: readPort(env.PORT),
-    providerToken: env.YOOKASSA_PROVIDER_TOKEN ?? '',
+    providerToken: tokenConfig.value,
+    providerTokenSource: tokenConfig.source,
     redisUrl: env.REDIS_URL ?? DEFAULT_REDIS_URL,
     trustedCallers: [
       { name: 'bot-gateway', secret: readTrustedSecrets(env, 'TRUSTED_GATEWAY_SECRET') },
@@ -41,6 +44,10 @@ export function readPaymentServiceConfig(env: NodeJS.ProcessEnv): PaymentService
     ],
     userIdSigningSecret: env.USER_ID_SIGNING_SECRET ?? '',
   }
+}
+
+export function isLikelyYooKassaApiKey(value: string): boolean {
+  return value.startsWith('test_') || value.startsWith('live_')
 }
 
 /**
@@ -71,6 +78,16 @@ function requireEnv(env: NodeJS.ProcessEnv, name: string): string {
 
 function readTrustedSecrets(env: NodeJS.ProcessEnv, name: string): string[] {
   return [requireEnv(env, name), readOptionalEnv(env, `${name}_NEXT`)].filter((value): value is string => Boolean(value))
+}
+
+function readProviderToken(env: NodeJS.ProcessEnv): { source: string; value: string } {
+  const telegramToken = readOptionalEnv(env, 'TELEGRAM_PAYMENT_PROVIDER_TOKEN')
+  if (telegramToken) return { source: 'TELEGRAM_PAYMENT_PROVIDER_TOKEN', value: telegramToken }
+
+  const legacyToken = readOptionalEnv(env, 'YOOKASSA_PROVIDER_TOKEN')
+  if (legacyToken) return { source: 'YOOKASSA_PROVIDER_TOKEN', value: legacyToken }
+
+  return { source: 'not configured', value: '' }
 }
 
 function readOptionalTrustedCaller(env: NodeJS.ProcessEnv, callerName: string, name: string): TrustedCaller[] {

@@ -376,10 +376,15 @@ export class Bot {
    * Отправляет данные пользователю или во внешний API.
    */
   private async sendLocations(chatId: number): Promise<void> {
-    const locations = await this.opts.services.listLocations()
-    await this.opts.telegram.sendMessage(chatId, locationsMessage(locations), {
-      reply_markup: locationKeyboard(locations),
-    })
+    try {
+      const locations = await this.opts.services.listLocations()
+      await this.opts.telegram.sendMessage(chatId, locationsMessage(locations), {
+        reply_markup: locationKeyboard(locations),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'sendLocations')
+      await this.sendTemporaryUnavailableMessage(chatId, 'menu:book')
+    }
   }
 
   /**
@@ -426,88 +431,144 @@ export class Bot {
    * Отправляет комнаты выбранной локации.
    */
   private async sendResources(chatId: number, locationId: string): Promise<void> {
-    const resources = await this.opts.services.listResources(locationId)
-    await this.opts.telegram.sendMessage(chatId, resourcesMessage(resources), {
-      reply_markup: resourceKeyboard(resources),
-    })
+    try {
+      const resources = await this.opts.services.listResources(locationId)
+      await this.opts.telegram.sendMessage(chatId, resourcesMessage(resources), {
+        reply_markup: resourceKeyboard(resources),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'sendResources')
+      await this.sendTemporaryUnavailableMessage(chatId, `location:${locationId}`)
+    }
   }
 
   /**
    * Отправляет слоты выбранного ресурса.
    */
   private async sendSlots(chatId: number, resourceId: string): Promise<void> {
-    const resource = await this.opts.services.getResource(resourceId)
-    const slots = await this.opts.services.listAvailableSlots(resourceId)
-    await this.opts.telegram.sendMessage(chatId, slotsMessage(resource, slots), {
-      reply_markup: slotsKeyboard(resource, slots),
-    })
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      const slots = await this.opts.services.listAvailableSlots(resourceId)
+      await this.opts.telegram.sendMessage(chatId, slotsMessage(resource, slots), {
+        reply_markup: slotsKeyboard(resource, slots),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'sendSlots')
+      await this.sendTemporaryUnavailableMessage(chatId)
+    }
   }
 
   /**
    * Отправляет подтверждение бронирования по сохранённому FSM context.
    */
   private async sendBookingPrompt(chatId: number, resourceId: string, slotId: string): Promise<void> {
-    const resource = await this.opts.services.getResource(resourceId)
-    const slots = await this.opts.services.listAvailableSlots(resourceId)
-    const slot = slots.find((s) => s.id === slotId)
-    if (!slot) {
-      await this.opts.telegram.sendMessage(chatId, 'Slot is no longer available.', {
-        reply_markup: mainMenuKeyboard(),
-      })
-      return
-    }
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      const slots = await this.opts.services.listAvailableSlots(resourceId)
+      const slot = slots.find((s) => s.id === slotId)
+      if (!slot) {
+        await this.opts.telegram.sendMessage(chatId, 'Slot is no longer available.', {
+          reply_markup: mainMenuKeyboard(),
+        })
+        return
+      }
 
-    await this.opts.telegram.sendMessage(chatId, bookingConfirmationPrompt(resource, slot), {
-      reply_markup: confirmBookingKeyboard(resource, slotId),
-    })
+      await this.opts.telegram.sendMessage(chatId, bookingConfirmationPrompt(resource, slot), {
+        reply_markup: confirmBookingKeyboard(resource, slotId),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'sendBookingPrompt')
+      await this.sendTemporaryUnavailableMessage(chatId, `slot:${resourceId}:${slotId}`)
+    }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
   private async editLocations(chatId: number, messageId: number): Promise<void> {
-    const locations = await this.opts.services.listLocations()
-    await this.opts.telegram.editMessageText(chatId, messageId, locationsMessage(locations), {
-      reply_markup: locationKeyboard(locations),
-    })
+    try {
+      const locations = await this.opts.services.listLocations()
+      await this.opts.telegram.editMessageText(chatId, messageId, locationsMessage(locations), {
+        reply_markup: locationKeyboard(locations),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editLocations')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, 'menu:book')
+    }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
   private async editResources(chatId: number, messageId: number, locationId: string): Promise<void> {
-    const resources = await this.opts.services.listResources(locationId)
-    await this.opts.telegram.editMessageText(chatId, messageId, resourcesMessage(resources), {
-      reply_markup: resourceKeyboard(resources),
-    })
+    try {
+      const resources = await this.opts.services.listResources(locationId)
+      await this.opts.telegram.editMessageText(chatId, messageId, resourcesMessage(resources), {
+        reply_markup: resourceKeyboard(resources),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editResources')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, `location:${locationId}`)
+    }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
   private async editSlots(chatId: number, messageId: number, locationId: string, resourceId: string): Promise<void> {
-    const resource = await this.opts.services.getResource(resourceId)
-    const slots = await this.opts.services.listAvailableSlots(resourceId)
-    await this.opts.telegram.editMessageText(chatId, messageId, slotsMessage(resource, slots), {
-      reply_markup: slotsKeyboard(resource, slots),
-    })
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      const slots = await this.opts.services.listAvailableSlots(resourceId)
+      await this.opts.telegram.editMessageText(chatId, messageId, slotsMessage(resource, slots), {
+        reply_markup: slotsKeyboard(resource, slots),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editSlots')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, `resource:${locationId}:${resourceId}`)
+    }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
   private async editBookingPrompt(chatId: number, messageId: number, resourceId: string, slotId: string): Promise<void> {
-    const resource = await this.opts.services.getResource(resourceId)
-    const slots = await this.opts.services.listAvailableSlots(resourceId)
-    const slot = slots.find((s) => s.id === slotId)
-    if (!slot) {
-      await this.opts.telegram.editMessageText(chatId, messageId, 'Slot is no longer available.', {
-        reply_markup: mainMenuKeyboard(),
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      const slots = await this.opts.services.listAvailableSlots(resourceId)
+      const slot = slots.find((s) => s.id === slotId)
+      if (!slot) {
+        await this.opts.telegram.editMessageText(chatId, messageId, 'Slot is no longer available.', {
+          reply_markup: mainMenuKeyboard(),
+        })
+        return
+      }
+      await this.opts.telegram.editMessageText(chatId, messageId, bookingConfirmationPrompt(resource, slot), {
+        reply_markup: confirmBookingKeyboard(resource, slotId),
       })
-      return
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editBookingPrompt')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, `slot:${resourceId}:${slotId}`)
     }
-    await this.opts.telegram.editMessageText(chatId, messageId, bookingConfirmationPrompt(resource, slot), {
-      reply_markup: confirmBookingKeyboard(resource, slotId),
+  }
+
+  private async sendTemporaryUnavailableMessage(chatId: number, retryCallbackData?: string): Promise<void> {
+    await this.opts.telegram.sendMessage(chatId, serviceTemporarilyUnavailableMessage(), {
+      reply_markup: retryKeyboard(retryCallbackData),
+    })
+  }
+
+  private async editTemporaryUnavailableMessage(chatId: number, messageId: number, retryCallbackData?: string): Promise<void> {
+    await this.opts.telegram.editMessageText(chatId, messageId, serviceTemporarilyUnavailableMessage(), {
+      reply_markup: retryKeyboard(retryCallbackData),
+    })
+  }
+
+  private logBookingUiUnavailable(error: unknown, action: string): void {
+    this.opts.logger.warn({
+      action,
+      error,
+      message: 'Booking UI dependency is temporarily unavailable',
+      service: 'bot-gateway',
     })
   }
 
@@ -632,6 +693,21 @@ export class Bot {
     }
   }
 
+}
+
+function serviceTemporarilyUnavailableMessage(): string {
+  return ['Booking service is starting or temporarily unavailable.', '', 'Please try again in a few seconds.'].join('\n')
+}
+
+function retryKeyboard(retryCallbackData?: string) {
+  if (!retryCallbackData) return mainMenuKeyboard()
+
+  return {
+    inline_keyboard: [
+      [{ text: 'Try again', callback_data: retryCallbackData }],
+      [{ text: 'Back to menu', callback_data: 'menu:start' }],
+    ],
+  }
 }
 
 /**

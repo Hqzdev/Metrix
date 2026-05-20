@@ -98,7 +98,7 @@ export class ServicesClient {
 
   async getCalendarAuthUrl(input: { provider: string; telegramUserId: number; scope: string }): Promise<{ url: string } | null> {
     try {
-      return this.post(`${this.urls.calendar}/auth-url`, input, input.telegramUserId)
+      return await this.post(`${this.urls.calendar}/auth-url`, input, input.telegramUserId)
     } catch {
       return null
     }

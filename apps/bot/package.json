@@ -8,7 +8,8 @@
   ],
   "scripts": {
     "build": "npm --workspaces --if-present run build",
-    "dev": "docker compose up --build",
+    "dev": "docker compose up --build & sleep 20 && open http://localhost:9090",
+    "dev:win": "docker compose up --build & timeout /t 20 & start http://localhost:9090",
     "down": "docker compose down",
     "db:migrate": "cd prisma && npx prisma migrate dev",
     "db:generate": "npx prisma generate --schema=prisma/schema.prisma",

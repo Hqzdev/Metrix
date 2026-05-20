@@ -36,7 +36,7 @@ export function locationsMessage(locations: BookingLocation[]): string {
  */
 export function resourcesMessage(resources: BookingResource[]): string {
   if (resources.length === 0) return 'No offices available at this location.'
-  const list = resources.map((r) => `• ${r.name} (${r.seats}, ${r.priceLabel})`).join('\n')
+  const list = resources.map((r) => `• ${r.name} (${r.seats}, ${r.priceLabel}, ${r.occupancy}, ${r.status})`).join('\n')
   return ['Choose an office or workspace:', '', list].join('\n')
 }
 

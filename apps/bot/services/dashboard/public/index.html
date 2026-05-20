@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Metrix Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #0f0f0f; color: #e0e0e0; padding: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 20px; color: #fff; }
+    h2 { font-size: 1rem; margin: 24px 0 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .card .name { font-size: 0.85rem; color: #aaa; margin-bottom: 6px; }
+    .card .status { font-size: 1rem; font-weight: bold; }
+    .card .detail { font-size: 0.75rem; color: #666; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card .uptime { font-size: 0.75rem; color: #777; margin-top: 6px; }
+    .ok { color: #4ade80; }
+    .error { color: #f87171; }
+    .unknown { color: #facc15; }
+
+    .log-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .tab {
+      padding: 4px 12px;
+      border-radius: 4px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+    .tab.active { background: #2a2a2a; border-color: #555; color: #fff; }
+    .log-box {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 6px;
+      height: 380px;
+      overflow-y: auto;
+      padding: 12px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    .log-line { white-space: pre-wrap; word-break: break-word; }
+    .log-line.err { color: #f87171; }
+    .log-line.warn { color: #facc15; }
+    .ts { color: #555; margin-right: 6px; }
+    .refresh-note { font-size: 0.75rem; color: #444; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Metrix — Service Dashboard</h1>
+
+  <h2>Health Status</h2>
+  <div class="grid" id="grid">Loading...</div>
+  <p class="refresh-note" id="lastCheck"></p>
+
+  <h2>Logs</h2>
+  <div class="log-tabs" id="tabs"></div>
+  <div class="log-box" id="logBox"></div>
+
+  <script>
+    const SERVICES = [
+      'postgres',
+      'redis',
+      'bot-gateway',
+      'booking-service',
+      'calendar-service',
+      'payment-service',
+      'analytics-service',
+      'admin-service',
+      'notification-service',
+      'worker-service',
+    ];
+
+    let currentService = SERVICES[0];
+    let currentEs = null;
+
+    async function fetchHealth() {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        renderHealth(data);
+        document.getElementById('lastCheck').textContent =
+          'Обновлено: ' + new Date().toLocaleTimeString('ru');
+      } catch {
+        document.getElementById('grid').textContent = 'Ошибка соединения с dashboard сервером';
+      }
+    }
+
+    function renderHealth(services) {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+
+      services.forEach((svc) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const cls = svc.status === 'ok' ? 'ok' : svc.status === 'unknown' ? 'unknown' : 'error';
+        const icon = svc.status === 'ok' ? '● online' : svc.status === 'unknown' ? '◌ unknown' : '● offline';
+        const detail = typeof svc.detail === 'object' ? JSON.stringify(svc.detail) : String(svc.detail || '');
+        card.innerHTML = `
+          <div class="name">${escapeHtml(svc.name)}</div>
+          <div class="status ${cls}">${icon}</div>
+          <div class="detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</div>
+          <div class="uptime">uptime: ${formatUptime(svc.uptimeSeconds)}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function renderTabs() {
+      const container = document.getElementById('tabs');
+      SERVICES.forEach((name) => {
+        const btn = document.createElement('div');
+        btn.className = 'tab' + (name === currentService ? ' active' : '');
+        btn.textContent = name;
+        btn.onclick = () => switchService(name);
+        container.appendChild(btn);
+      });
+    }
+
+    function switchService(name) {
+      currentService = name;
+      document.querySelectorAll('.tab').forEach((tab) => {
+        tab.classList.toggle('active', tab.textContent === name);
+      });
+      startLogStream(name);
+    }
+
+    function startLogStream(service) {
+      if (currentEs) currentEs.close();
+      const box = document.getElementById('logBox');
+      box.innerHTML = '';
+
+      currentEs = new EventSource(`/api/logs/${service}`);
+      currentEs.onmessage = (event) => {
+        const raw = JSON.parse(event.data);
+        const line = document.createElement('div');
+        line.className = 'log-line';
+
+        if (/error|Error|ERROR/.test(raw)) line.classList.add('err');
+        else if (/warn|WARN/.test(raw)) line.classList.add('warn');
+
+        const match = raw.match(/^(\S+T\S+Z)\s(.*)$/s);
+        if (match) {
+          const ts = document.createElement('span');
+          ts.className = 'ts';
+          ts.textContent = new Date(match[1]).toLocaleTimeString('ru');
+          line.appendChild(ts);
+          line.appendChild(document.createTextNode(match[2]));
+        } else {
+          line.textContent = raw;
+        }
+
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+      };
+      currentEs.onerror = () => {
+        const line = document.createElement('div');
+        line.className = 'log-line err';
+        line.textContent = '[поток логов прерван или сервис недоступен]';
+        box.appendChild(line);
+      };
+    }
+
+    function formatUptime(seconds) {
+      if (seconds === null || seconds === undefined) return 'n/a';
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[char]);
+    }
+
+    renderTabs();
+    fetchHealth();
+    setInterval(fetchHealth, 10000);
+    startLogStream(currentService);
+  </script>
+</body>
+</html>
