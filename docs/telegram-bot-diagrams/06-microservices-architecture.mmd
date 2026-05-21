@@ -1,40 +1,67 @@
 ---
-title: Microservices Architecture — Telegram Bot
+title: Microservices Architecture
 ---
 graph TB
     TG([Telegram API])
+    USER([Telegram User])
 
-    subgraph docker["Docker Compose"]
-        GW[bot-gateway<br/>:3000<br/>long polling · routing · OAuth callback]
-        BK[booking-service<br/>:3001<br/>locations · resources · bookings · slots]
-        CAL[calendar-service<br/>:3002<br/>OAuth · Google · MS · connections]
-        PAY[payment-service<br/>:3003<br/>YooKassa invoices · pre-checkout]
-        NOT[notification-service<br/>async only<br/>outbound Telegram messages]
-        ANA[analytics-service<br/>:3005<br/>stats · heatmap · reports]
-        ADM[admin-service<br/>:3006<br/>proxy to booking + analytics]
+    USER --> TG
 
-        REDIS[(Redis Streams<br/>event bus)]
-        PG[(PostgreSQL<br/>4 schemas)]
+    subgraph docker["Docker Compose internal network"]
+        GW[bot-gateway<br/>public port 3000<br/>Telegram routing, rate limit, FSM]
+        BK[booking-service<br/>3001 internal<br/>locations, resources, bookings, slots]
+        CAL[calendar-service<br/>3002 internal<br/>OAuth, encrypted tokens, connections]
+        PAY[payment-service<br/>3003 internal<br/>invoices, SlotHold, PaymentSaga]
+        NOT[notification-service<br/>async worker<br/>Telegram delivery]
+        ANA[analytics-service<br/>3005 internal<br/>stats, reports, consumers]
+        ADM[admin-service<br/>3006 internal<br/>audit, DLQ, payment recovery]
+        WK[worker-service<br/>async worker<br/>reminders, reports, calendar refresh]
+
+        REDIS[(Redis<br/>password, Streams, locks, rate limit, replay)]
+        PGBOUNCER[PgBouncer<br/>5432 internal]
+        PG[(PostgreSQL<br/>schemas: booking, payment, calendar, analytics, audit)]
     end
 
-    TG <-->|long polling| GW
-    GW -->|HTTP sync| BK
-    GW -->|HTTP sync| CAL
-    GW -->|HTTP sync| PAY
-    GW -->|HTTP sync| ADM
+    TG <-->|polling or webhook| GW
 
-    PAY -->|publish payment.completed| REDIS
-    BK  -->|publish booking.created| REDIS
-    BK  -->|publish booking.cancelled| REDIS
-    PAY -->|publish notification.send| REDIS
-    ANA -->|publish report.ready| REDIS
+    GW -->|signed HTTP| BK
+    GW -->|signed HTTP| CAL
+    GW -->|signed HTTP| PAY
+    GW -->|signed HTTP| ADM
 
-    REDIS -->|consume| NOT
-    REDIS -->|consume| ANA
+    ADM -->|signed HTTP| PAY
+    ADM -->|signed HTTP| BK
+    ADM -->|signed HTTP| ANA
+    PAY -->|signed HTTP| BK
 
-    NOT -->|sendMessage · sendInvoice| TG
+    BK --> PGBOUNCER
+    CAL --> PGBOUNCER
+    PAY --> PGBOUNCER
+    ANA --> PGBOUNCER
+    ADM --> PGBOUNCER
+    WK --> PGBOUNCER
+    PGBOUNCER --> PG
 
-    BK  --- PG
-    CAL --- PG
-    PAY --- PG
-    ANA --- PG
+    GW --> REDIS
+    BK --> REDIS
+    CAL --> REDIS
+    PAY --> REDIS
+    ANA --> REDIS
+    ADM --> REDIS
+    NOT --> REDIS
+    WK --> REDIS
+
+    REDIS -->|stream consumers| NOT
+    REDIS -->|stream consumers| ANA
+    REDIS -->|payment.completed consumer| PAY
+    REDIS -->|jobs| WK
+
+    NOT -->|sendMessage, sendInvoice| TG
+
+    classDef public fill:#fff4d6,stroke:#c28a00,color:#111
+    classDef internal fill:#eef6ff,stroke:#3b82f6,color:#111
+    classDef data fill:#f1f5f9,stroke:#64748b,color:#111
+
+    class GW public
+    class BK,CAL,PAY,NOT,ANA,ADM,WK internal
+    class REDIS,PGBOUNCER,PG data

@@ -1,34 +1,39 @@
 ---
-title: Cancel Booking Flow — Microservices
+title: Cancel Booking Flow With Authorization
 ---
 sequenceDiagram
     actor User
     participant TG as Telegram
     participant GW as bot-gateway
+    participant Redis as Redis
     participant BK as booking-service
-    participant REDIS as Redis Streams
+    participant PG as PostgreSQL
+    participant NOT as notification-service
 
-    User->>TG: /my_bookings
-    TG->>GW: message /my_bookings
-    GW->>BK: GET /bookings?telegramUserId=X
-    BK-->>GW: bookings[]
-    GW->>TG: sendMessage(bookings + [Cancel] buttons)
+    User->>TG: open my bookings
+    TG->>GW: update
+    GW->>Redis: duplicate update check
+    GW->>BK: signed GET /bookings?telegramUserId=X
+    Note over GW,BK: HMAC + replay protection + signed user id
+    BK->>PG: read user's bookings
+    BK-->>GW: bookings
+    GW->>TG: show bookings
 
-    User->>TG: click "Cancel: Library Desks"
-    TG->>GW: callback cancel:booking-123
-    GW->>TG: editMessage("Are you sure?", [Cancel booking] [Keep booking])
+    User->>TG: confirm cancel
+    TG->>GW: callback
+    GW->>BK: signed PATCH /bookings/:id status cancelled
+    BK->>PG: verify booking owner
 
-    alt User confirms
-        User->>TG: click "Cancel booking"
-        TG->>GW: callback cancel_confirm:booking-123
-        GW->>BK: PATCH /bookings/booking-123 {status: "cancelled"}
-        BK-->>GW: booking {status: "cancelled"}
-        BK->>REDIS: publish booking.cancelled
-        GW->>TG: editMessage("Booking cancelled: Library Desks ...")
-    else User keeps booking
-        User->>TG: click "Keep booking"
-        TG->>GW: callback menu:bookings
-        GW->>BK: GET /bookings?telegramUserId=X
-        BK-->>GW: bookings[]
-        GW->>TG: editMessage(bookings list)
+    alt user owns booking
+        BK->>PG: update booking status
+        BK->>PG: write audit booking.cancelled
+        BK->>Redis: publish stream:booking.cancelled
+        Redis->>NOT: consume notification.send if needed
+        NOT->>TG: send cancellation message
+        BK-->>GW: cancelled booking
+        GW->>TG: show success
+    else user does not own booking
+        BK->>PG: write audit booking.cancel.forbidden
+        BK-->>GW: FORBIDDEN
+        GW->>TG: show access denied
     end

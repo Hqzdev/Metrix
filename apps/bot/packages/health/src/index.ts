@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 
 type HealthCheckResult = {
   ok: boolean

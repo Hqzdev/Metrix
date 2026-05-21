@@ -20,7 +20,7 @@ import {
 import { sendJson } from './http-response.js'
 import type { BookingServiceLogger } from './logger.js'
 import { serializeBooking, type BookingRecord } from './booking-serialization.js'
-import { createSlots } from './slots.js'
+import { createSlots, createSlotsForDate, parseCustomSlot } from './slots.js'
 import { assertValidTransition } from './booking-fsm.js'
 import {
   parseBlockSlotsInput,
@@ -134,6 +134,8 @@ export class BookingRouter {
     if (method === 'GET' && path === '/resources') return { body: await this.listResources(context), statusCode: 200 }
     if (method === 'GET' && path.startsWith('/resources/')) return { body: await this.getResource(context), statusCode: 200 }
     if (method === 'GET' && path === '/slots') return { body: await this.listAvailableSlots(context), statusCode: 200 }
+    if (method === 'GET' && path === '/users/me/preferences') return { body: await this.getUserPreferences(context), statusCode: 200 }
+    if (method === 'PATCH' && path === '/users/me/preferences') return { body: await this.updateUserPreferences(context), statusCode: 200 }
     if (method === 'GET' && path === '/bookings') return { body: await this.listBookings(context), statusCode: 200 }
     if (method === 'POST' && path === '/bookings') return { body: await this.createBooking(context), statusCode: 201 }
     if (method === 'PATCH' && path.startsWith('/bookings/')) return { body: await this.updateBookingStatus(context), statusCode: 200 }
@@ -226,10 +228,15 @@ export class BookingRouter {
 
   /**
    * Возвращает список сущностей для текущего запроса.
+   *
+   * Если передан query-параметр `date` (YYYYMMDD), возвращает слоты для этой даты.
+   * Без параметра — стандартные слоты на сегодня (legacy-flow).
    */
   private async listAvailableSlots(context: RequestContext): Promise<unknown> {
     const resourceId = context.url.searchParams.get('resourceId')
     if (!resourceId) throw new ValidationError('resourceId required')
+
+    const dateParam = context.url.searchParams.get('date')
 
     const bookedSlots = await this.dependencies.prisma.booking.findMany({
       select: { slotId: true },
@@ -241,7 +248,8 @@ export class BookingRouter {
     })
     const blockedSlotIds = new Set([...bookedSlots.map((slot) => slot.slotId), ...busySlots.map((slot) => slot.slotId)])
 
-    return createSlots(resourceId).filter((slot) => !blockedSlotIds.has(slot.id))
+    const allSlots = dateParam ? createSlotsForDate(resourceId, dateParam) : createSlots(resourceId)
+    return allSlots.filter((slot) => !blockedSlotIds.has(slot.id))
   }
 
   /**
@@ -254,6 +262,34 @@ export class BookingRouter {
       : await this.dependencies.prisma.booking.findMany()
 
     return bookings.map(serializeBooking)
+  }
+
+  private async getUserPreferences(context: RequestContext): Promise<unknown> {
+    if (!context.callerUserId) throw new ValidationError('telegram user identity required')
+
+    const preferences = await this.dependencies.prisma.telegramUserPreference.findUnique({
+      where: { telegramUserId: BigInt(context.callerUserId) },
+    })
+
+    return { language: preferences?.language ?? null }
+  }
+
+  private async updateUserPreferences(context: RequestContext): Promise<unknown> {
+    if (!context.callerUserId) throw new ValidationError('telegram user identity required')
+
+    const body = context.parsedBody as { language?: unknown }
+    const language = body.language
+    if (language !== 'en' && language !== 'ru') {
+      throw new ValidationError('language must be en or ru')
+    }
+
+    const preferences = await this.dependencies.prisma.telegramUserPreference.upsert({
+      create: { language, telegramUserId: BigInt(context.callerUserId) },
+      update: { language },
+      where: { telegramUserId: BigInt(context.callerUserId) },
+    })
+
+    return { language: preferences.language }
   }
 
   /**
@@ -284,7 +320,9 @@ export class BookingRouter {
     })
     if (!resource) throw new NotFoundError('resource not found')
 
+    // Сначала ищем в стандартных слотах (legacy), затем пробуем кастомный формат
     const slot = createSlots(input.resourceId).find((item) => item.id === input.slotId)
+      ?? parseCustomSlot(input.resourceId, input.slotId)
     if (!slot) throw new NotFoundError('slot not found')
 
     // distributed lock: захватываем слот до начала транзакции

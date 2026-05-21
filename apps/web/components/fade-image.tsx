@@ -15,6 +15,7 @@ export function FadeImage({ className, fadeDelay = 0, ...props }: FadeImageProps
   useEffect(() => {
     // Set visible immediately if no IntersectionObserver support
     if (typeof IntersectionObserver === "undefined") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsVisible(true);
       return;
     }

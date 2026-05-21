@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq'
 import { createWriteStream, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 import type { PrismaClient } from '@prisma/client'
 import type { RedisBus } from '@metrix/redis-bus'
 import { STREAMS } from '@metrix/contracts'

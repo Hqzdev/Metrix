@@ -1,4 +1,4 @@
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 
 const RATE_LIMIT = 10
 const RATE_WINDOW_SEC = 10

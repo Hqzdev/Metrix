@@ -75,6 +75,15 @@ model BusySlot {
   @@schema("booking")
 }
 
+model TelegramUserPreference {
+  telegramUserId BigInt   @id
+  language       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@schema("booking")
+}
+
 // ─── calendar schema ──────────────────────────────────────────────────────────
 
 model CalendarConnection {

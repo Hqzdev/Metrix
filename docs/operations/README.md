@@ -1,16 +1,20 @@
 Operations
 
-Этот раздел содержит operator runbooks для production incident response.
+Этот раздел объясняет, что делать при сбоях.
+
+Runbook — это инструкция на плохой день.
+Она должна быть короткой и понятной.
 
 Документы
 
-- [Failure scenarios](./failure-scenarios.md) — Redis down, PostgreSQL down, Telegram down и duplicate payment callback.
-- [SLO](./SLO.md) — availability, p95 latency, error budget и alert thresholds.
-- [Redis outage](./redis-outage.md) — действия при отказе Redis.
-- [DB restore](./db-restore.md) — восстановление PostgreSQL из backup.
-- [DLQ replay](./dlq-replay.md) — безопасный replay сообщений из dead letter queue.
-- [Failed deploy rollback](./failed-deploy-rollback.md) — rollback после неуспешного deploy.
+- redis-outage.md — Redis недоступен.
+- db-restore.md — восстановление базы.
+- dlq-replay.md — replay сообщения из DLQ.
+- failed-deploy-rollback.md — откат сломанного deploy.
+- failure-scenarios.md — список типовых отказов.
+- SLO.md — цели надежности.
 
-Правило расширения
+Главное правило
 
-Каждый новый production alert должен ссылаться на runbook в этом разделе или на конкретный архитектурный документ с процедурой восстановления.
+Сначала остановить вред, потом чинить красиво.
+Например, если Redis упал, нельзя обходить replay protection вручную.

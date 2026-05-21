@@ -1,4 +1,4 @@
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 
 // время жизни блокировки: достаточно для завершения DB-транзакции с запасом
 const LOCK_TTL_MS = 10_000

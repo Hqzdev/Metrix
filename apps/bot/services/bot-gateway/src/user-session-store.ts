@@ -1,4 +1,4 @@
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 
 const SESSION_TTL_SEC = 60 * 60
 
@@ -6,6 +6,9 @@ export type BotSessionState =
   | 'START'
   | 'SELECT_LOCATION'
   | 'SELECT_ROOM'
+  | 'SELECT_DATE'
+  | 'SELECT_START_TIME'
+  | 'SELECT_DURATION'
   | 'SELECT_TIME'
   | 'CONFIRM_BOOKING'
   | 'PAYMENT'
@@ -14,6 +17,9 @@ export type BotSessionPatch = {
   expectedVersion?: number
   locationId?: string
   resourceId?: string
+  selectedDate?: string
+  selectedDuration?: number
+  selectedHour?: number
   slotId?: string
   state: BotSessionState
 }
@@ -26,6 +32,9 @@ export type UserSessionStore = {
 export type BotSession = {
   locationId?: string
   resourceId?: string
+  selectedDate?: string
+  selectedDuration?: number
+  selectedHour?: number
   slotId?: string
   state: BotSessionState
   updatedAt: string
@@ -52,6 +61,9 @@ export class RedisUserSessionStore implements UserSessionStore {
     const payload = JSON.stringify({
       locationId: patch.locationId,
       resourceId: patch.resourceId,
+      selectedDate: patch.selectedDate,
+      selectedDuration: patch.selectedDuration,
+      selectedHour: patch.selectedHour,
       slotId: patch.slotId,
       state: patch.state,
       updatedAt: new Date().toISOString(),

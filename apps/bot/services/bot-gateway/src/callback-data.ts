@@ -4,11 +4,16 @@ const SAFE_TOKEN = /^[A-Za-z0-9._-]+$/
 type MenuAction = 'start' | 'help' | 'book' | 'slots' | 'bookings' | 'stats'
 
 export type ParsedCallbackData =
+  | { type: 'language'; language: 'en' | 'ru' }
   | { type: 'menu'; action: MenuAction }
   | { type: 'location'; locationId: string }
   | { type: 'resource'; locationId: string; resourceId: string }
   | { type: 'slot'; resourceId: string; slotId: string }
   | { type: 'confirm'; resourceId: string; slotId: string }
+  | { type: 'confirm_custom' }
+  | { type: 'date'; date: string }
+  | { type: 'time'; hour: number }
+  | { type: 'dur'; hours: number }
   | { type: 'cancel'; bookingId: string }
   | { type: 'cancel_confirm'; bookingId: string }
   | { type: 'calendar_disconnect'; provider: 'google' | 'microsoft' }
@@ -25,6 +30,10 @@ export function parseCallbackData(data: string): ParsedCallbackData | null {
 
   const parts = data.split(':')
   const [prefix] = parts
+
+  if (prefix === 'language' && parts.length === 2 && (parts[1] === 'en' || parts[1] === 'ru')) {
+    return { type: 'language', language: parts[1] }
+  }
 
   if (prefix === 'menu' && parts.length === 2 && isMenuAction(parts[1])) {
     return { type: 'menu', action: parts[1] }
@@ -59,6 +68,32 @@ export function parseCallbackData(data: string): ParsedCallbackData | null {
     if (provider === 'google' || provider === 'microsoft') {
       return { type: 'calendar_disconnect', provider }
     }
+  }
+
+  // date:YYYYMMDD — выбор даты при произвольном бронировании
+  if (prefix === 'date' && parts.length === 2 && /^\d{8}$/.test(parts[1])) {
+    return { type: 'date', date: parts[1] }
+  }
+
+  // time:HH — выбор часа начала (0–23)
+  if (prefix === 'time' && parts.length === 2) {
+    const hour = parseInt(parts[1], 10)
+    if (Number.isInteger(hour) && hour >= 0 && hour <= 23) {
+      return { type: 'time', hour }
+    }
+  }
+
+  // dur:H — продолжительность в часах (1–8)
+  if (prefix === 'dur' && parts.length === 2) {
+    const hours = parseInt(parts[1], 10)
+    if (Number.isInteger(hours) && hours >= 1 && hours <= 8) {
+      return { type: 'dur', hours }
+    }
+  }
+
+  // confirm_custom — подтверждение брони с параметрами из сессии
+  if (data === 'confirm_custom') {
+    return { type: 'confirm_custom' }
   }
 
   return null

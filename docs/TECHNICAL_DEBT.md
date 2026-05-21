@@ -1,35 +1,24 @@
 Technical Debt
 
-Этот документ фиксирует короткий список технического долга, который влияет на production readiness.
-Он не заменяет issue tracker, но даёт обзор owner, risk, mitigation и due date.
+Этот документ хранит известные долги проекта.
+Долг — это не ошибка. Это место, которое работает сейчас, но его нужно усилить позже.
 
-Правила
+Как читать таблицу
 
-Debt item должен иметь owner.
-Debt item должен иметь риск.
-Debt item должен иметь mitigation.
-Due date может быть кварталом, если точной даты нет.
+- Owner — кто отвечает.
+- Risk — что может пойти не так.
+- Mitigation — что сделать, чтобы риск уменьшить.
+- Due date — когда желательно закрыть.
+- Status — текущее состояние.
 
-Таблица
-
-| Item | Owner | Risk | Mitigation | Due date | Status |
+| Debt | Owner | Risk | Mitigation | Due date | Status |
 | --- | --- | --- | --- | --- | --- |
-| Real observability screenshots | Platform | Monitoring readiness нельзя доказать без Prometheus/Grafana evidence. | Поднять monitoring stack и заполнить docs/testing/screenshots. | 2026-Q2 | planned |
-| Restore drill evidence | Platform | Backup может оказаться невосстановимым. | Выполнить pg_restore в clean database и заполнить RESTORE_DRILL_EVIDENCE.md. | 2026-Q2 | evidence pending |
-| Incident simulation | Platform | Runbooks могут не сработать под реальным отказом. | Провести analytics down, Redis down, payment retry и DLQ replay drills. | 2026-Q2 | planned |
-| Error code rollout | API | Клиенты парсят нестабильные text errors. | Добавить `{ error, code }`, обновить OpenAPI и contract tests. | 2026-Q2 | in progress |
-| Load testing evidence | Platform | Нет p50/p95/p99 и error rate под нагрузкой. | Добавить k6/autocannon scripts и сохранить результаты. | 2026-Q2 | planned |
-| OpenTelemetry tracing | Platform | Межсервисный flow сложно расследовать по одному request. | Подключить OTEL SDK и collector после стабилизации logs. | 2026-Q3 | planned |
-| Browser operator UI | Product Engineering | DLQ/payment recovery доступны только как backend endpoints. | Добавить admin UI поверх existing endpoints. | 2026-Q3 | planned |
+| Load testing evidence | Platform | Неизвестно, как система ведет себя под нагрузкой. | Запустить k6/autocannon, сохранить p50/p95/p99/error rate. | 2026-Q2 | planned |
+| Observability screenshots | Platform | Есть endpoints и config, но нет UI evidence. | Снять Prometheus/Grafana/log screenshots. | 2026-Q2 | planned |
+| Payment retry full drill | Payments | Synthetic retry не доказывает полный invoice -> booking flow. | Повторить drill через настоящий invoice flow. | 2026-Q2 | partial |
+| Contract tests | API | Внешние клиенты могут сломаться при изменении DTO. | Расширить contract tests для публичных клиентов. | 2026-Q2 | partial |
+| Monitoring UI stack | Platform | Локально проверены endpoints, но не полный dashboard. | Поднять monitoring stack и сохранить evidence. | 2026-Q2 | planned |
 
-Правило закрытия
+Правило
 
-Debt item закрывается только после изменения кода или evidence документа.
-Если риск принят без исправления, нужно добавить ADR или incident review note.
-
-Связанные документы
-
-docs/architecture/PRODUCTION_READINESS.md
-docs/testing/PRODUCTION_READINESS_TEST_REPORT.md
-docs/testing/RESTORE_DRILL_EVIDENCE.md
-docs/testing/INCIDENT_DRILL_EVIDENCE.md
+Если долг влияет на безопасность, оплату или данные пользователя, он получает приоритет выше обычного refactor.

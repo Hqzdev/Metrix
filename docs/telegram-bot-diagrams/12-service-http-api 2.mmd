@@ -1,0 +1,64 @@
+---
+title: Service HTTP API Map
+---
+graph LR
+    GW[bot-gateway<br/>:3000]
+
+    subgraph BK["booking-service :3001"]
+        BK1["GET /locations"]
+        BK2["GET /resources?locationId="]
+        BK3["GET /resources/:id"]
+        BK4["GET /slots?resourceId="]
+        BK5["POST /bookings"]
+        BK6["GET /bookings?telegramUserId="]
+        BK7["PATCH /bookings/:id"]
+        BK8["POST /slots/block"]
+        BK9["PATCH /locations/:id"]
+        BK10["PATCH /resources/:id"]
+    end
+
+    subgraph CAL["calendar-service :3002"]
+        CAL1["GET /connections"]
+        CAL2["POST /auth-url"]
+        CAL3["POST /oauth-callback"]
+        CAL4["DELETE /connections"]
+    end
+
+    subgraph PAY["payment-service :3003"]
+        PAY1["POST /invoices"]
+        PAY2["POST /pre-checkout"]
+        PAY3["POST /successful-payment"]
+    end
+
+    subgraph ANA["analytics-service :3005"]
+        ANA1["GET /stats"]
+        ANA2["GET /summary"]
+        ANA3["POST /reports"]
+        ANA4["GET /reports/:id"]
+    end
+
+    subgraph ADM["admin-service :3006"]
+        ADM1["GET /bookings"]
+        ADM2["GET /stats"]
+        ADM3["PATCH /locations/:id"]
+        ADM4["PATCH /resources/:id"]
+        ADM5["POST /reports"]
+    end
+
+    GW --> BK1
+    GW --> BK2
+    GW --> BK3
+    GW --> BK4
+    GW --> BK6
+    GW --> BK7
+    GW --> CAL1
+    GW --> CAL2
+    GW --> CAL4
+    GW --> PAY1
+    GW --> PAY2
+    GW --> PAY3
+    GW --> ADM1
+    GW --> ADM2
+    GW --> ADM3
+    GW --> ADM4
+    GW --> ADM5

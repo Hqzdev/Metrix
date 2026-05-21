@@ -1,4 +1,4 @@
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 import { PrismaClient } from '@prisma/client'
 import { installGracefulShutdown } from '@metrix/observability'
 import { RedisBus } from '@metrix/redis-bus'

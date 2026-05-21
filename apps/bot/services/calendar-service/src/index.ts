@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
 import { PrismaClient } from '@prisma/client'
 import { MetricsRegistry, createObservedHandler, installGracefulShutdown, sendMetrics, sendReadiness } from '@metrix/observability'
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 import { CalendarRouter } from './calendar-router.js'
 import { readCalendarServiceConfig } from './config.js'
 import { GoogleOAuthClient } from './google-oauth-client.js'

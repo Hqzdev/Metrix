@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq'
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 import type { RedisBus } from '@metrix/redis-bus'
 import { STREAMS } from '@metrix/contracts'
 import { QUEUE_NAMES, type ReminderJobData } from '../queues.js'

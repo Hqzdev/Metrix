@@ -1,96 +1,40 @@
 Audit Log Policy
 
-Этот документ описывает чтение, redaction и retention persistent audit log.
+Этот документ объясняет audit log.
 
-Назначение
+Что такое audit log
 
-Audit log нужен для расследований.
-Он не должен становиться вторым хранилищем пользовательских данных, секретов или сырых payload внешних провайдеров.
+Это журнал важных действий.
 
-Чтение audit log
+Он отвечает на вопросы:
 
-admin-service отдаёт защищённый endpoint:
+- кто сделал действие;
+- когда сделал;
+- через какой сервис;
+- над какой сущностью;
+- с каким requestId.
 
-GET /audit-logs
+Что писать в audit
 
-Endpoint доступен только через service-to-service HMAC boundary.
-Публичный web или bot boundary должен дополнительно проверять permission admin:read перед проксированием запроса.
+- создание брони;
+- отмену брони;
+- payment recovery;
+- DLQ replay;
+- admin updates;
+- forbidden/security events.
 
-Фильтры:
+Что не писать
 
-service — сервис-источник события
-action — имя audit action
-entityType — тип сущности
-entityId — id сущности
-requestId — request id
-from — нижняя граница ts в ISO format
-to — верхняя граница ts в ISO format
-limit — количество записей, максимум 100
-cursor — opaque base64url cursor из ответа nextCursor
+- пароли;
+- refresh tokens;
+- полные секреты;
+- лишние персональные данные.
 
-Ответ сортируется по ts desc.
-actorUserId возвращается строкой, чтобы не терять точность BigInt в JSON.
-Если есть следующая страница, ответ содержит nextCursor.
-Cursor содержит ts и id последней записи страницы, но клиент не должен разбирать его вручную.
+Зачем нужен requestId
 
-Redaction policy
+requestId помогает связать HTTP-запрос, лог и audit event.
 
-В payload разрешены:
+Retention
 
-id сущностей
-status transitions
-безопасные enum values
-технические причины отказа
-суммы в minor units
-requestId и callerService
-
-В payload запрещены:
-
-пароли
-OAuth access token
-OAuth refresh token
-Telegram bot token
-payment provider token
-HMAC secrets
-сырые HMAC signatures
-сырые request headers
-полный DATABASE_URL
-полные external API responses с credentials
-
-Если поле нужно для расследования, но содержит чувствительные данные, хранить нужно только redacted форму.
-
-Пример:
-
-email: "u***@example.com"
-tokenHash: "sha256:..."
-
-Retention policy
-
-Учебный production profile:
-
-audit logs хранятся 180 дней
-security incidents хранятся до ручного закрытия incident review
-payload должен оставаться минимальным, чтобы retention не создавал лишний privacy risk
-
-План production cleanup:
-
-1. admin-service запускает scheduled cleanup
-2. cleanup удаляет audit records старше retention window
-3. cleanup логирует audit.retention.cleaned
-4. будущий incident workflow должен исключить записи, связанные с открытым incident
-5. будущая метрика должна публиковать количество удалённых записей
-
-Runtime configuration:
-
-AUDIT_RETENTION_DAYS — retention window, по умолчанию 180
-AUDIT_RETENTION_INTERVAL_MS — cleanup interval, по умолчанию 86400000
-
-Правила расширения
-
-Добавление нового audit event:
-
-1. выбрать action в формате domain.action
-2. записывать entityType и entityId
-3. добавлять requestId
-4. проверить payload по redaction policy
-5. обновить SECURITY.md или этот документ
+Старые audit events можно удалять по политике retention.
+Security incidents стоит хранить до ручного закрытия review.

@@ -1,4 +1,4 @@
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 
 const OFFSET_KEY = 'telegram:updates:offset'
 const PROCESSED_UPDATE_TTL_SEC = 7 * 24 * 60 * 60

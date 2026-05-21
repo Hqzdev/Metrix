@@ -1,34 +1,42 @@
+---
+title: Telegram Bot Overview
+---
 flowchart TD
-    A[Пользователь открывает Telegram-бота] --> B[Команда /start]
-    B --> C[Бот показывает главное меню]
+    U[Пользователь] --> TG[Telegram]
+    TG --> GW[bot-gateway]
 
-    C --> D[Посмотреть доступные слоты]
-    C --> E[Создать бронь]
-    C --> F[Мои брони]
-    C --> G[Отменить бронь]
-    C --> H[Перенести бронь]
-    C --> I[Помощь]
+    GW --> RL[Redis rate limit]
+    GW --> DU[Redis duplicate update check]
+    GW --> FSM[Redis user session state]
 
-    D --> J[Бот запрашивает доступность через API]
-    E --> K[Бот запускает сценарий выбора ресурса и времени]
-    F --> L[Бот получает список активных броней]
-    G --> M[Бот показывает брони для отмены]
-    H --> N[Бот показывает брони для переноса]
-    I --> O[Бот показывает команды и подсказки]
+    GW --> MENU[Главное меню]
 
-    J --> P[Пользователь выбирает слот]
-    K --> Q[Подтверждение бронирования]
-    L --> R[Просмотр деталей брони]
-    M --> S[Подтверждение отмены]
-    N --> T[Выбор нового времени]
+    MENU --> B[Создать бронь]
+    MENU --> MB[Мои брони]
+    MENU --> C[Календарь]
+    MENU --> A[Админ действия]
+    MENU --> H[Помощь]
 
-    P --> Q
-    T --> U[Подтверждение переноса]
+    B --> BK[booking-service]
+    B --> PAY[payment-service, если нужна оплата]
+    MB --> BK
+    C --> CAL[calendar-service]
+    A --> ADM[admin-service]
 
-    Q --> V[API создаёт бронь]
-    S --> W[API отменяет бронь]
-    U --> X[API обновляет бронь]
+    BK --> PG[(PostgreSQL)]
+    PAY --> PG
+    CAL --> PG
+    ADM --> PG
 
-    V --> Y[Бот отправляет подтверждение]
-    W --> Z[Бот отправляет подтверждение отмены]
-    X --> AA[Бот отправляет подтверждение переноса]
+    BK --> RS[(Redis Streams)]
+    PAY --> RS
+    ADM --> RS
+
+    RS --> NOT[notification-service]
+    NOT --> TG
+
+    GW -.-> SEC[Подписывает internal HTTP: HMAC + request id + user signature]
+    BK -.-> AUD[audit log]
+    PAY -.-> AUD
+    ADM -.-> AUD
+    AUD --> PG

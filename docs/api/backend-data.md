@@ -1,167 +1,69 @@
 API Backend And Data
 
-Этот документ описывает блок packages/api и prisma: контракты API, Prisma-схему, seed, auth, validation и безопасное создание бронирований.
+Этот документ объясняет root API-блок.
 
-Назначение
+Важно
 
-Блок packages/api содержит backend-логику, которую можно подключить к Next route handlers или отдельному Node API.
-Он не зависит от Telegram UI и не формирует сообщения бота.
+Он описывает packages/api и root prisma/schema.prisma.
+Он не описывает весь Telegram bot microservices runtime из apps/bot.
 
-В этом слое не должно находиться React, Telegram callback_data или визуальная логика.
+Зачем нужен packages/api
 
-Структура файлов
+packages/api — это reusable backend-блок.
+Его можно подключить к Next route handlers или отдельному Node API.
 
-src/contracts — типы запросов и ответов API
-src/database/prisma-client.ts — единый PrismaClient
-src/modules/bookings — создание брони, mapper, repository, validation
-src/modules/resources — mapper для локаций, ресурсов и слотов
-src/modules/admin — validation для админских изменений
-src/shared/auth — jwt, session, password hash, auth guard
-src/shared/validation — маленький runtime validator
-prisma/schema.prisma — схема PostgreSQL
-prisma/migrations — SQL-миграции
-prisma/seed.ts — seed-данные для локальной разработки
+Что внутри
 
-Prisma schema
+- src/contracts — типы запросов и ответов.
+- src/database/prisma-client.ts — общий PrismaClient.
+- src/modules/bookings — создание и проверка брони.
+- src/modules/resources — преобразование локаций, ресурсов и слотов.
+- src/modules/admin — validation для админских изменений.
+- src/shared/auth — JWT, session, password hash, auth guard.
+- src/shared/validation — простые validators.
 
-schema.prisma содержит модели:
+Root Prisma schema
 
-User — пользователь или администратор
-Session — refresh-сессия
-Location — офисная локация
-Resource — переговорка, desk, office или team area
-Slot — временной слот ресурса
-Booking — бронирование
-CalendarConnection — подключение Google или Microsoft календаря
-CalendarEvent — созданное событие календаря
+Файл:
 
-Команды Prisma запускаются из корня проекта.
+prisma/schema.prisma
 
-Основные команды:
+Главные модели:
 
-npm run prisma:generate — генерация Prisma Client
-npm run prisma:migrate — применение миграций
-npm run prisma:seed — заполнение локальных seed-данных
-
-Основные enum:
-
-UserRole — admin или employee
-ResourceType — desk, office, room или team
-BookingStatus — active, cancelled, completed или rescheduled
-CalendarProvider — google или microsoft
-CalendarConnectionScope — user или resource
-
-Seed
-
-prisma/seed.ts создаёт:
-
-локального admin-пользователя
-московские локации
-ресурсы с ценами в рублях
-три слота на каждый ресурс
-
-Цены вида $320 конвертируются в 32 000 ₽.
-priceMinorUnits хранит копейки для RUB.
-
-API contracts
-
-contracts/bookings.ts содержит:
-
-CreateBookingRequest
-CancelBookingRequest
-RescheduleBookingRequest
-BookingResponse
-ListBookingsQuery
-
-contracts/resources.ts содержит:
-
-LocationResponse
-ResourceResponse
-AvailableSlotResponse
-UpdateLocationRequest
-UpdateResourceRequest
-
-contracts/calendar.ts содержит:
-
-ConnectCalendarRequest
-CalendarConnectionResponse
-
-contracts/admin.ts содержит:
-
-AdminStatsResponse
-ResourceUtilizationResponse
-HourlyOccupancyResponse
-ReportExportRequest
+- User — пользователь или админ.
+- Session — refresh-сессия.
+- Location — офисная локация.
+- Resource — ресурс внутри локации.
+- Slot — слот времени.
+- Booking — бронь.
+- CalendarConnection — подключение календаря.
+- CalendarEvent — событие календаря.
 
 Auth
 
-shared/auth/jwt.ts создаёт и проверяет JWT через HS256.
-shared/auth/password.ts хеширует пароль через pbkdf2.
-shared/auth/session-service.ts создаёт refreshToken в таблице Session и короткий accessToken.
+JWT используется для обычного API-слоя.
+Пароли хешируются через pbkdf2.
+Refresh sessions лежат в таблице Session.
 
-shared/auth/auth-guard.ts содержит:
+Booking safety
 
-authenticateRequest() — читает Bearer token
-requireAdmin() — проверяет роль admin
+Создание брони проверяет:
 
-JWT secret должен приходить из env на уровне приложения.
-Доменные modules не должны читать process.env напрямую.
+- существует ли resource;
+- существует ли slot или переданы startsAt/endsAt;
+- не пересекается ли новая бронь с активной бронью;
+- можно ли создать запись в транзакции.
 
-Validation
+Команды
 
-shared/validation/validator.ts содержит простые validators без внешних зависимостей.
+npm run prisma:generate — сгенерировать Prisma Client.
+npm run prisma:migrate — применить миграции.
+npm run prisma:seed — заполнить локальные данные.
 
-modules/bookings/booking-validators.ts валидирует:
+Как расширять
 
-создание брони
-отмену брони
-перенос брони
-
-modules/admin/admin-validators.ts валидирует:
-
-обновление локации
-обновление ресурса
-
-Concurrency-safe booking
-
-modules/bookings/create-booking.ts создаёт бронь через BookingRepository.
-
-Алгоритм:
-
-1. открыть транзакцию Serializable
-2. найти resource
-3. найти slot или взять startsAt и endsAt из запроса
-4. проверить валидность времени
-5. проверить активные пересечения по resourceId
-6. создать Booking
-
-Проверка пересечения:
-
-существующая бронь начинается раньше конца новой брони
-существующая бронь заканчивается позже начала новой брони
-статус существующей брони равен active
-
-Это закрывает двойное бронирование одного ресурса на одно время.
-
-Расширение
-
-Добавление нового endpoint:
-
-1. описать request и response в src/contracts
-2. добавить validator в нужный module
-3. держать route handler тонким
-4. бизнес-логику вынести в use case
-5. доступ к базе делать через repository
-
-Добавление поля в БД:
-
-1. обновить prisma/schema.prisma
-2. добавить migration
-3. обновить mapper и contracts
-4. обновить seed если поле нужно для локальных данных
-
-Замена auth:
-
-1. оставить authenticateRequest() как границу
-2. поменять реализацию jwt или session внутри shared/auth
-3. не протаскивать process.env в доменные modules
+1. Сначала обновить contract.
+2. Потом validator.
+3. Потом use case или repository.
+4. Потом mapper.
+5. Потом тесты.

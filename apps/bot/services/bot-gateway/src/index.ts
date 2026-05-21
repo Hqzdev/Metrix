@@ -1,6 +1,6 @@
 import { setDefaultResultOrder } from 'node:dns'
 import { installGracefulShutdown, MetricsRegistry } from '@metrix/observability'
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 import { Bot } from './bot.js'
 import { readBotGatewayConfig } from './config.js'
 import { startHealthServer } from './health-server.js'

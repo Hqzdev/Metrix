@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq'
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 import type { PrismaClient } from '@prisma/client'
 import { QUEUE_NAMES, createCalendarRefreshQueue, type CalendarRefreshJobData } from '../queues.js'
 import type { WorkerLogger } from '../logger.js'

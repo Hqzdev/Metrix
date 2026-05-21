@@ -1,64 +1,32 @@
 Integrations
 
-Этот документ описывает внешние интеграции системы и правила работы с ними.
+Этот документ объясняет внешние интеграции.
 
-Назначение
+Telegram
 
-Интеграции должны быть оформлены как отдельные адаптеры.
-Google, Microsoft и Telegram не должны быть размазаны по бизнес-логике.
-Доменная логика не должна зависеть от формата внешних API.
+Telegram используется для bot UX:
 
-Какие интеграции есть
+- команды;
+- inline keyboards;
+- уведомления;
+- payment flow.
 
 Google Calendar
-Microsoft Outlook / Microsoft 365
-Telegram Bot
 
-Что описывает документ
+Google Calendar используется для calendar connections.
+OAuth tokens должны быть защищены.
 
-механизм авторизации
-поддерживаемые действия каждой интеграции
-структуру адаптеров
-retry policy
-обработку временных ошибок
-хранение токенов и секретов
-маппинг внешних сущностей во внутренние модели
+Microsoft Calendar
 
-Ожидаемые файлы
+Архитектура предусматривает Microsoft Calendar.
+Реализация должна следовать тем же правилам: OAuth state, token encryption, audit.
 
-src/integrations/google-calendar/google-calendar-adapter.ts
-src/integrations/google-calendar/google-calendar-auth.ts
-src/integrations/google-calendar/google-calendar-mapper.ts
-src/integrations/microsoft-calendar/microsoft-calendar-adapter.ts
-src/integrations/microsoft-calendar/microsoft-calendar-auth.ts
-src/integrations/microsoft-calendar/microsoft-calendar-mapper.ts
-src/integrations/telegram-bot/telegram-bot-client.ts
-src/integrations/telegram-bot/telegram-command-router.ts
-src/integrations/telegram-bot/telegram-message-builder.ts
+YooKassa / Telegram Payments
 
-Затронутые модули
+Payment-service работает с payment flow.
+Важные состояния фиксируются в PostgreSQL.
 
-src/modules/calendar-integrations
-src/modules/telegram
-src/modules/notifications
-src/shared/config
+Правило
 
-Правила интеграций
-
-Внешние API вызываются только через адаптеры.
-Адаптеры не должны содержать бизнес-логику.
-OAuth-токены хранятся только в зашифрованном виде.
-Ошибки внешних API нормализуются перед передачей в application-слой.
-Временные ошибки обрабатываются через retry.
-Данные внешних сущностей маппятся во внутренние модели.
-
-Расширение
-
-Добавление новой интеграции:
-
-1. создать adapter
-2. описать auth flow
-3. описать mapper
-4. добавить env-переменные
-5. добавить retry policy
-6. описать ошибки и ограничения
+Внешний provider может прислать callback дважды.
+Поэтому обработчики должны быть idempotent.

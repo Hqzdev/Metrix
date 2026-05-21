@@ -1,0 +1,34 @@
+---
+title: Cancel Booking Flow — Microservices
+---
+sequenceDiagram
+    actor User
+    participant TG as Telegram
+    participant GW as bot-gateway
+    participant BK as booking-service
+    participant REDIS as Redis Streams
+
+    User->>TG: /my_bookings
+    TG->>GW: message /my_bookings
+    GW->>BK: GET /bookings?telegramUserId=X
+    BK-->>GW: bookings[]
+    GW->>TG: sendMessage(bookings + [Cancel] buttons)
+
+    User->>TG: click "Cancel: Library Desks"
+    TG->>GW: callback cancel:booking-123
+    GW->>TG: editMessage("Are you sure?", [Cancel booking] [Keep booking])
+
+    alt User confirms
+        User->>TG: click "Cancel booking"
+        TG->>GW: callback cancel_confirm:booking-123
+        GW->>BK: PATCH /bookings/booking-123 {status: "cancelled"}
+        BK-->>GW: booking {status: "cancelled"}
+        BK->>REDIS: publish booking.cancelled
+        GW->>TG: editMessage("Booking cancelled: Library Desks ...")
+    else User keeps booking
+        User->>TG: click "Keep booking"
+        TG->>GW: callback menu:bookings
+        GW->>BK: GET /bookings?telegramUserId=X
+        BK-->>GW: bookings[]
+        GW->>TG: editMessage(bookings list)
+    end

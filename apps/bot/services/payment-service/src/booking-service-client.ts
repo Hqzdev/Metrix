@@ -23,6 +23,12 @@ export type BookingConfirmation = {
   startsAt?: string
 }
 
+type BookingRecord = {
+  resourceId: string
+  slotId: string
+  status: string
+}
+
 /**
  * Клиент для межсервисных запросов в booking-service.
  *
@@ -78,7 +84,28 @@ export class BookingServiceClient {
     }
 
     const slots = (await response.json()) as AvailableSlot[]
-    return slots.some((slot) => slot.id === slotId)
+    if (slots.some((slot) => slot.id === slotId)) return true
+
+    if (!isCustomSlotId(resourceId, slotId)) return false
+
+    const activeBookings = await this.listBookings()
+    return !activeBookings.some((booking) => booking.resourceId === resourceId && booking.slotId === slotId && booking.status === 'active')
+  }
+
+  private async listBookings(): Promise<BookingRecord[]> {
+    const path = '/bookings'
+    const headers = buildAuthHeaders('GET', path, '', SERVICE_NAME, this.signingSecret)
+
+    const response = await fetch(`${this.bookingServiceUrl}${path}`, {
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+
+    if (!response.ok) {
+      throw new DownstreamServiceError(`booking-service returned ${response.status} for GET ${path}`)
+    }
+
+    return response.json() as Promise<BookingRecord[]>
   }
 
   /**
@@ -110,4 +137,20 @@ export class BookingServiceClient {
 
     return response.json() as Promise<BookingConfirmation>
   }
+}
+
+function isCustomSlotId(resourceId: string, slotId: string): boolean {
+  const prefix = `${resourceId}-`
+  if (!slotId.startsWith(prefix)) return false
+
+  const suffix = slotId.slice(prefix.length)
+  const parts = suffix.split('-')
+  if (parts.length !== 3) return false
+
+  const [dateStr, hourStr, durationStr] = parts
+  if (!/^\d{8}$/.test(dateStr)) return false
+
+  const hour = Number(hourStr)
+  const duration = Number(durationStr)
+  return Number.isInteger(hour) && hour >= 0 && hour <= 23 && Number.isInteger(duration) && duration >= 1 && duration <= 8 && hour + duration <= 24
 }

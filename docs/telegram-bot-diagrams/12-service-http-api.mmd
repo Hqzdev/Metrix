@@ -1,10 +1,13 @@
 ---
-title: Service HTTP API Map
+title: Internal Service HTTP API Map
 ---
 graph LR
-    GW[bot-gateway<br/>:3000]
+    GW[bot-gateway public :3000]
+
+    SEC[Every internal call:<br/>HMAC signature<br/>X-Request-Id replay check<br/>optional signed X-User-Id]
 
     subgraph BK["booking-service :3001"]
+        BK0["GET /health /ready /metrics"]
         BK1["GET /locations"]
         BK2["GET /resources?locationId="]
         BK3["GET /resources/:id"]
@@ -12,12 +15,12 @@ graph LR
         BK5["POST /bookings"]
         BK6["GET /bookings?telegramUserId="]
         BK7["PATCH /bookings/:id"]
-        BK8["POST /slots/block"]
-        BK9["PATCH /locations/:id"]
-        BK10["PATCH /resources/:id"]
+        BK8["PATCH /locations/:id"]
+        BK9["PATCH /resources/:id"]
     end
 
     subgraph CAL["calendar-service :3002"]
+        CAL0["GET /health /ready /metrics"]
         CAL1["GET /connections"]
         CAL2["POST /auth-url"]
         CAL3["POST /oauth-callback"]
@@ -25,12 +28,18 @@ graph LR
     end
 
     subgraph PAY["payment-service :3003"]
+        PAY0["GET /health /ready /metrics"]
         PAY1["POST /invoices"]
         PAY2["POST /pre-checkout"]
         PAY3["POST /successful-payment"]
+        PAY4["GET /sagas/:invoiceId"]
+        PAY5["POST /sagas/:invoiceId/retry-booking"]
+        PAY6["POST /sagas/:invoiceId/compensate"]
+        PAY7["POST /sagas/:invoiceId/mark-compensated"]
     end
 
     subgraph ANA["analytics-service :3005"]
+        ANA0["GET /health /ready /metrics"]
         ANA1["GET /stats"]
         ANA2["GET /summary"]
         ANA3["POST /reports"]
@@ -38,27 +47,23 @@ graph LR
     end
 
     subgraph ADM["admin-service :3006"]
+        ADM0["GET /health /ready /metrics"]
         ADM1["GET /bookings"]
-        ADM2["GET /stats"]
+        ADM2["GET /stats /summary"]
         ADM3["PATCH /locations/:id"]
         ADM4["PATCH /resources/:id"]
-        ADM5["POST /reports"]
+        ADM5["GET /audit-logs"]
+        ADM6["GET /dlq /dlq/streams"]
+        ADM7["POST /dlq/replay"]
+        ADM8["GET /payment-sagas"]
+        ADM9["POST /payment-sagas/:id/retry-booking"]
     end
 
-    GW --> BK1
-    GW --> BK2
-    GW --> BK3
-    GW --> BK4
-    GW --> BK6
-    GW --> BK7
-    GW --> CAL1
-    GW --> CAL2
-    GW --> CAL4
-    GW --> PAY1
-    GW --> PAY2
-    GW --> PAY3
-    GW --> ADM1
-    GW --> ADM2
-    GW --> ADM3
-    GW --> ADM4
-    GW --> ADM5
+    GW --> SEC
+    SEC --> BK
+    SEC --> CAL
+    SEC --> PAY
+    SEC --> ADM
+    ADM --> SEC
+    PAY --> SEC
+    SEC --> ANA

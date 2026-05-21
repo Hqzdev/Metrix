@@ -1,33 +1,46 @@
+---
+title: Bot Runtime Architecture
+---
 flowchart LR
-    A[Telegram User] --> B[Telegram Bot App]
+    TG[Telegram API] <--> GW[bot-gateway]
 
-    B --> C[Command Router]
-    C --> D[Bot Scenes]
-    C --> E[Bot Services]
+    subgraph gateway["Gateway responsibilities"]
+        RL[rate limit]
+        IDEMP[update idempotency]
+        FSM[user session state]
+        SIGN[sign internal requests]
+    end
 
-    E --> F[Shared Backend API]
-    F --> G[Domain Modules]
+    GW --> RL
+    GW --> IDEMP
+    GW --> FSM
+    GW --> SIGN
 
-    G --> H[Bookings Module]
-    G --> I[Resources Module]
-    G --> J[Availability Module]
-    G --> K[Notifications Module]
-    G --> L[Calendar Integrations Module]
+    SIGN --> BK[booking-service]
+    SIGN --> PAY[payment-service]
+    SIGN --> CAL[calendar-service]
+    SIGN --> ADM[admin-service]
 
-    H --> M[(PostgreSQL)]
-    I --> M
-    J --> M
-    K --> M
-    L --> M
+    BK --> DB[(PostgreSQL via PgBouncer)]
+    PAY --> DB
+    CAL --> DB
+    ADM --> DB
+    ANA[analytics-service] --> DB
 
-    G --> N[Queues and Workers]
-    N --> O[booking-reminders queue]
-    N --> P[calendar-sync queue]
+    BK --> R[(Redis)]
+    PAY --> R
+    CAL --> R
+    ADM --> R
+    ANA --> R
+    NOT[notification-service] --> R
+    WK[worker-service] --> R
 
-    P --> Q[Google Calendar Adapter]
-    P --> R[Microsoft Calendar Adapter]
+    R --> NOT
+    R --> ANA
+    R --> PAY
+    R --> WK
 
-    O --> B
+    NOT --> TG
 
-    B --> S[Telegram Bot API]
-    S --> A
+    DB --> AUD[audit schema]
+    ADM --> OPS[DLQ replay and payment recovery]

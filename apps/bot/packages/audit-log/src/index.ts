@@ -7,7 +7,7 @@ type AuditPrismaClient = {
         callerService?: string
         entityId?: string
         entityType?: string
-        payload?: unknown
+        payload?: any
         requestId?: string
         service: string
         ts?: Date
@@ -42,7 +42,7 @@ export async function writeAuditLog(prisma: AuditPrismaClient, input: AuditLogIn
       callerService: input.callerService,
       entityId: input.entityId,
       entityType: input.entityType,
-      payload: input.payload === undefined ? undefined : toJsonValue(input.payload),
+      payload: input.payload === undefined ? undefined : toJsonObject(input.payload),
       requestId: input.requestId,
       service: input.service,
       ts: input.ts ? new Date(input.ts) : undefined,
@@ -50,7 +50,11 @@ export async function writeAuditLog(prisma: AuditPrismaClient, input: AuditLogIn
   })
 }
 
-function toJsonValue(value: unknown): unknown {
+function toJsonObject(value: Record<string, unknown>): Record<string, any> {
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJsonValue(item)]))
+}
+
+function toJsonValue(value: unknown): any {
   if (typeof value === 'bigint') return value.toString()
   if (value instanceof Date) return value.toISOString()
   if (Array.isArray(value)) return value.map(toJsonValue)

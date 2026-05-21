@@ -9,6 +9,7 @@ import type {
   UpdateResourceInput,
 } from '@metrix/contracts'
 import { buildAuthHeaders, signUserId } from '@metrix/auth'
+import type { BotLanguage } from './messages.js'
 
 type Urls = {
   booking: string
@@ -16,6 +17,16 @@ type Urls = {
   payment: string
   analytics: string
   admin: string
+}
+
+export class ServiceHttpError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+  ) {
+    super(message)
+    this.name = 'ServiceHttpError'
+  }
 }
 
 /**
@@ -62,6 +73,22 @@ export class ServicesClient {
    */
   async listAvailableSlots(resourceId: string): Promise<AvailableSlot[]> {
     return this.get(`${this.urls.booking}/slots?resourceId=${resourceId}`)
+  }
+
+  /**
+   * Возвращает доступные слоты для конкретной даты (новый flow с датой).
+   */
+  async listAvailableSlotsForDate(resourceId: string, dateStr: string): Promise<AvailableSlot[]> {
+    return this.get(`${this.urls.booking}/slots?resourceId=${resourceId}&date=${dateStr}`)
+  }
+
+  async getUserLanguage(telegramUserId: number): Promise<BotLanguage | null> {
+    const response = await this.get<{ language: BotLanguage | null }>(`${this.urls.booking}/users/me/preferences`, telegramUserId)
+    return response.language
+  }
+
+  async setUserLanguage(telegramUserId: number, language: BotLanguage): Promise<void> {
+    await this.patch(`${this.urls.booking}/users/me/preferences`, { language }, telegramUserId)
   }
 
   async createBooking(input: { resourceId: string; slotId: string }, userId: number): Promise<Booking> {
@@ -186,7 +213,7 @@ export class ServicesClient {
     const parsed = new URL(url)
     const authHeaders = buildAuthHeaders('GET', parsed.pathname + parsed.search, '', 'bot-gateway', this.signingSecret)
     const res = await fetch(url, { headers: { ...authHeaders, ...this.userHeaders(userId) }, signal: AbortSignal.timeout(5_000) })
-    if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`)
+    if (!res.ok) throw new ServiceHttpError(`GET ${url} failed: ${res.status}`, res.status)
     return res.json() as Promise<T>
   }
 
@@ -195,7 +222,7 @@ export class ServicesClient {
     const bodyStr = JSON.stringify(body)
     const authHeaders = buildAuthHeaders('POST', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
     const res = await fetch(url, { method: 'POST', headers: { ...authHeaders, ...this.userHeaders(userId) }, body: bodyStr, signal: AbortSignal.timeout(5_000) })
-    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status}`)
+    if (!res.ok) throw new ServiceHttpError(`POST ${url} failed: ${res.status}`, res.status)
     return res.json() as Promise<T>
   }
 
@@ -204,7 +231,7 @@ export class ServicesClient {
     const bodyStr = JSON.stringify(body)
     const authHeaders = buildAuthHeaders('PATCH', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
     const res = await fetch(url, { method: 'PATCH', headers: { ...authHeaders, ...this.userHeaders(userId) }, body: bodyStr, signal: AbortSignal.timeout(5_000) })
-    if (!res.ok) throw new Error(`PATCH ${url} failed: ${res.status}`)
+    if (!res.ok) throw new ServiceHttpError(`PATCH ${url} failed: ${res.status}`, res.status)
     return res.json() as Promise<T>
   }
 
@@ -213,7 +240,7 @@ export class ServicesClient {
     const bodyStr = JSON.stringify(body)
     const authHeaders = buildAuthHeaders('DELETE', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
     const res = await fetch(url, { method: 'DELETE', headers: { ...authHeaders, ...this.userHeaders(userId) }, body: bodyStr, signal: AbortSignal.timeout(5_000) })
-    if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status}`)
+    if (!res.ok) throw new ServiceHttpError(`DELETE ${url} failed: ${res.status}`, res.status)
     return res.json() as Promise<T>
   }
 }

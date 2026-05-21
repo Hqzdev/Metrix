@@ -14,7 +14,13 @@ test('callback data parser accepts known short commands and rejects malformed pa
     provider: 'google',
   })
 
+  assert.deepEqual(parseCallbackData('language:ru'), {
+    type: 'language',
+    language: 'ru',
+  })
+
   assert.equal(parseCallbackData('confirm:room-1'), null)
+  assert.equal(parseCallbackData('language:de'), null)
   assert.equal(parseCallbackData('calendar:disconnect:yandex'), null)
   assert.equal(parseCallbackData(`confirm:${'a'.repeat(80)}:slot`), null)
   assert.equal(parseCallbackData('confirm:room/1:slot'), null)

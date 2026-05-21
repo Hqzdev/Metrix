@@ -24,7 +24,7 @@ services:
       retries: 10
 
   pgbouncer:
-    image: edoburu/pgbouncer:1.24.1-p1
+    image: edoburu/pgbouncer:v1.24.1-p1
     environment:
       DB_HOST: postgres
       DB_PORT: '5432'
@@ -36,7 +36,7 @@ services:
       MAX_CLIENT_CONN: '200'
       DEFAULT_POOL_SIZE: '20'
     expose:
-      - '6432'
+      - '5432'
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,7 +67,7 @@ services:
       args:
         SERVICE_NAME: booking-service
     command: >
-      sh -c "npx prisma db push --schema=/app/prisma/schema.prisma &&
+      sh -c "npx prisma db push --accept-data-loss --schema=/app/prisma/schema.prisma &&
       npx prisma db execute --schema=/app/prisma/schema.prisma --file=/app/prisma/post-init.sql &&
       npx prisma db execute --schema=/app/prisma/schema.prisma --file=/app/prisma/migrations/20260519_production_hardening.sql"
     environment:
@@ -83,7 +83,7 @@ services:
       args:
         SERVICE_NAME: booking-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:5432/metrix?pgbouncer=true
       REDIS_URL: redis://redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3001'
@@ -120,7 +120,7 @@ services:
       args:
         SERVICE_NAME: calendar-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:5432/metrix?pgbouncer=true
       REDIS_URL: redis://redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3002'
@@ -155,7 +155,7 @@ services:
       args:
         SERVICE_NAME: payment-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:5432/metrix?pgbouncer=true
       REDIS_URL: redis://redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3003'
@@ -209,7 +209,7 @@ services:
       args:
         SERVICE_NAME: worker-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:5432/metrix?pgbouncer=true
       REDIS_URL: redis://redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       CALENDAR_SERVICE_URL: http://calendar-service:3002
@@ -232,7 +232,7 @@ services:
       args:
         SERVICE_NAME: analytics-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:5432/metrix?pgbouncer=true
       REDIS_URL: redis://redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3005'
@@ -266,7 +266,7 @@ services:
       args:
         SERVICE_NAME: admin-service
     environment:
-      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:6432/metrix?pgbouncer=true
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:5432/metrix?pgbouncer=true
       REDIS_URL: redis://redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       PORT: '3006'

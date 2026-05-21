@@ -1,0 +1,61 @@
+---
+title: Booking Flow — Microservices
+---
+sequenceDiagram
+    actor User
+    participant TG as Telegram
+    participant GW as bot-gateway
+    participant BK as booking-service
+    participant PAY as payment-service
+    participant REDIS as Redis Streams
+    participant NOT as notification-service
+
+    User->>TG: /book
+    TG->>GW: update: message /book
+    GW->>BK: GET /locations
+    BK-->>GW: locations[]
+    GW->>TG: sendMessage(locations + keyboard)
+
+    User->>TG: click location
+    TG->>GW: callback location:patriarchy
+    GW->>BK: GET /resources?locationId=patriarchy
+    BK-->>GW: resources[]
+    GW->>TG: editMessage(resources + keyboard)
+
+    User->>TG: click resource
+    TG->>GW: callback resource:patriarchy:r1
+    GW->>BK: GET /slots?resourceId=r1
+    BK-->>GW: slots[]
+    GW->>TG: editMessage(slots + keyboard)
+
+    User->>TG: click slot
+    TG->>GW: callback slot:r1:r1m
+    GW->>BK: GET /resources/r1
+    BK-->>GW: resource
+    GW->>TG: editMessage(confirm booking prompt)
+
+    User->>TG: click "Pay and book"
+    TG->>GW: callback confirm:r1:r1m
+    GW->>PAY: POST /invoices {chatId, resourceId, slotId}
+    PAY->>REDIS: publish notification.send (send_invoice)
+    REDIS->>NOT: consume send_invoice event
+    NOT->>TG: sendInvoice(YooKassa)
+    GW->>TG: editMessage("Invoice sent")
+
+    User->>TG: pays invoice
+    TG->>GW: pre_checkout_query
+    GW->>PAY: POST /pre-checkout
+    PAY-->>GW: {ok: true}
+    GW->>TG: answerPreCheckoutQuery ok
+
+    User->>TG: confirms payment
+    TG->>GW: message.successful_payment
+    GW->>PAY: POST /successful-payment
+    PAY->>REDIS: publish payment.completed
+    REDIS->>PAY: consume payment.completed
+    PAY->>BK: POST /bookings
+    BK-->>PAY: booking created
+    BK->>REDIS: publish booking.created
+    PAY->>REDIS: publish notification.send (booking confirmed)
+    REDIS->>NOT: consume
+    NOT->>TG: sendMessage("Booking confirmed")

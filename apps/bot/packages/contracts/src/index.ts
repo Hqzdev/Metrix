@@ -83,6 +83,18 @@ export type Report = {
   error?: string
 }
 
+// ─── slot helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Строит slotId для кастомного слота (произвольное время).
+ *
+ * Формат: `{resourceId}-{YYYYMMDD}-{hour}-{duration}`
+ * Используется ботом при формировании брони с выбором даты/времени вручную.
+ */
+export function buildCustomSlotId(resourceId: string, dateStr: string, hour: number, duration: number): string {
+  return `${resourceId}-${dateStr}-${hour}-${duration}`
+}
+
 // ─── redis stream names ────────────────────────────────────────────────────────
 
 /**

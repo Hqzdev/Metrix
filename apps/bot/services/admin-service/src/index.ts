@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
 import { MetricsRegistry, createObservedHandler, installGracefulShutdown, sendMetrics, sendReadiness } from '@metrix/observability'
 import { PrismaClient } from '@prisma/client'
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 import { AdminRouter } from './admin-router.js'
 import { startAuditRetentionCleanup } from './audit-retention.js'
 import { readAdminServiceConfig } from './config.js'

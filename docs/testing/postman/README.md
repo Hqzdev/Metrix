@@ -1,16 +1,15 @@
-Postman Collections
+Postman
 
-Эта папка предназначена для Postman collections и environment-файлов.
+Этот раздел предназначен для ручной проверки API.
 
-Ожидаемые файлы
+Что сюда класть
 
-metrix-local.postman_environment.json
-booking-service.postman_collection.json
-calendar-service.postman_collection.json
-payment-service.postman_collection.json
-admin-service.postman_collection.json
+- Postman collections;
+- environment examples;
+- короткие инструкции запуска;
+- expected responses.
 
-Правило безопасности
+Правило
 
-Postman environment не должен содержать реальные production-секреты.
-Для примеров используются только local или dummy values.
+Не хранить реальные секреты.
+Использовать только example values.

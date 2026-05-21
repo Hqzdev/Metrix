@@ -1,11 +1,22 @@
 ---
-title: Redis Streams — Event Bus
+title: Redis State, Streams, Retry And DLQ
 ---
 flowchart LR
+    subgraph state["Short-lived Redis state"]
+        RL["rate:user:{id}"]
+        RP["replay:{requestId}"]
+        UPD["telegram:update:{id}"]
+        FSM["session:{telegramUserId}"]
+        LOCK["lock:slot:{resourceId}:{slotId}"]
+    end
+
     subgraph producers["Publishers"]
+        GW[bot-gateway]
         BK[booking-service]
         PAY[payment-service]
+        CAL[calendar-service]
         ANA[analytics-service]
+        ADM[admin-service]
     end
 
     subgraph streams["Redis Streams"]
@@ -17,19 +28,50 @@ flowchart LR
     end
 
     subgraph consumers["Consumers"]
-        NOT[notification-service]
-        ANA2[analytics-service]
-        PAY2[payment-service]
+        C1[analytics-service]
+        C2[payment-service]
+        C3[notification-service]
+        C4[worker-service]
     end
 
-    BK  -->|booking created| S1
-    BK  -->|booking cancelled| S2
-    PAY -->|payment done| S3
-    PAY -->|send invoice/message| S4
-    ANA -->|PDF ready| S5
+    subgraph retry["Failure handling"]
+        PENDING[Pending messages]
+        RETRY[Retry by consumer group]
+        DLQ["dlq:{stream}"]
+        REPLAY[admin-service DLQ replay]
+        AUD[audit log dlq.replayed]
+    end
 
-    S1 -->|consumer group| ANA2
-    S2 -->|consumer group| ANA2
-    S3 -->|consumer group| PAY2
-    S4 -->|consumer group| NOT
-    S5 -->|consumer group| NOT
+    GW --> RL
+    GW --> UPD
+    GW --> FSM
+    BK --> LOCK
+    BK --> RP
+    PAY --> RP
+    CAL --> RP
+    ADM --> RP
+
+    BK --> S1
+    BK --> S2
+    PAY --> S3
+    PAY --> S4
+    ANA --> S5
+
+    S1 --> C1
+    S2 --> C1
+    S3 --> C2
+    S4 --> C3
+    S5 --> C3
+
+    C1 -->|handler fails| PENDING
+    C2 -->|handler fails| PENDING
+    C3 -->|handler fails| PENDING
+    PENDING --> RETRY
+    RETRY -->|too many deliveries| DLQ
+    DLQ --> REPLAY
+    REPLAY --> S1
+    REPLAY --> S2
+    REPLAY --> S3
+    REPLAY --> S4
+    REPLAY --> S5
+    REPLAY --> AUD

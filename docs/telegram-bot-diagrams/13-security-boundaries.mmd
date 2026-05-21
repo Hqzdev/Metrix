@@ -1,0 +1,81 @@
+---
+title: Security Boundaries And Protections
+---
+flowchart TB
+    EXT[Internet / Telegram] --> TG[Telegram API]
+    TG --> GW[bot-gateway public boundary]
+
+    subgraph gateway["Gateway protections"]
+        RL[Redis rate limit]
+        DUP[Duplicate update idempotency]
+        FSM[User session state]
+        USER_SIG[Sign Telegram user id]
+        HMAC_OUT[Sign internal HTTP requests]
+    end
+
+    GW --> RL
+    GW --> DUP
+    GW --> FSM
+    GW --> USER_SIG
+    GW --> HMAC_OUT
+
+    subgraph internal["Internal Docker network"]
+        AUTH[Service request verifier]
+        REPLAY[Redis replay protection]
+        BK[booking-service]
+        PAY[payment-service]
+        CAL[calendar-service]
+        ADM[admin-service]
+        ANA[analytics-service]
+        NOT[notification-service]
+        WK[worker-service]
+    end
+
+    HMAC_OUT --> AUTH
+    AUTH --> REPLAY
+    REPLAY --> BK
+    REPLAY --> PAY
+    REPLAY --> CAL
+    REPLAY --> ADM
+    REPLAY --> ANA
+
+    subgraph data["Data boundary"]
+        PGB[PgBouncer internal only]
+        PG[(PostgreSQL internal only)]
+        REDIS[(Redis password protected internal only)]
+        AUD[audit schema]
+    end
+
+    BK --> PGB
+    PAY --> PGB
+    CAL --> PGB
+    ADM --> PGB
+    ANA --> PGB
+    WK --> PGB
+    PGB --> PG
+
+    BK --> REDIS
+    PAY --> REDIS
+    CAL --> REDIS
+    ADM --> REDIS
+    ANA --> REDIS
+    NOT --> REDIS
+    WK --> REDIS
+
+    CAL --> ENC[Encrypt calendar refresh tokens]
+    ENC --> PG
+
+    ADM --> RBAC[RBAC and admin allowlist]
+    RBAC --> AUD
+    BK --> AUD
+    PAY --> AUD
+    CAL --> AUD
+    AUD --> PG
+
+    classDef public fill:#fff7ed,stroke:#ea580c,color:#111
+    classDef protected fill:#ecfeff,stroke:#0891b2,color:#111
+    classDef data fill:#f8fafc,stroke:#475569,color:#111
+
+    class EXT,TG,GW public
+    class RL,DUP,FSM,USER_SIG,HMAC_OUT,AUTH,REPLAY,RBAC,ENC protected
+    class PGB,PG,REDIS,AUD data

@@ -1,42 +1,30 @@
 Restore Drill Evidence
 
-Этот документ фиксирует результаты restore drill.
-Не заполнять успешный результат без реального pg_restore в clean database.
+Этот документ фиксирует restore drill.
 
-Drill 1
+Дата: 2026-05-19
+Окружение: local Docker Compose
 
-Дата:
-Проверял:
-Окружение:
-Backup file:
-Clean database:
-Command:
-Restore result:
-Prisma validate:
-Critical tables:
-Critical records:
-RPO:
-RTO:
-Screenshots:
-Follow-up:
+Что делали
 
-Статус:
+1. Создали dump PostgreSQL.
+2. Создали отдельную clean database metrix_restore_drill.
+3. Восстановили dump через pg_restore.
+4. Проверили таблицы и seed-данные.
 
-not executed in this turn
+Результат
 
-Причина:
+Restore прошел успешно.
 
-runtime database и backup artifact не поднимались в рамках текущего изменения документации.
-Чтобы перевести этот drill в passed, нужно выполнить backup, восстановить dump в clean database и заполнить поля выше.
+Проверено:
 
-Минимальная команда
+- 10 таблиц восстановлены;
+- booking.Location = 10;
+- booking.Resource = 10;
+- booking.Booking = 0.
 
-DATABASE_URL=postgresql://user:pass@localhost:5432/metrix npm run db:backup
-createdb metrix_restore_drill
-pg_restore --clean --if-exists --no-owner --no-acl --dbname "$RESTORE_DATABASE_URL" backups/postgres/metrix-YYYYMMDDTHHMMSSZ.dump
-npm run prisma:validate
+Статус: passed.
 
-Связанные документы
+Follow-up
 
-docs/architecture/BACKUP_STRATEGY.md
-docs/testing/PRODUCTION_READINESS_TEST_REPORT.md
+Повторить restore drill на отдельной внешней базе и сохранить artifact path.

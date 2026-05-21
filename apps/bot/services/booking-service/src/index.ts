@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 import { PrismaClient } from '@prisma/client'
 import { MetricsRegistry, createObservedHandler, installGracefulShutdown, sendMetrics, sendReadiness } from '@metrix/observability'
 import { RedisBus, SlotLocker } from '@metrix/redis-bus'

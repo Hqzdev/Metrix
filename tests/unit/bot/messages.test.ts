@@ -6,6 +6,7 @@ import {
   calendarAuthMessage,
   calendarStatusMessage,
   helpMessage,
+  languagePromptMessage,
   locationsMessage,
   resourcesMessage,
   slotsMessage,
@@ -23,6 +24,17 @@ test('welcomeMessage works without name', () => {
   assert.ok(!msg.includes('undefined'))
 })
 
+test('languagePromptMessage asks for first language choice in English', () => {
+  const msg = languagePromptMessage()
+  assert.ok(msg.includes('Which language'))
+})
+
+test('welcomeMessage supports Russian interface', () => {
+  const msg = welcomeMessage('Иван', 'ru')
+  assert.ok(msg.includes('Добро пожаловать'))
+  assert.ok(msg.includes('Иван'))
+})
+
 test('helpMessage lists all commands', () => {
   const msg = helpMessage()
   assert.ok(msg.includes('/book'))
@@ -30,6 +42,12 @@ test('helpMessage lists all commands', () => {
   assert.ok(msg.includes('/my_bookings'))
   assert.ok(msg.includes('/calendar'))
   assert.ok(msg.includes('/help'))
+})
+
+test('helpMessage supports Russian interface', () => {
+  const msg = helpMessage('ru')
+  assert.ok(msg.includes('Что я умею'))
+  assert.ok(msg.includes('/book'))
 })
 
 test('locationsMessage lists all locations', () => {

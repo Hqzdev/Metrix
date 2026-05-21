@@ -4,6 +4,7 @@ import { writeAuditLog } from '@metrix/audit-log'
 import type { MetricsRegistry } from '@metrix/observability'
 import type { PrismaClient } from '@prisma/client'
 import type { BookingServiceClient } from './booking-service-client.js'
+import type { BookingConfirmation } from './booking-service-client.js'
 import type { PaymentServiceLogger } from './logger.js'
 
 type PaymentCompletedEvent = {
@@ -61,7 +62,7 @@ export async function startPaymentConsumer(deps: PaymentConsumerDependencies): P
  * Создаёт бронирование после подтверждения оплаты.
  */
 async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: PaymentConsumerDependencies): Promise<void> {
-  let booking
+  let booking: BookingConfirmation
   try {
     booking = await deps.bookingClient.createBooking(
       event.telegramUserId,

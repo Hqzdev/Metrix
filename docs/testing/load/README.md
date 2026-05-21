@@ -1,32 +1,31 @@
-Load Testing Results
+Load Testing
 
-Эта папка предназначена для результатов нагрузочного тестирования.
+Этот документ объясняет нагрузочное тестирование.
 
-Ожидаемые артефакты
+Зачем оно нужно
 
-k6 scripts
-Artillery scenarios
-raw output logs
-summary reports
-latency screenshots
+Обычные тесты показывают, что код работает.
+Load tests показывают, как система ведет себя под нагрузкой.
 
-Первый обязательный сценарий
+Что нужно измерять
 
-Проверить конкурентное бронирование одного слота.
-Ожидаемый результат: только один запрос получает успешный booking или hold, остальные получают контролируемый отказ.
+- p50 latency;
+- p95 latency;
+- p99 latency;
+- error rate;
+- throughput;
+- CPU/memory;
+- database connection behavior;
+- Redis latency.
 
-Шаблон результата
+Главный сценарий
 
-```
-Date:
-Commit:
-Tool:
-Scenario:
-Duration:
-Virtual users:
-p50:
-p95:
-p99:
-Error rate:
-Conclusion:
-```
+Concurrent booking:
+
+много пользователей пытаются бронировать один или несколько слотов.
+
+Что пока не закрыто
+
+Реальные p95/p99/error rate еще не сняты.
+
+Статус: planned.

@@ -1,6 +1,6 @@
 import { createTelegramActor, evaluatePolicy } from '@metrix/rbac'
 import type { MetricsRegistry } from '@metrix/observability'
-import type { ServicesClient } from './services-client.js'
+import { ServiceHttpError, type ServicesClient } from './services-client.js'
 import type { TelegramClient } from './telegram-client.js'
 import type { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from './telegram-types.js'
 import type { TelegramUpdateStore } from './telegram-update-store.js'
@@ -11,9 +11,15 @@ import {
   bookingsMessage,
   calendarAuthMessage,
   calendarStatusMessage,
+  customBookingConfirmationPrompt,
+  languagePromptMessage,
+  type BotLanguage,
   helpMessage,
   locationsMessage,
   resourcesMessage,
+  selectDateMessage,
+  selectDurationMessage,
+  selectTimeMessage,
   slotsMessage,
   welcomeMessage,
 } from './messages.js'
@@ -23,11 +29,17 @@ import {
   calendarStatusKeyboard,
   confirmBookingKeyboard,
   confirmCancelKeyboard,
+  confirmCustomBookingKeyboard,
+  datePickerKeyboard,
+  durationPickerKeyboard,
+  languageKeyboard,
   locationKeyboard,
   mainMenuKeyboard,
   resourceKeyboard,
   slotsKeyboard,
+  timePickerKeyboard,
 } from './keyboards.js'
+import { buildCustomSlotId } from '../../booking-service/src/slots.js'
 
 type BotOptions = {
   adminTelegramIds: number[]
@@ -76,6 +88,31 @@ export class Bot {
       service: 'bot-gateway',
     })
     return false
+  }
+
+  private async getSavedLanguage(telegramUserId: number): Promise<BotLanguage | null> {
+    try {
+      return await this.opts.services.getUserLanguage(telegramUserId)
+    } catch (error) {
+      this.opts.logger.warn({
+        action: 'user.language.get',
+        error,
+        message: 'Failed to load Telegram user language',
+        service: 'bot-gateway',
+        telegramUserId,
+      })
+      return null
+    }
+  }
+
+  private async getLanguage(telegramUserId: number): Promise<BotLanguage> {
+    return (await this.getSavedLanguage(telegramUserId)) ?? 'en'
+  }
+
+  private async sendLanguagePrompt(chatId: number): Promise<void> {
+    await this.opts.telegram.sendMessage(chatId, languagePromptMessage(), {
+      reply_markup: languageKeyboard(),
+    })
   }
 
   /**
@@ -196,14 +233,20 @@ export class Bot {
 
     if (text === '/start') {
       if (msg.from?.id) await this.opts.sessionStore.setState(msg.from.id, { state: 'START' })
-      await this.opts.telegram.sendMessage(chatId, welcomeMessage(msg.from?.first_name), {
-        reply_markup: mainMenuKeyboard(),
+      const language = msg.from?.id ? await this.getSavedLanguage(msg.from.id) : null
+      if (!language) {
+        await this.sendLanguagePrompt(chatId)
+        return
+      }
+      await this.opts.telegram.sendMessage(chatId, welcomeMessage(msg.from?.first_name, language), {
+        reply_markup: mainMenuKeyboard(language),
       })
       return
     }
 
     if (text === '/help') {
-      await this.opts.telegram.sendMessage(chatId, helpMessage(), { reply_markup: mainMenuKeyboard() })
+      const language = msg.from?.id ? await this.getLanguage(msg.from.id) : 'en'
+      await this.opts.telegram.sendMessage(chatId, helpMessage(language), { reply_markup: mainMenuKeyboard(language) })
       return
     }
 
@@ -215,7 +258,7 @@ export class Bot {
 
     if (text === '/book' || text === '/slots') {
       if (msg.from?.id) await this.opts.sessionStore.setState(msg.from.id, { state: 'SELECT_LOCATION' })
-      await this.sendLocations(chatId)
+      await this.sendLocations(chatId, msg.from?.id)
       return
     }
 
@@ -266,29 +309,40 @@ export class Bot {
       return
     }
 
+    if (parsed.type === 'language') {
+      await this.opts.services.setUserLanguage(query.from.id, parsed.language)
+      await this.opts.sessionStore.setState(query.from.id, { state: 'START' })
+      await this.opts.telegram.editMessageText(chatId, messageId, welcomeMessage(query.from.first_name, parsed.language), {
+        reply_markup: mainMenuKeyboard(parsed.language),
+      })
+      return
+    }
+
+    const language = await this.getLanguage(query.from.id)
+
     if (parsed.type === 'menu' && parsed.action === 'start') {
       await this.opts.sessionStore.setState(query.from.id, { state: 'START' })
-      await this.opts.telegram.editMessageText(chatId, messageId, welcomeMessage(query.from.first_name), {
-        reply_markup: mainMenuKeyboard(),
+      await this.opts.telegram.editMessageText(chatId, messageId, welcomeMessage(query.from.first_name, language), {
+        reply_markup: mainMenuKeyboard(language),
       })
       return
     }
 
     if (parsed.type === 'menu' && parsed.action === 'help') {
-      await this.opts.telegram.editMessageText(chatId, messageId, helpMessage(), {
-        reply_markup: mainMenuKeyboard(),
+      await this.opts.telegram.editMessageText(chatId, messageId, helpMessage(language), {
+        reply_markup: mainMenuKeyboard(language),
       })
       return
     }
 
     if (parsed.type === 'menu' && (parsed.action === 'book' || parsed.action === 'slots')) {
       await this.opts.sessionStore.setState(query.from.id, { state: 'SELECT_LOCATION' })
-      await this.editLocations(chatId, messageId)
+      await this.editLocations(chatId, messageId, language)
       return
     }
 
     if (parsed.type === 'menu' && parsed.action === 'bookings') {
-      await this.editBookings(chatId, messageId, query.from.id)
+      await this.editBookings(chatId, messageId, query.from.id, language)
       return
     }
 
@@ -297,7 +351,7 @@ export class Bot {
         locationId: parsed.locationId,
         state: 'SELECT_ROOM',
       })
-      await this.editResources(chatId, messageId, parsed.locationId)
+      await this.editResources(chatId, messageId, parsed.locationId, language)
       return
     }
 
@@ -305,9 +359,93 @@ export class Bot {
       await this.opts.sessionStore.setState(query.from.id, {
         locationId: parsed.locationId,
         resourceId: parsed.resourceId,
-        state: 'SELECT_TIME',
+        state: 'SELECT_DATE',
       })
-      await this.editSlots(chatId, messageId, parsed.locationId, parsed.resourceId)
+      await this.editDatePicker(chatId, messageId, parsed.locationId, parsed.resourceId, language)
+      return
+    }
+
+    if (parsed.type === 'date') {
+      const session = await this.opts.sessionStore.getState(query.from.id)
+      if (!session?.locationId || !session?.resourceId) {
+        await this.opts.telegram.editMessageText(chatId, messageId, expiredSessionMessage(language), { reply_markup: mainMenuKeyboard(language) })
+        return
+      }
+      await this.opts.sessionStore.setState(query.from.id, {
+        locationId: session.locationId,
+        resourceId: session.resourceId,
+        selectedDate: parsed.date,
+        state: 'SELECT_START_TIME',
+      })
+      await this.editTimePicker(chatId, messageId, session.locationId, session.resourceId, parsed.date, language)
+      return
+    }
+
+    if (parsed.type === 'time') {
+      const session = await this.opts.sessionStore.getState(query.from.id)
+      if (!session?.locationId || !session?.resourceId || !session?.selectedDate) {
+        await this.opts.telegram.editMessageText(chatId, messageId, expiredSessionMessage(language), { reply_markup: mainMenuKeyboard(language) })
+        return
+      }
+      await this.opts.sessionStore.setState(query.from.id, {
+        locationId: session.locationId,
+        resourceId: session.resourceId,
+        selectedDate: session.selectedDate,
+        selectedHour: parsed.hour,
+        state: 'SELECT_DURATION',
+      })
+      await this.editDurationPicker(chatId, messageId, session.locationId, session.resourceId, session.selectedDate, parsed.hour, language)
+      return
+    }
+
+    if (parsed.type === 'dur') {
+      const session = await this.opts.sessionStore.getState(query.from.id)
+      if (!session?.locationId || !session?.resourceId || !session?.selectedDate || session.selectedHour === undefined) {
+        await this.opts.telegram.editMessageText(chatId, messageId, expiredSessionMessage(language), { reply_markup: mainMenuKeyboard(language) })
+        return
+      }
+      const slotId = buildCustomSlotId(session.resourceId, session.selectedDate, session.selectedHour, parsed.hours)
+      await this.opts.sessionStore.setState(query.from.id, {
+        locationId: session.locationId,
+        resourceId: session.resourceId,
+        selectedDate: session.selectedDate,
+        selectedDuration: parsed.hours,
+        selectedHour: session.selectedHour,
+        slotId,
+        state: 'CONFIRM_BOOKING',
+      })
+      await this.editCustomBookingPrompt(chatId, messageId, session.locationId, session.resourceId, session.selectedDate, session.selectedHour, parsed.hours, language)
+      return
+    }
+
+    if (parsed.type === 'confirm_custom') {
+      const session = await this.opts.sessionStore.getState(query.from.id)
+      if (!session?.resourceId || !session?.slotId) {
+        await this.opts.telegram.editMessageText(chatId, messageId, expiredSessionMessage(language), { reply_markup: mainMenuKeyboard(language) })
+        return
+      }
+      await this.opts.sessionStore.setState(query.from.id, {
+        locationId: session.locationId,
+        resourceId: session.resourceId,
+        selectedDate: session.selectedDate,
+        selectedDuration: session.selectedDuration,
+        selectedHour: session.selectedHour,
+        slotId: session.slotId,
+        state: 'PAYMENT',
+      })
+      const invoiceCreated = await this.tryCreateInvoice({
+        chatId,
+        messageId,
+        telegramUserId: query.from.id,
+        resourceId: session.resourceId,
+        slotId: session.slotId,
+        language,
+        retryCallbackData: session.locationId ? `resource:${session.locationId}:${session.resourceId}` : 'menu:book',
+      })
+      if (!invoiceCreated) return
+      await this.opts.telegram.editMessageText(chatId, messageId, invoiceSentMessage(language), {
+        reply_markup: mainMenuKeyboard(language),
+      })
       return
     }
 
@@ -317,7 +455,7 @@ export class Bot {
         slotId: parsed.slotId,
         state: 'CONFIRM_BOOKING',
       })
-      await this.editBookingPrompt(chatId, messageId, parsed.resourceId, parsed.slotId)
+      await this.editBookingPrompt(chatId, messageId, parsed.resourceId, parsed.slotId, language)
       return
     }
 
@@ -327,22 +465,25 @@ export class Bot {
         slotId: parsed.slotId,
         state: 'PAYMENT',
       })
-      await this.opts.services.createInvoice({
+      const invoiceCreated = await this.tryCreateInvoice({
         chatId,
         messageId,
         telegramUserId: query.from.id,
         resourceId: parsed.resourceId,
         slotId: parsed.slotId,
+        language,
+        retryCallbackData: 'menu:book',
       })
-      await this.opts.telegram.editMessageText(chatId, messageId, 'Invoice sent. Complete the payment in Telegram.', {
-        reply_markup: mainMenuKeyboard(),
+      if (!invoiceCreated) return
+      await this.opts.telegram.editMessageText(chatId, messageId, invoiceSentMessage(language), {
+        reply_markup: mainMenuKeyboard(language),
       })
       return
     }
 
     if (parsed.type === 'cancel') {
-      await this.opts.telegram.editMessageText(chatId, messageId, 'Are you sure?', {
-        reply_markup: confirmCancelKeyboard(parsed.bookingId),
+      await this.opts.telegram.editMessageText(chatId, messageId, language === 'ru' ? 'Вы уверены?' : 'Are you sure?', {
+        reply_markup: confirmCancelKeyboard(parsed.bookingId, language),
       })
       return
     }
@@ -350,15 +491,17 @@ export class Bot {
     if (parsed.type === 'cancel_confirm') {
       const booking = await this.opts.services.cancelBooking(parsed.bookingId, query.from.id)
       const text = booking
-        ? `Booking cancelled: ${booking.resourceName}, ${booking.startsAt} – ${booking.endsAt}.`
-        : 'Booking not found.'
-      await this.opts.telegram.editMessageText(chatId, messageId, text, { reply_markup: mainMenuKeyboard() })
+        ? language === 'ru'
+          ? `Бронирование отменено: ${booking.resourceName}, ${booking.startsAt} – ${booking.endsAt}.`
+          : `Booking cancelled: ${booking.resourceName}, ${booking.startsAt} – ${booking.endsAt}.`
+        : language === 'ru' ? 'Бронирование не найдено.' : 'Booking not found.'
+      await this.opts.telegram.editMessageText(chatId, messageId, text, { reply_markup: mainMenuKeyboard(language) })
       return
     }
 
     if (parsed.type === 'calendar_disconnect') {
       await this.opts.services.disconnectCalendar(parsed.provider, query.from.id)
-      await this.editCalendarStatus(chatId, messageId, query.from.id)
+      await this.editCalendarStatus(chatId, messageId, query.from.id, language)
       return
     }
 
@@ -375,15 +518,50 @@ export class Bot {
   /**
    * Отправляет данные пользователю или во внешний API.
    */
-  private async sendLocations(chatId: number): Promise<void> {
+  private async tryCreateInvoice(input: {
+    chatId: number
+    language: BotLanguage
+    messageId: number
+    resourceId: string
+    retryCallbackData: string
+    slotId: string
+    telegramUserId: number
+  }): Promise<boolean> {
+    try {
+      await this.opts.services.createInvoice({
+        chatId: input.chatId,
+        messageId: input.messageId,
+        telegramUserId: input.telegramUserId,
+        resourceId: input.resourceId,
+        slotId: input.slotId,
+      })
+      return true
+    } catch (error) {
+      if (error instanceof ServiceHttpError && error.statusCode === 409) {
+        await this.opts.sessionStore.setState(input.telegramUserId, { state: 'SELECT_LOCATION' })
+        await this.opts.telegram.editMessageText(input.chatId, input.messageId, slotHeldOrBookedMessage(input.language), {
+          reply_markup: retryKeyboard(input.language, input.retryCallbackData),
+        })
+        return false
+      }
+
+      throw error
+    }
+  }
+
+  /**
+   * Отправляет данные пользователю или во внешний API.
+   */
+  private async sendLocations(chatId: number, telegramUserId?: number, languageOverride?: BotLanguage): Promise<void> {
+    const language = languageOverride ?? (telegramUserId ? await this.getLanguage(telegramUserId) : 'en')
     try {
       const locations = await this.opts.services.listLocations()
-      await this.opts.telegram.sendMessage(chatId, locationsMessage(locations), {
-        reply_markup: locationKeyboard(locations),
+      await this.opts.telegram.sendMessage(chatId, locationsMessage(locations, language), {
+        reply_markup: locationKeyboard(locations, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'sendLocations')
-      await this.sendTemporaryUnavailableMessage(chatId, 'menu:book')
+      await this.sendTemporaryUnavailableMessage(chatId, language, 'menu:book')
     }
   }
 
@@ -391,175 +569,312 @@ export class Bot {
    * Восстанавливает UI по текущему FSM state.
    */
   private async sendRecoveredSession(chatId: number, telegramUserId: number): Promise<void> {
+    const language = await this.getLanguage(telegramUserId)
     const session = await this.opts.sessionStore.getState(telegramUserId)
     if (!session || session.state === 'START') {
-      await this.opts.telegram.sendMessage(chatId, welcomeMessage(), { reply_markup: mainMenuKeyboard() })
+      await this.opts.telegram.sendMessage(chatId, welcomeMessage(undefined, language), { reply_markup: mainMenuKeyboard(language) })
       return
     }
 
     if (session.state === 'SELECT_LOCATION') {
-      await this.sendLocations(chatId)
+      await this.sendLocations(chatId, telegramUserId, language)
       return
     }
 
     if (session.state === 'SELECT_ROOM' && session.locationId) {
-      await this.sendResources(chatId, session.locationId)
+      await this.sendResources(chatId, session.locationId, language)
+      return
+    }
+
+    if (session.state === 'SELECT_DATE' && session.locationId && session.resourceId) {
+      await this.sendDatePicker(chatId, session.locationId, session.resourceId, language)
+      return
+    }
+
+    if (session.state === 'SELECT_START_TIME' && session.locationId && session.resourceId && session.selectedDate) {
+      await this.sendTimePicker(chatId, session.locationId, session.resourceId, session.selectedDate, language)
+      return
+    }
+
+    if (
+      session.state === 'SELECT_DURATION' &&
+      session.locationId &&
+      session.resourceId &&
+      session.selectedDate &&
+      session.selectedHour !== undefined
+    ) {
+      await this.sendDurationPicker(chatId, session.locationId, session.resourceId, session.selectedDate, session.selectedHour, language)
       return
     }
 
     if (session.state === 'SELECT_TIME' && session.locationId && session.resourceId) {
-      await this.sendSlots(chatId, session.resourceId)
+      await this.sendSlots(chatId, session.resourceId, language)
       return
     }
 
     if (session.state === 'CONFIRM_BOOKING' && session.resourceId && session.slotId) {
-      await this.sendBookingPrompt(chatId, session.resourceId, session.slotId)
+      await this.sendBookingPrompt(chatId, session.resourceId, session.slotId, language)
       return
     }
 
     if (session.state === 'PAYMENT') {
-      await this.opts.telegram.sendMessage(chatId, 'Invoice was sent. Complete the payment in Telegram or start again.', {
-        reply_markup: mainMenuKeyboard(),
+      await this.opts.telegram.sendMessage(chatId, invoiceRecoveryMessage(language), {
+        reply_markup: mainMenuKeyboard(language),
       })
       return
     }
 
-    await this.sendLocations(chatId)
+    await this.sendLocations(chatId, telegramUserId, language)
   }
 
   /**
    * Отправляет комнаты выбранной локации.
    */
-  private async sendResources(chatId: number, locationId: string): Promise<void> {
+  private async sendResources(chatId: number, locationId: string, language: BotLanguage = 'en'): Promise<void> {
     try {
       const resources = await this.opts.services.listResources(locationId)
-      await this.opts.telegram.sendMessage(chatId, resourcesMessage(resources), {
-        reply_markup: resourceKeyboard(resources),
+      await this.opts.telegram.sendMessage(chatId, resourcesMessage(resources, language), {
+        reply_markup: resourceKeyboard(resources, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'sendResources')
-      await this.sendTemporaryUnavailableMessage(chatId, `location:${locationId}`)
+      await this.sendTemporaryUnavailableMessage(chatId, language, `location:${locationId}`)
     }
   }
 
   /**
    * Отправляет слоты выбранного ресурса.
    */
-  private async sendSlots(chatId: number, resourceId: string): Promise<void> {
+  private async sendSlots(chatId: number, resourceId: string, language: BotLanguage = 'en'): Promise<void> {
     try {
       const resource = await this.opts.services.getResource(resourceId)
       const slots = await this.opts.services.listAvailableSlots(resourceId)
-      await this.opts.telegram.sendMessage(chatId, slotsMessage(resource, slots), {
-        reply_markup: slotsKeyboard(resource, slots),
+      await this.opts.telegram.sendMessage(chatId, slotsMessage(resource, slots, language), {
+        reply_markup: slotsKeyboard(resource, slots, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'sendSlots')
-      await this.sendTemporaryUnavailableMessage(chatId)
+      await this.sendTemporaryUnavailableMessage(chatId, language)
     }
   }
 
   /**
    * Отправляет подтверждение бронирования по сохранённому FSM context.
    */
-  private async sendBookingPrompt(chatId: number, resourceId: string, slotId: string): Promise<void> {
+  private async sendBookingPrompt(chatId: number, resourceId: string, slotId: string, language: BotLanguage = 'en'): Promise<void> {
     try {
       const resource = await this.opts.services.getResource(resourceId)
       const slots = await this.opts.services.listAvailableSlots(resourceId)
       const slot = slots.find((s) => s.id === slotId)
       if (!slot) {
-        await this.opts.telegram.sendMessage(chatId, 'Slot is no longer available.', {
-          reply_markup: mainMenuKeyboard(),
+        await this.opts.telegram.sendMessage(chatId, slotUnavailableMessage(language), {
+          reply_markup: mainMenuKeyboard(language),
         })
         return
       }
 
-      await this.opts.telegram.sendMessage(chatId, bookingConfirmationPrompt(resource, slot), {
-        reply_markup: confirmBookingKeyboard(resource, slotId),
+      await this.opts.telegram.sendMessage(chatId, bookingConfirmationPrompt(resource, slot, language), {
+        reply_markup: confirmBookingKeyboard(resource, slotId, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'sendBookingPrompt')
-      await this.sendTemporaryUnavailableMessage(chatId, `slot:${resourceId}:${slotId}`)
+      await this.sendTemporaryUnavailableMessage(chatId, language, `slot:${resourceId}:${slotId}`)
     }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
-  private async editLocations(chatId: number, messageId: number): Promise<void> {
+  private async editLocations(chatId: number, messageId: number, language: BotLanguage = 'en'): Promise<void> {
     try {
       const locations = await this.opts.services.listLocations()
-      await this.opts.telegram.editMessageText(chatId, messageId, locationsMessage(locations), {
-        reply_markup: locationKeyboard(locations),
+      await this.opts.telegram.editMessageText(chatId, messageId, locationsMessage(locations, language), {
+        reply_markup: locationKeyboard(locations, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'editLocations')
-      await this.editTemporaryUnavailableMessage(chatId, messageId, 'menu:book')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, 'menu:book')
     }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
-  private async editResources(chatId: number, messageId: number, locationId: string): Promise<void> {
+  private async editResources(chatId: number, messageId: number, locationId: string, language: BotLanguage = 'en'): Promise<void> {
     try {
       const resources = await this.opts.services.listResources(locationId)
-      await this.opts.telegram.editMessageText(chatId, messageId, resourcesMessage(resources), {
-        reply_markup: resourceKeyboard(resources),
+      await this.opts.telegram.editMessageText(chatId, messageId, resourcesMessage(resources, language), {
+        reply_markup: resourceKeyboard(resources, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'editResources')
-      await this.editTemporaryUnavailableMessage(chatId, messageId, `location:${locationId}`)
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, `location:${locationId}`)
     }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
-  private async editSlots(chatId: number, messageId: number, locationId: string, resourceId: string): Promise<void> {
+  private async editSlots(chatId: number, messageId: number, locationId: string, resourceId: string, language: BotLanguage = 'en'): Promise<void> {
     try {
       const resource = await this.opts.services.getResource(resourceId)
       const slots = await this.opts.services.listAvailableSlots(resourceId)
-      await this.opts.telegram.editMessageText(chatId, messageId, slotsMessage(resource, slots), {
-        reply_markup: slotsKeyboard(resource, slots),
+      await this.opts.telegram.editMessageText(chatId, messageId, slotsMessage(resource, slots, language), {
+        reply_markup: slotsKeyboard(resource, slots, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'editSlots')
-      await this.editTemporaryUnavailableMessage(chatId, messageId, `resource:${locationId}:${resourceId}`)
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, `resource:${locationId}:${resourceId}`)
     }
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
-  private async editBookingPrompt(chatId: number, messageId: number, resourceId: string, slotId: string): Promise<void> {
+  private async editBookingPrompt(chatId: number, messageId: number, resourceId: string, slotId: string, language: BotLanguage = 'en'): Promise<void> {
     try {
       const resource = await this.opts.services.getResource(resourceId)
       const slots = await this.opts.services.listAvailableSlots(resourceId)
       const slot = slots.find((s) => s.id === slotId)
       if (!slot) {
-        await this.opts.telegram.editMessageText(chatId, messageId, 'Slot is no longer available.', {
-          reply_markup: mainMenuKeyboard(),
+        await this.opts.telegram.editMessageText(chatId, messageId, slotUnavailableMessage(language), {
+          reply_markup: mainMenuKeyboard(language),
         })
         return
       }
-      await this.opts.telegram.editMessageText(chatId, messageId, bookingConfirmationPrompt(resource, slot), {
-        reply_markup: confirmBookingKeyboard(resource, slotId),
+      await this.opts.telegram.editMessageText(chatId, messageId, bookingConfirmationPrompt(resource, slot, language), {
+        reply_markup: confirmBookingKeyboard(resource, slotId, language),
       })
     } catch (error) {
       this.logBookingUiUnavailable(error, 'editBookingPrompt')
-      await this.editTemporaryUnavailableMessage(chatId, messageId, `slot:${resourceId}:${slotId}`)
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, `slot:${resourceId}:${slotId}`)
     }
   }
 
-  private async sendTemporaryUnavailableMessage(chatId: number, retryCallbackData?: string): Promise<void> {
-    await this.opts.telegram.sendMessage(chatId, serviceTemporarilyUnavailableMessage(), {
-      reply_markup: retryKeyboard(retryCallbackData),
+  // ─── date / time picker methods ──────────────────────────────────────────────
+
+  private async sendDatePicker(chatId: number, locationId: string, resourceId: string, language: BotLanguage = 'en'): Promise<void> {
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      await this.opts.telegram.sendMessage(chatId, selectDateMessage(resource, language), {
+        reply_markup: datePickerKeyboard(locationId, resourceId, language),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'sendDatePicker')
+      await this.sendTemporaryUnavailableMessage(chatId, language, `resource:${locationId}:${resourceId}`)
+    }
+  }
+
+  private async sendTimePicker(chatId: number, locationId: string, resourceId: string, dateStr: string, language: BotLanguage = 'en'): Promise<void> {
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      await this.opts.telegram.sendMessage(chatId, selectTimeMessage(resource, dateStr, language), {
+        reply_markup: timePickerKeyboard(locationId, resourceId, dateStr, language),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'sendTimePicker')
+      await this.sendTemporaryUnavailableMessage(chatId, language, `date:${dateStr}`)
+    }
+  }
+
+  private async sendDurationPicker(chatId: number, locationId: string, resourceId: string, dateStr: string, hour: number, language: BotLanguage = 'en'): Promise<void> {
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      await this.opts.telegram.sendMessage(chatId, selectDurationMessage(resource, dateStr, hour, language), {
+        reply_markup: durationPickerKeyboard(hour, language),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'sendDurationPicker')
+      await this.sendTemporaryUnavailableMessage(chatId, language, `time:${hour}`)
+    }
+  }
+
+  /**
+   * Показывает inline-клавиатуру выбора даты.
+   */
+  private async editDatePicker(chatId: number, messageId: number, locationId: string, resourceId: string, language: BotLanguage = 'en'): Promise<void> {
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      await this.opts.telegram.editMessageText(chatId, messageId, selectDateMessage(resource, language), {
+        reply_markup: datePickerKeyboard(locationId, resourceId, language),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editDatePicker')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, `resource:${locationId}:${resourceId}`)
+    }
+  }
+
+  /**
+   * Показывает inline-клавиатуру выбора часа начала.
+   */
+  private async editTimePicker(chatId: number, messageId: number, locationId: string, resourceId: string, dateStr: string, language: BotLanguage = 'en'): Promise<void> {
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      await this.opts.telegram.editMessageText(chatId, messageId, selectTimeMessage(resource, dateStr, language), {
+        reply_markup: timePickerKeyboard(locationId, resourceId, dateStr, language),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editTimePicker')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, `date:${dateStr}`)
+    }
+  }
+
+  /**
+   * Показывает inline-клавиатуру выбора продолжительности.
+   */
+  private async editDurationPicker(
+    chatId: number,
+    messageId: number,
+    locationId: string,
+    resourceId: string,
+    dateStr: string,
+    hour: number,
+    language: BotLanguage = 'en',
+  ): Promise<void> {
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      await this.opts.telegram.editMessageText(chatId, messageId, selectDurationMessage(resource, dateStr, hour, language), {
+        reply_markup: durationPickerKeyboard(hour, language),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editDurationPicker')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, `time:${hour}`)
+    }
+  }
+
+  /**
+   * Показывает экран подтверждения брони с произвольным временем.
+   */
+  private async editCustomBookingPrompt(
+    chatId: number,
+    messageId: number,
+    locationId: string,
+    resourceId: string,
+    dateStr: string,
+    hour: number,
+    duration: number,
+    language: BotLanguage = 'en',
+  ): Promise<void> {
+    try {
+      const resource = await this.opts.services.getResource(resourceId)
+      await this.opts.telegram.editMessageText(chatId, messageId, customBookingConfirmationPrompt(resource, dateStr, hour, duration, language), {
+        reply_markup: confirmCustomBookingKeyboard(locationId, resourceId, language),
+      })
+    } catch (error) {
+      this.logBookingUiUnavailable(error, 'editCustomBookingPrompt')
+      await this.editTemporaryUnavailableMessage(chatId, messageId, language, `resource:${locationId}:${resourceId}`)
+    }
+  }
+
+  private async sendTemporaryUnavailableMessage(chatId: number, language: BotLanguage = 'en', retryCallbackData?: string): Promise<void> {
+    await this.opts.telegram.sendMessage(chatId, serviceTemporarilyUnavailableMessage(language), {
+      reply_markup: retryKeyboard(language, retryCallbackData),
     })
   }
 
-  private async editTemporaryUnavailableMessage(chatId: number, messageId: number, retryCallbackData?: string): Promise<void> {
-    await this.opts.telegram.editMessageText(chatId, messageId, serviceTemporarilyUnavailableMessage(), {
-      reply_markup: retryKeyboard(retryCallbackData),
+  private async editTemporaryUnavailableMessage(chatId: number, messageId: number, language: BotLanguage = 'en', retryCallbackData?: string): Promise<void> {
+    await this.opts.telegram.editMessageText(chatId, messageId, serviceTemporarilyUnavailableMessage(language), {
+      reply_markup: retryKeyboard(language, retryCallbackData),
     })
   }
 
@@ -576,19 +891,21 @@ export class Bot {
    * Отправляет данные пользователю или во внешний API.
    */
   private async sendBookings(chatId: number, telegramUserId: number): Promise<void> {
+    const language = await this.getLanguage(telegramUserId)
     const bookings = await this.opts.services.listUserBookings(telegramUserId)
-    await this.opts.telegram.sendMessage(chatId, bookingsMessage(bookings), {
-      reply_markup: bookings.length > 0 ? bookingsKeyboard(bookings) : mainMenuKeyboard(),
+    await this.opts.telegram.sendMessage(chatId, bookingsMessage(bookings, language), {
+      reply_markup: bookings.length > 0 ? bookingsKeyboard(bookings, language) : mainMenuKeyboard(language),
     })
   }
 
   /**
    * Редактирует существующее сообщение Telegram.
    */
-  private async editBookings(chatId: number, messageId: number, telegramUserId: number): Promise<void> {
+  private async editBookings(chatId: number, messageId: number, telegramUserId: number, languageOverride?: BotLanguage): Promise<void> {
+    const language = languageOverride ?? await this.getLanguage(telegramUserId)
     const bookings = await this.opts.services.listUserBookings(telegramUserId)
-    await this.opts.telegram.editMessageText(chatId, messageId, bookingsMessage(bookings), {
-      reply_markup: bookings.length > 0 ? bookingsKeyboard(bookings) : mainMenuKeyboard(),
+    await this.opts.telegram.editMessageText(chatId, messageId, bookingsMessage(bookings, language), {
+      reply_markup: bookings.length > 0 ? bookingsKeyboard(bookings, language) : mainMenuKeyboard(language),
     })
   }
 
@@ -596,6 +913,7 @@ export class Bot {
    * Отправляет данные пользователю или во внешний API.
    */
   private async sendCalendarStatus(chatId: number, telegramUserId: number): Promise<void> {
+    const language = await this.getLanguage(telegramUserId)
     const connections = await this.opts.services.getUserCalendarConnections(telegramUserId)
     const connected = connections.map((c) => c.provider)
     const googleUrlResult = await this.opts.services.getCalendarAuthUrl({
@@ -606,12 +924,12 @@ export class Bot {
     const googleUrl = googleUrlResult?.url
 
     if (connected.length > 0) {
-      await this.opts.telegram.sendMessage(chatId, calendarStatusMessage(connected), {
-        reply_markup: calendarStatusKeyboard({ connectedProviders: connected, googleUrl }),
+      await this.opts.telegram.sendMessage(chatId, calendarStatusMessage(connected, language), {
+        reply_markup: calendarStatusKeyboard({ connectedProviders: connected, googleUrl }, language),
       })
     } else {
-      await this.opts.telegram.sendMessage(chatId, calendarAuthMessage({ googleUrl }), {
-        reply_markup: googleUrl ? calendarAuthKeyboard(googleUrl) : mainMenuKeyboard(),
+      await this.opts.telegram.sendMessage(chatId, calendarAuthMessage({ googleUrl }, language), {
+        reply_markup: googleUrl ? calendarAuthKeyboard(googleUrl, language) : mainMenuKeyboard(language),
       })
     }
   }
@@ -672,7 +990,8 @@ export class Bot {
   /**
    * Редактирует существующее сообщение Telegram.
    */
-  private async editCalendarStatus(chatId: number, messageId: number, telegramUserId: number): Promise<void> {
+  private async editCalendarStatus(chatId: number, messageId: number, telegramUserId: number, languageOverride?: BotLanguage): Promise<void> {
+    const language = languageOverride ?? await this.getLanguage(telegramUserId)
     const connections = await this.opts.services.getUserCalendarConnections(telegramUserId)
     const connected = connections.map((c) => c.provider)
     const googleUrlResult = await this.opts.services.getCalendarAuthUrl({
@@ -683,29 +1002,55 @@ export class Bot {
     const googleUrl = googleUrlResult?.url
 
     if (connected.length > 0) {
-      await this.opts.telegram.editMessageText(chatId, messageId, calendarStatusMessage(connected), {
-        reply_markup: calendarStatusKeyboard({ connectedProviders: connected, googleUrl }),
+      await this.opts.telegram.editMessageText(chatId, messageId, calendarStatusMessage(connected, language), {
+        reply_markup: calendarStatusKeyboard({ connectedProviders: connected, googleUrl }, language),
       })
     } else {
-      await this.opts.telegram.editMessageText(chatId, messageId, calendarAuthMessage({ googleUrl }), {
-        reply_markup: googleUrl ? calendarAuthKeyboard(googleUrl) : mainMenuKeyboard(),
+      await this.opts.telegram.editMessageText(chatId, messageId, calendarAuthMessage({ googleUrl }, language), {
+        reply_markup: googleUrl ? calendarAuthKeyboard(googleUrl, language) : mainMenuKeyboard(language),
       })
     }
   }
 
 }
 
-function serviceTemporarilyUnavailableMessage(): string {
-  return ['Booking service is starting or temporarily unavailable.', '', 'Please try again in a few seconds.'].join('\n')
+function expiredSessionMessage(language: BotLanguage): string {
+  return language === 'ru' ? 'Сессия устарела. Начните заново.' : 'Session expired. Please start again.'
 }
 
-function retryKeyboard(retryCallbackData?: string) {
-  if (!retryCallbackData) return mainMenuKeyboard()
+function invoiceRecoveryMessage(language: BotLanguage): string {
+  return language === 'ru'
+    ? 'Счёт уже отправлен. Завершите оплату в Telegram или начните заново.'
+    : 'Invoice was sent. Complete the payment in Telegram or start again.'
+}
+
+function invoiceSentMessage(language: BotLanguage): string {
+  return language === 'ru' ? 'Счёт отправлен. Завершите оплату в Telegram.' : 'Invoice sent. Complete the payment in Telegram.'
+}
+
+function slotUnavailableMessage(language: BotLanguage): string {
+  return language === 'ru' ? 'Слот больше недоступен.' : 'Slot is no longer available.'
+}
+
+function slotHeldOrBookedMessage(language: BotLanguage): string {
+  return language === 'ru'
+    ? 'Этот слот уже удерживается или забронирован. Выберите другое время.'
+    : 'This slot is already held or booked. Please choose another time.'
+}
+
+function serviceTemporarilyUnavailableMessage(language: BotLanguage): string {
+  return language === 'ru'
+    ? ['Сервис бронирования запускается или временно недоступен.', '', 'Попробуйте ещё раз через несколько секунд.'].join('\n')
+    : ['Booking service is starting or temporarily unavailable.', '', 'Please try again in a few seconds.'].join('\n')
+}
+
+function retryKeyboard(language: BotLanguage, retryCallbackData?: string) {
+  if (!retryCallbackData) return mainMenuKeyboard(language)
 
   return {
     inline_keyboard: [
-      [{ text: 'Try again', callback_data: retryCallbackData }],
-      [{ text: 'Back to menu', callback_data: 'menu:start' }],
+      [{ text: language === 'ru' ? 'Попробовать ещё раз' : 'Try again', callback_data: retryCallbackData }],
+      [{ text: language === 'ru' ? 'Назад в меню' : 'Back to menu', callback_data: 'menu:start' }],
     ],
   }
 }

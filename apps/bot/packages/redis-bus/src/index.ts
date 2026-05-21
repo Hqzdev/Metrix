@@ -1,4 +1,4 @@
-import Redis from 'ioredis'
+import { Redis } from 'ioredis'
 export { SlotLocker } from './slot-locker.js'
 
 // максимум сообщений за один XREADGROUP — ограничивает размер batch в памяти

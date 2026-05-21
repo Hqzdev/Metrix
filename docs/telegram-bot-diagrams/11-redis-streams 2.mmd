@@ -1,0 +1,35 @@
+---
+title: Redis Streams — Event Bus
+---
+flowchart LR
+    subgraph producers["Publishers"]
+        BK[booking-service]
+        PAY[payment-service]
+        ANA[analytics-service]
+    end
+
+    subgraph streams["Redis Streams"]
+        S1["stream:booking.created"]
+        S2["stream:booking.cancelled"]
+        S3["stream:payment.completed"]
+        S4["stream:notification.send"]
+        S5["stream:report.ready"]
+    end
+
+    subgraph consumers["Consumers"]
+        NOT[notification-service]
+        ANA2[analytics-service]
+        PAY2[payment-service]
+    end
+
+    BK  -->|booking created| S1
+    BK  -->|booking cancelled| S2
+    PAY -->|payment done| S3
+    PAY -->|send invoice/message| S4
+    ANA -->|PDF ready| S5
+
+    S1 -->|consumer group| ANA2
+    S2 -->|consumer group| ANA2
+    S3 -->|consumer group| PAY2
+    S4 -->|consumer group| NOT
+    S5 -->|consumer group| NOT

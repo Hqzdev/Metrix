@@ -1,6 +1,6 @@
 import { audit, extractUserId, readJsonBody, signOAuthState, verifyOAuthState, verifyServiceRequest } from '@metrix/auth'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 import type { PrismaClient } from '@prisma/client'
 import type { CalendarServiceConfig } from './config.js'
 import { AuthenticationError, CalendarServiceError, NotFoundError, OAuthStateError, ProviderNotConfiguredError, ReplayAttackError, ValidationError } from './errors.js'
@@ -217,7 +217,7 @@ export class CalendarRouter {
           provider: 'google',
           scope: stateData.scope,
           telegramUserId: BigInt(stateData.telegramUserId),
-          resourceId: stateData.resourceId ?? null,
+          resourceId: stateData.resourceId ?? '',
         },
       },
       update: {

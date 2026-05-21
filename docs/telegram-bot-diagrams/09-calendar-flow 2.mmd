@@ -1,0 +1,43 @@
+---
+title: Calendar Connect / Status / Disconnect Flow
+---
+sequenceDiagram
+    actor User
+    participant TG as Telegram
+    participant GW as bot-gateway
+    participant CAL as calendar-service
+
+    %% ── /calendar: нет подключения ──────────────────────────
+    User->>TG: /calendar
+    TG->>GW: message /calendar
+    GW->>CAL: GET /connections?telegramUserId=X&scope=user
+    CAL-->>GW: []
+    GW->>CAL: POST /auth-url {provider: google, ...}
+    CAL-->>GW: {url: "https://accounts.google.com/..."}
+    GW->>TG: sendMessage("Calendar connection", [Connect Google Calendar])
+
+    %% ── OAuth flow ───────────────────────────────────────────
+    User->>TG: click "Connect Google Calendar"
+    TG-->>User: opens browser → Google OAuth page
+    User->>TG: approves access
+    Note over User,TG: Google redirects to localhost:3000/calendar/google/callback?code=...&state=...
+    GW->>CAL: POST /oauth-callback {code, state}
+    CAL->>CAL: exchange code → tokens
+    CAL->>CAL: encrypt & save CalendarConnection
+    CAL-->>GW: connection saved
+
+    %% ── /calendar: есть подключение ─────────────────────────
+    User->>TG: /calendar
+    TG->>GW: message /calendar
+    GW->>CAL: GET /connections?telegramUserId=X&scope=user
+    CAL-->>GW: [{provider: "google", ...}]
+    GW->>TG: sendMessage("Google Calendar: connected", [Disconnect Google Calendar])
+
+    %% ── отключение ───────────────────────────────────────────
+    User->>TG: click "Disconnect Google Calendar"
+    TG->>GW: callback calendar:disconnect:google
+    GW->>CAL: DELETE /connections {provider: google, telegramUserId: X}
+    CAL-->>GW: {ok: true}
+    GW->>CAL: GET /connections?telegramUserId=X&scope=user
+    CAL-->>GW: []
+    GW->>TG: editMessage("Calendar connection", [Connect Google Calendar])

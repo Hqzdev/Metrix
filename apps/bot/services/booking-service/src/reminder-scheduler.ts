@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import type Redis from 'ioredis'
+import type { Redis } from 'ioredis'
 
 // за сколько минут до начала отправляем напоминание
 const REMINDER_LEAD_TIME_MINUTES = 15

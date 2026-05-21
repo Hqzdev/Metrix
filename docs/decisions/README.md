@@ -1,47 +1,22 @@
-Architecture Decision Records
+Architecture Decisions
 
-Эта папка хранит engineering decisions по Metrix.
-Каждый документ объясняет не только что выбрано, но и почему это выбрано.
+Этот раздел хранит ADR.
 
-Назначение
+ADR — это короткая запись важного архитектурного решения.
 
-ADR нужен, чтобы через месяц было понятно:
+Зачем нужны ADR
 
-какая проблема решалась
-какие варианты рассматривались
-какой trade-off принят
-какие последствия есть у решения
+Через месяц никто не помнит, почему выбрали Redis, HMAC или отдельный bot runtime.
+ADR сохраняет причину.
 
 Формат
 
-Название:
+- Context — какая была проблема.
+- Decision — что решили.
+- Consequences — что это меняет.
 
-```
-0001-short-decision-name.md
-```
+Документы
 
-Структура:
-
-```
-Decision
-
-Context
-
-Options
-
-Decision
-
-Consequences
-
-Status
-```
-
-Список решений
-
-0001-use-redis-for-shared-runtime-state.md — Redis для shared state, locks, queues и replay protection
-0002-use-hmac-for-service-to-service-auth.md — HMAC-подписи внутренних HTTP-запросов
-0003-keep-web-and-bot-runtime-separated.md — разделение web-продукта и Telegram runtime
-
-Правило обновления
-
-Если меняется безопасность, хранилище, очереди, деплой, payment flow или границы сервисов, нужно добавить новый ADR.
+- 0001 — Redis для shared runtime state.
+- 0002 — HMAC для service-to-service auth.
+- 0003 — разделение web и bot runtime.
