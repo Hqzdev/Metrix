@@ -3,6 +3,7 @@ import { CompanyPage } from "@/components/company-page";
 export default function CareersPage() {
   return (
     <CompanyPage
+      variant="careers"
       eyebrow="Careers"
       title="Build the booking layer for physical work."
       intro="Metrix needs people who like practical systems: clean interfaces, reliable operations, and tools that make real buildings easier to use."

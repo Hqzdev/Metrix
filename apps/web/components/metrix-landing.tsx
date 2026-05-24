@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { IconSvgElement } from "@hugeicons/react";
 import {
@@ -17,6 +18,7 @@ import {
   TelegramIcon,
   ZapIcon,
 } from "@hugeicons/core-free-icons";
+import { MetrixFooter, MetrixHeader } from "@/components/metrix-shell";
 
 type PictProps = {
   size?: number;
@@ -157,6 +159,105 @@ const VENUES: Record<string, VenueOption[]> = {
   ],
 };
 
+const BOOKING_VENUES: Record<string, Record<SpaceId, VenueOption[]>> = {
+  Patriarchy: {
+    desk: [
+      { name: "Courtyard Bench", area: "18 Malaya Bronnaya Street", price: 3400, unit: "day", seats: "14 desks" },
+      { name: "Library Desks", area: "18 Malaya Bronnaya Street", price: 39000, unit: "desk / month", seats: "12 desks" },
+    ],
+    meeting: [
+      { name: "Garden Meeting Suite", area: "18 Malaya Bronnaya Street", price: 32000, unit: "hour", seats: "8 seats" },
+      { name: "Investor Room", area: "18 Malaya Bronnaya Street", price: 31000, unit: "hour", seats: "10 seats" },
+    ],
+    office: [
+      { name: "Founder Office", area: "18 Malaya Bronnaya Street", price: 1460000, unit: "month", seats: "6 seats" },
+      { name: "Editorial Office", area: "18 Malaya Bronnaya Street", price: 1210000, unit: "month", seats: "5 seats" },
+    ],
+    event: [
+      { name: "Editorial Studio", area: "18 Malaya Bronnaya Street", price: 36000, unit: "desk / month", seats: "10 desks" },
+      { name: "Garden Pod", area: "18 Malaya Bronnaya Street", price: 35500, unit: "desk / month", seats: "12 desks" },
+    ],
+  },
+  Belorusskaya: {
+    desk: [
+      { name: "Hot Desk Boulevard", area: "34 Lesnaya Street", price: 2900, unit: "day", seats: "18 desks" },
+      { name: "Quiet Desk Row", area: "34 Lesnaya Street", price: 3150, unit: "day", seats: "16 desks" },
+    ],
+    meeting: [
+      { name: "Rail Meeting Room", area: "34 Lesnaya Street", price: 27000, unit: "hour", seats: "12 seats" },
+      { name: "North Briefing Room", area: "34 Lesnaya Street", price: 28500, unit: "hour", seats: "8 seats" },
+    ],
+    office: [
+      { name: "Transit Office", area: "34 Lesnaya Street", price: 1080000, unit: "month", seats: "4 seats" },
+      { name: "Signal Office", area: "34 Lesnaya Street", price: 1160000, unit: "month", seats: "5 seats" },
+    ],
+    event: [
+      { name: "Launch Pad", area: "34 Lesnaya Street", price: 33000, unit: "desk / month", seats: "16 desks" },
+      { name: "North Team Pod", area: "34 Lesnaya Street", price: 34000, unit: "desk / month", seats: "14 desks" },
+    ],
+  },
+  Paveletskaya: {
+    desk: [
+      { name: "Dockline Desks", area: "5 Letnikovskaya Street", price: 3100, unit: "day", seats: "20 desks" },
+      { name: "Riverside Bench", area: "5 Letnikovskaya Street", price: 3350, unit: "day", seats: "12 desks" },
+    ],
+    meeting: [
+      { name: "Investor Room", area: "5 Letnikovskaya Street", price: 31000, unit: "hour", seats: "10 seats" },
+      { name: "Build Room", area: "5 Letnikovskaya Street", price: 29500, unit: "hour", seats: "9 seats" },
+    ],
+    office: [
+      { name: "Bridge Office", area: "5 Letnikovskaya Street", price: 1390000, unit: "month", seats: "5 seats" },
+      { name: "Build Office", area: "5 Letnikovskaya Street", price: 1280000, unit: "month", seats: "6 seats" },
+    ],
+    event: [
+      { name: "Riverside Pod", area: "5 Letnikovskaya Street", price: 36500, unit: "desk / month", seats: "10 desks" },
+      { name: "Dockline Pod", area: "5 Letnikovskaya Street", price: 35000, unit: "desk / month", seats: "12 desks" },
+    ],
+  },
+  "Moscow City": {
+    desk: [{ name: "Tower Desk", area: "12 Presnenskaya Embankment", price: 4200, unit: "day", seats: "22 desks" }],
+    meeting: [{ name: "Summit Room 9", area: "12 Presnenskaya Embankment", price: 25500, unit: "hour", seats: "12 seats" }],
+    office: [{ name: "North Tower Office", area: "12 Presnenskaya Embankment", price: 1620000, unit: "month", seats: "7 seats" }],
+    event: [{ name: "Skyline Pod", area: "12 Presnenskaya Embankment", price: 41000, unit: "desk / month", seats: "14 desks" }],
+  },
+  Kurskaya: {
+    desk: [{ name: "Focus Desk Row", area: "11 Zemlyanoy Val", price: 3000, unit: "day", seats: "16 desks" }],
+    meeting: [{ name: "Focus Room 1", area: "11 Zemlyanoy Val", price: 27000, unit: "hour", seats: "6 seats" }],
+    office: [{ name: "Ring Office", area: "11 Zemlyanoy Val", price: 1180000, unit: "month", seats: "5 seats" }],
+    event: [{ name: "Sprint Pod", area: "11 Zemlyanoy Val", price: 33500, unit: "desk / month", seats: "10 desks" }],
+  },
+  "Park Kultury": {
+    desk: [{ name: "Garden Desk", area: "21 Zubovsky Boulevard", price: 3300, unit: "day", seats: "14 desks" }],
+    meeting: [{ name: "Garden Room 4", area: "21 Zubovsky Boulevard", price: 28000, unit: "hour", seats: "8 seats" }],
+    office: [{ name: "Boulevard Office", area: "21 Zubovsky Boulevard", price: 1240000, unit: "month", seats: "5 seats" }],
+    event: [{ name: "Culture Pod", area: "21 Zubovsky Boulevard", price: 35000, unit: "desk / month", seats: "12 desks" }],
+  },
+  Tverskaya: {
+    desk: [{ name: "Central Desk", area: "7 Tverskaya Street", price: 3600, unit: "day", seats: "18 desks" }],
+    meeting: [{ name: "Atrium Room 8", area: "7 Tverskaya Street", price: 30000, unit: "hour", seats: "7 seats" }],
+    office: [{ name: "Central Office", area: "7 Tverskaya Street", price: 1510000, unit: "month", seats: "6 seats" }],
+    event: [{ name: "Atrium Pod", area: "7 Tverskaya Street", price: 39000, unit: "desk / month", seats: "12 desks" }],
+  },
+  "Chistye Prudy": {
+    desk: [{ name: "Courtyard Desk", area: "19 Myasnitskaya Street", price: 3200, unit: "day", seats: "14 desks" }],
+    meeting: [{ name: "Courtyard Room 10", area: "19 Myasnitskaya Street", price: 27000, unit: "hour", seats: "10 seats" }],
+    office: [{ name: "Courtyard Office", area: "19 Myasnitskaya Street", price: 1320000, unit: "month", seats: "5 seats" }],
+    event: [{ name: "Courtyard Pod", area: "19 Myasnitskaya Street", price: 36000, unit: "desk / month", seats: "10 desks" }],
+  },
+  Taganskaya: {
+    desk: [{ name: "Square Desk", area: "3 Taganskaya Square", price: 3050, unit: "day", seats: "16 desks" }],
+    meeting: [{ name: "Studio Room 3", area: "3 Taganskaya Square", price: 27500, unit: "hour", seats: "6 seats" }],
+    office: [{ name: "Square Office", area: "3 Taganskaya Square", price: 1150000, unit: "month", seats: "4 seats" }],
+    event: [{ name: "Studio Pod", area: "3 Taganskaya Square", price: 33500, unit: "desk / month", seats: "10 desks" }],
+  },
+  Sokol: {
+    desk: [{ name: "Avenue Desk", area: "14 Leningradsky Avenue", price: 2950, unit: "day", seats: "18 desks" }],
+    meeting: [{ name: "Transit Room 7", area: "14 Leningradsky Avenue", price: 27000, unit: "hour", seats: "7 seats" }],
+    office: [{ name: "Avenue Office", area: "14 Leningradsky Avenue", price: 1090000, unit: "month", seats: "4 seats" }],
+    event: [{ name: "Avenue Pod", area: "14 Leningradsky Avenue", price: 33000, unit: "desk / month", seats: "10 desks" }],
+  },
+};
+
 const HOURS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
 const TELEGRAM_BOT_URL = "https://t.me/metritxsxbot";
 const BotHandle = () => <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer">@metritxsxbot</a>;
@@ -176,54 +277,6 @@ const formatRubShort = (value: number) => {
 };
 const priceLabelShort = (price: number, unit: string) => `${formatRubShort(price)} / ${unit}`;
 
-function Nav({ palette, onTogglePalette }: { palette: "bone" | "ink"; onTogglePalette: () => void }) {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  return (
-    <header className={`metrix-nav ${scrolled ? "is-scrolled" : ""}`}>
-      <div className="metrix-nav-inner">
-        <a href="#" className="metrix-logo" aria-label="Metrix home">
-          <span>M</span>
-          Metrix<b>.</b>
-        </a>
-
-        <nav className="metrix-nav-links" aria-label="Main navigation">
-          {[
-            ["Spaces", "#spaces"],
-            ["How it works", "#how"],
-            ["Book now", "#demo"],
-            ["For business", "#b2b"],
-            ["FAQ", "#faq"],
-          ].map(([label, href]) => (
-            <a key={label} href={href}>{label}</a>
-          ))}
-        </nav>
-
-        <div className="metrix-nav-actions">
-          <button
-            className={`metrix-theme-toggle ${palette === "ink" ? "is-ink" : ""}`}
-            onClick={onTogglePalette}
-            aria-label={`Switch to ${palette === "bone" ? "Ink" : "Bone"} mode`}
-          >
-            <span />
-          </button>
-          <a href="#demo" className="metrix-btn metrix-btn-ghost">Sign in</a>
-          <a href={TELEGRAM_BOT_URL} className="metrix-btn metrix-btn-primary" target="_blank" rel="noreferrer">
-            <PictTelegram size={15} /> Open <span>in</span> Telegram
-          </a>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function ChatPreview() {
   const [step, setStep] = useState(0);
 
@@ -241,7 +294,9 @@ function ChatPreview() {
   return (
     <div className="metrix-chat-card">
       <div className="metrix-chat-head">
-        <div className="metrix-chat-avatar">M</div>
+        <div className="metrix-chat-avatar">
+          <Image src="/icons/app-icon-light.png" alt="" width={38} height={38} />
+        </div>
         <div>
           <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer"><strong>@metritxsxbot</strong></a>
           <span><i className="metrix-pulse-dot" />online · responds in 2s</span>
@@ -369,8 +424,8 @@ function SpaceTabs() {
           ))}
         </div>
 
-        <div className="metrix-space-panel">
-          <div className={`metrix-space-hero is-${space.id}`} style={{ "--space-swatch": space.swatch } as React.CSSProperties} data-reveal="left" data-delay="120">
+        <div className="metrix-space-panel" data-reveal>
+          <div className={`metrix-space-hero is-${space.id}`} style={{ "--space-swatch": space.swatch } as React.CSSProperties}>
             <span className="metrix-space-sticker"><i />{space.tag}</span>
             {space.pict(88)}
             <div>
@@ -383,8 +438,8 @@ function SpaceTabs() {
           </div>
 
           <div className="metrix-listings">
-            {[1, 2, 3].map((idx) => <SpaceListing key={idx} idx={idx} spaceId={space.id} delay={140 + idx * 70} />)}
-            <a href="#demo" className="metrix-btn metrix-btn-ghost" data-reveal="right" data-delay="390">See all {space.name.toLowerCase()}s <Arrow /></a>
+            {[1, 2, 3].map((idx) => <SpaceListing key={idx} idx={idx} spaceId={space.id} />)}
+            <a href="#demo" className="metrix-btn metrix-btn-ghost">See all {space.name.toLowerCase()}s <Arrow /></a>
           </div>
         </div>
       </div>
@@ -392,7 +447,7 @@ function SpaceTabs() {
   );
 }
 
-function SpaceListing({ spaceId, idx, delay = 0 }: { spaceId: SpaceId; idx: number; delay?: number }) {
+function SpaceListing({ spaceId, idx }: { spaceId: SpaceId; idx: number }) {
   const space = SPACE_OPTIONS.find((item) => item.id === spaceId) ?? SPACE_OPTIONS[0];
   const examples: Record<SpaceId, { name: string; area: string; price: number; unit: string; time: string; seats: string }[]> = {
     desk: [
@@ -419,7 +474,7 @@ function SpaceListing({ spaceId, idx, delay = 0 }: { spaceId: SpaceId; idx: numb
   const venue = examples[spaceId][idx - 1];
 
   return (
-    <article className="metrix-card metrix-listing" data-reveal="right" data-delay={String(delay)}>
+    <article className="metrix-card metrix-listing">
       <div className={`metrix-listing-icon is-${spaceId}`} style={{ "--space-swatch": space.swatch } as React.CSSProperties}>{space.pict(36)}</div>
       <div>
         <h3>{venue.name}{idx === 1 && <span>hot</span>}</h3>
@@ -479,7 +534,8 @@ function BookingDemo() {
   const [confirmed, setConfirmed] = useState(false);
 
   const space = SPACE_OPTIONS.find((item) => item.id === spaceId) ?? SPACE_OPTIONS[0];
-  const venue = VENUES[city][venueIdx];
+  const spaceVenues = BOOKING_VENUES[city]?.[spaceId] ?? BOOKING_VENUES.Patriarchy[spaceId];
+  const venue = spaceVenues[Math.min(venueIdx, spaceVenues.length - 1)] ?? spaceVenues[0];
   const billableQuantity = venue.unit === "hour" ? hours : 1;
   const subtotal = venue.price * billableQuantity;
   const extrasCost = (extras.coffee ? 450 * hours : 0) + (extras.parking ? 800 : 0);
@@ -489,7 +545,7 @@ function BookingDemo() {
   const startHour = HOURS[startIdx];
   const endHour = HOURS[Math.min(startIdx + hours, HOURS.length - 1)] ?? "20:00";
 
-  useEffect(() => setVenueIdx(0), [city]);
+  useEffect(() => setVenueIdx(0), [city, spaceId]);
   useEffect(() => setConfirmed(false), [city, spaceId, venueIdx, startIdx, hours, people, extras]);
 
   return (
@@ -499,7 +555,7 @@ function BookingDemo() {
         <div className="metrix-demo-grid">
           <div className="metrix-card metrix-booking-surface" data-reveal="left">
             <Field label="01  Where">
-              <div className="metrix-chip-row">{Object.keys(VENUES).map((item) => <Chip key={item} on={item === city} onClick={() => setCity(item)}><Pin size={12} /> {item}</Chip>)}</div>
+              <div className="metrix-chip-row">{Object.keys(BOOKING_VENUES).map((item) => <Chip key={item} on={item === city} onClick={() => setCity(item)}><Pin size={12} /> {item}</Chip>)}</div>
             </Field>
             <Field label="02  What">
               <div className="metrix-space-options">
@@ -510,9 +566,9 @@ function BookingDemo() {
                 ))}
               </div>
             </Field>
-            <Field label="03  Which" hint={`${VENUES[city].length} spaces open in ${city}`}>
+            <Field label="03  Which" hint={`${spaceVenues.length} ${space.name.toLowerCase()}${spaceVenues.length === 1 ? "" : "s"} open in ${city}`}>
               <div className="metrix-venue-list">
-                {VENUES[city].map((item, index) => (
+                {spaceVenues.map((item, index) => (
                   <button key={item.name} className={index === venueIdx ? "is-active" : ""} onClick={() => setVenueIdx(index)}>
                     <i /><strong>{item.name}</strong><span>{item.area} · {priceLabel(item.price, item.unit)}</span>{index === 0 && <b>hot</b>}
                   </button>
@@ -618,9 +674,9 @@ function FAQ() {
     <section id="faq" className="metrix-section metrix-faq">
       <div className="metrix-wrap">
         <SectionHead eyebrow="Questions" title={<>Common <em>questions.</em></>} lead={<>Still unsure? Send <strong>/help</strong> to the bot. A human picks up within 90 seconds.</>} />
-        <div className="metrix-faq-list">
+        <div className="metrix-faq-list" data-reveal>
           {faqs.map(([question, answer], index) => (
-            <article key={question} className={`metrix-card ${open === index ? "is-open" : ""}`} data-reveal data-delay={String(index * 60)}>
+            <article key={question} className={`metrix-card ${open === index ? "is-open" : ""}`}>
               <button onClick={() => setOpen(open === index ? -1 : index)} aria-expanded={open === index}>
                 <span><b className="metrix-num">0{index + 1}</b>{question}</span>
                 <i><Plus size={16} /></i>
@@ -646,36 +702,6 @@ function FooterCTA() {
         </div>
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  const groups: Array<[string, Array<[string, string]>]> = [
-    ["Product", [["Hot desks", "#spaces"], ["Meeting rooms", "#spaces"], ["Private offices", "#spaces"], ["Events", "#spaces"]]],
-    ["Company", [["About", "/about"], ["Press", "/press"], ["Careers", "/careers"], ["Manifesto", "/manifesto"]]],
-    ["Resources", [["FAQ", "/faq"], ["Status", "/status"], ["Changelog", "/changelog"], ["API", "/api"]]],
-    ["Get in touch", [["@metritxsxbot", TELEGRAM_BOT_URL], ["hello@metrix.app", "mailto:hello@metrix.app"], ["Moscow HQ", "#"], ["Telegram", TELEGRAM_BOT_URL]]],
-  ];
-  return (
-    <footer className="metrix-footer">
-      <div className="metrix-wrap">
-        <div className="metrix-footer-grid" data-reveal>
-          <div>
-            <a href="#" className="metrix-logo"><span>M</span>Metrix<b>.</b></a>
-            <p>Booking workspaces shouldn't feel like booking a flight. Built for Moscow offices · since 2024.</p>
-          </div>
-          {groups.map(([title, items]) => (
-            <nav key={title} aria-label={title}>
-              <h3 className="metrix-eyebrow">{title}</h3>
-              {items.map(([item, href]) => <a key={item} href={href} target={href.startsWith("https://") ? "_blank" : undefined} rel={href.startsWith("https://") ? "noreferrer" : undefined}>{item}</a>)}
-            </nav>
-          ))}
-        </div>
-        <hr className="metrix-rule" />
-        <div className="metrix-footer-bottom" data-reveal data-delay="80"><span>© 2026 Metrix Booking · Moscow</span><span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/imprint">Imprint</a></span></div>
-        <div className="metrix-wordmark" data-reveal="scale" data-delay="120">Metrix<span className="metrix-dot">.</span></div>
-      </div>
-    </footer>
   );
 }
 
@@ -737,18 +763,16 @@ function applyPalette(palette: "bone" | "ink") {
 }
 
 export function MetrixLanding() {
-  const [palette, setPalette] = useState<"bone" | "ink">("bone");
+  const palette: "bone" | "ink" = "bone";
 
   useEffect(() => {
     applyPalette(palette);
     document.body.classList.remove("no-italic-headlines");
   }, [palette]);
 
-  const togglePalette = () => setPalette((current) => (current === "bone" ? "ink" : "bone"));
-
   return (
     <main className="metrix-site">
-      <Nav palette={palette} onTogglePalette={togglePalette} />
+      <MetrixHeader />
       <Hero />
       <TrustStrip />
       <SpaceTabs />
@@ -757,7 +781,7 @@ export function MetrixLanding() {
       <B2B />
       <FAQ />
       <FooterCTA />
-      <Footer />
+      <MetrixFooter />
     </main>
   );
 }

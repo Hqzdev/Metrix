@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { CSSProperties } from "react";
+import { MetrixFooter, MetrixHeader } from "@/components/metrix-shell";
 
 type LegalMetric = {
   value: string;
@@ -28,13 +28,6 @@ type LegalPageProps = {
   tableColumns: string[];
   tableRows: LegalTableRow[];
 };
-
-const navItems = [
-  ["Home", "/"],
-  ["Privacy", "/privacy"],
-  ["Terms", "/terms"],
-  ["Imprint", "/imprint"],
-];
 
 function linkBot(text: string) {
   const handle = "@metritxsxbot";
@@ -71,22 +64,10 @@ export function LegalPage({
   tableRows,
 }: LegalPageProps) {
   return (
-    <main className="metrix-legal-page">
-      <header className="metrix-company-nav">
-        <Link href="/" className="metrix-logo" aria-label="Metrix home">
-          <span>M</span>
-          Metrix<b>.</b>
-        </Link>
-        <nav aria-label="Legal pages">
-          {navItems.map(([label, href]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </header>
+    <main className="metrix-site metrix-legal-page">
+      <MetrixHeader />
 
-      <section className="metrix-legal-hero">
+      <section className="metrix-legal-hero metrix-wrap">
         <div data-reveal="left">
           <span className="metrix-eyebrow metrix-tag-dot">{eyebrow}</span>
           <h1 className="metrix-display">{title}</h1>
@@ -99,7 +80,7 @@ export function LegalPage({
         </aside>
       </section>
 
-      <section className="metrix-legal-metrics" aria-label="Legal summary">
+      <section className="metrix-legal-metrics metrix-wrap" aria-label="Legal summary">
         {metrics.map((metric, index) => (
           <article key={metric.label} data-reveal data-delay={String(index * 70)}>
             <strong className="metrix-num">{metric.value}</strong>
@@ -108,7 +89,7 @@ export function LegalPage({
         ))}
       </section>
 
-      <section className="metrix-legal-layout">
+      <section className="metrix-legal-layout metrix-wrap">
         <div className="metrix-legal-sections">
           {sections.map((section, index) => (
             <article key={section.title} data-reveal="left" data-delay={String(index * 70)}>
@@ -134,7 +115,7 @@ export function LegalPage({
         </aside>
       </section>
 
-      <section className="metrix-company-table-section metrix-legal-table-section" data-reveal>
+      <section className="metrix-company-table-section metrix-legal-table-section metrix-wrap" data-reveal>
         <div>
           <span className="metrix-eyebrow">Reference table</span>
           <h2>{tableTitle}</h2>
@@ -160,6 +141,7 @@ export function LegalPage({
           </table>
         </div>
       </section>
+      <MetrixFooter />
     </main>
   );
 }

@@ -3,6 +3,7 @@ import { CompanyPage } from "@/components/company-page";
 export default function PressPage() {
   return (
     <CompanyPage
+      variant="press"
       eyebrow="Press"
       title="Signals, numbers, and angles for the Metrix story."
       intro="A press room for launches, market notes, and operating metrics. It gives editors hard numbers instead of soft coworking adjectives."

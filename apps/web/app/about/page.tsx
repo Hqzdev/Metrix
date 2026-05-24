@@ -3,6 +3,7 @@ import { CompanyPage } from "@/components/company-page";
 export default function AboutPage() {
   return (
     <CompanyPage
+      variant="about"
       eyebrow="About Metrix"
       title="Workspace operations, measured like infrastructure."
       intro="Metrix runs a live workspace layer across Moscow: desks, rooms, offices, and team pods that can be booked from Telegram with real availability and RUB pricing."

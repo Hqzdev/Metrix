@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
@@ -184,7 +185,7 @@ export function HeroSection() {
 
                     {/* Bot message */}
                     <div className="msg-1 flex items-end gap-1.5">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[7px] font-bold text-white">M</div>
+                      <Image src="/icons/app-icon-light.png" alt="" width={20} height={20} className="h-5 w-5 shrink-0 rounded-full" />
                       <div className="max-w-[78%] rounded-2xl rounded-bl-sm bg-white px-3 py-2 shadow-sm dark:bg-zinc-800">
                         <p className="flex items-center gap-1.5 text-[11px] leading-relaxed text-zinc-800 dark:text-zinc-100">
                           <HugeiconsIcon icon={Location01Icon} size={12} strokeWidth={2} className="text-indigo-500" />
@@ -218,7 +219,7 @@ export function HeroSection() {
 
                     {/* Bot confirmation */}
                     <div className="msg-3 flex items-end gap-1.5">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[7px] font-bold text-white">M</div>
+                      <Image src="/icons/app-icon-light.png" alt="" width={20} height={20} className="h-5 w-5 shrink-0 rounded-full" />
                       <div className="max-w-[82%] rounded-2xl rounded-bl-sm bg-white px-3 py-2 shadow-sm dark:bg-zinc-800">
                         <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-zinc-800 dark:text-zinc-100">
                           <HugeiconsIcon icon={Tick01Icon} size={12} strokeWidth={2} className="mt-0.5 shrink-0 text-green-500" />

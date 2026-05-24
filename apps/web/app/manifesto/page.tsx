@@ -3,6 +3,7 @@ import { CompanyPage } from "@/components/company-page";
 export default function ManifestoPage() {
   return (
     <CompanyPage
+      variant="manifesto"
       eyebrow="Manifesto"
       title="Offices should be programmable, not painful."
       intro="We believe workspace access should feel instant, priced clearly, and confirmed by software that respects the messiness of real buildings."

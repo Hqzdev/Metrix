@@ -532,13 +532,14 @@ const MapCanvas = memo(function MapCanvas({
   const handleHover = useCallback((id: string) => setHoveredLocationId(id), [setHoveredLocationId]);
   const handleSelect = useCallback((id: string) => onSelectLocation(id), [onSelectLocation]);
 
-  // Native passive:false wheel listener with RAF batching — prevents page scroll
-  // and limits React state updates to one per animation frame (~60fps max).
+  // Keep normal page scrolling intact. Zoom the map only on intentional
+  // modifier-wheel gestures, while plain wheel/touchpad scroll passes through.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       pendingDeltaRef.current += e.deltaY < 0 ? 0.18 : -0.18;
       if (rafRef.current !== null) return;
@@ -564,7 +565,7 @@ const MapCanvas = memo(function MapCanvas({
     <div className="relative">
       <div
         ref={containerRef}
-        className="relative min-h-[680px] touch-none overflow-hidden rounded-2xl border border-zinc-200 bg-indigo-50/40 shadow-[0_20px_60px_rgba(99,102,241,0.08)] dark:border-zinc-700/50 dark:bg-zinc-900"
+        className="relative min-h-[680px] touch-pan-y overflow-hidden rounded-2xl border border-zinc-200 bg-indigo-50/40 shadow-[0_20px_60px_rgba(99,102,241,0.08)] dark:border-zinc-700/50 dark:bg-zinc-900"
       >
         <div className="absolute inset-[2%] overflow-hidden rounded-[1.4rem] border border-white/70 bg-[#F8F8FF] shadow-inner dark:border-zinc-700/60 dark:bg-zinc-950">
           {/* No CSS transition — direct scale via RAF update for smooth zoom */}

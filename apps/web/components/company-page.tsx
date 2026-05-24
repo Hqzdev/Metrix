@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { Arrow, MetrixFooter, MetrixHeader } from "@/components/metrix-shell";
 
 type Metric = {
   value: string;
@@ -25,6 +26,7 @@ type TimelineItem = {
 };
 
 type CompanyPageProps = {
+  variant: "about" | "press" | "careers" | "manifesto";
   eyebrow: string;
   title: string;
   intro: string;
@@ -38,14 +40,8 @@ type CompanyPageProps = {
   note: string;
 };
 
-const navItems = [
-  ["About", "/about"],
-  ["Press", "/press"],
-  ["Careers", "/careers"],
-  ["Manifesto", "/manifesto"],
-];
-
 export function CompanyPage({
+  variant,
   eyebrow,
   title,
   intro,
@@ -59,37 +55,19 @@ export function CompanyPage({
   note,
 }: CompanyPageProps) {
   return (
-    <main className="metrix-company-page">
-      <header className="metrix-company-nav">
-        <Link href="/" className="metrix-logo" aria-label="Metrix home">
-          <span>M</span>
-          Metrix<b>.</b>
-        </Link>
-        <nav aria-label="Company pages">
-          {navItems.map(([label, href]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </header>
+    <main className={`metrix-site metrix-company-page is-${variant}`}>
+      <MetrixHeader />
 
-      <section className="metrix-company-hero">
+      <section className="metrix-company-hero metrix-wrap">
         <div data-reveal="left">
           <span className="metrix-eyebrow metrix-tag-dot">{eyebrow}</span>
           <h1 className="metrix-display">{title}</h1>
           <p>{intro}</p>
         </div>
-        <div className="metrix-company-radar" aria-hidden="true" data-reveal="right" data-delay="120">
-          <i />
-          <i />
-          <i />
-          <strong>10</strong>
-          <span>Moscow locations</span>
-        </div>
+        <CompanyVisual variant={variant} metrics={metrics} bars={bars} />
       </section>
 
-      <section className="metrix-company-metrics" aria-label="Company metrics">
+      <section className="metrix-company-metrics metrix-wrap" aria-label="Company metrics">
         {metrics.map((metric, index) => (
           <article key={metric.label} data-reveal data-delay={String(index * 70)}>
             <strong className="metrix-num">{metric.value}</strong>
@@ -99,11 +77,11 @@ export function CompanyPage({
         ))}
       </section>
 
-      <section className="metrix-company-grid">
-        <article className="metrix-company-chart" data-reveal="left">
+      <section className="metrix-company-grid metrix-wrap">
+        <article className={`metrix-company-chart metrix-chart-${variant}`} data-reveal={variant === "press" ? "right" : "left"}>
           <header>
-            <span className="metrix-eyebrow">Operating graph</span>
-            <h2>Live network signal</h2>
+            <span className="metrix-eyebrow">{variant === "careers" ? "Team graph" : variant === "manifesto" ? "Belief graph" : "Operating graph"}</span>
+            <h2>{variant === "press" ? "Media signal mix" : variant === "careers" ? "Hiring focus map" : variant === "manifesto" ? "Principle strength" : "Live network signal"}</h2>
           </header>
           <div className="metrix-bars">
             {bars.map((bar) => (
@@ -120,7 +98,7 @@ export function CompanyPage({
           </div>
         </article>
 
-        <article className="metrix-company-timeline" data-reveal="right" data-delay="120">
+        <article className="metrix-company-timeline" data-reveal={variant === "press" ? "left" : "right"} data-delay="120">
           <header>
             <span className="metrix-eyebrow">Roadmap</span>
             <h2>{timelineTitle}</h2>
@@ -137,7 +115,7 @@ export function CompanyPage({
         </article>
       </section>
 
-      <section className="metrix-company-table-section" data-reveal>
+      <section className={`metrix-company-table-section metrix-company-table-${variant} metrix-wrap`} data-reveal>
         <div>
           <span className="metrix-eyebrow">Data table</span>
           <h2>{tableTitle}</h2>
@@ -164,12 +142,65 @@ export function CompanyPage({
         </div>
       </section>
 
-      <aside className="metrix-company-note" data-reveal="scale">
+      <aside className="metrix-company-note metrix-wrap" data-reveal="scale">
         <p>{note}</p>
         <Link href="/#demo" className="metrix-btn metrix-btn-primary">
-          Open booking demo
+          Open booking demo <Arrow />
         </Link>
       </aside>
+      <MetrixFooter />
     </main>
+  );
+}
+
+function CompanyVisual({ variant, metrics, bars }: { variant: CompanyPageProps["variant"]; metrics: Metric[]; bars: Bar[] }) {
+  if (variant === "press") {
+    return (
+      <div className="metrix-company-visual metrix-company-press-card" aria-hidden="true" data-reveal="right" data-delay="120">
+        <span className="metrix-eyebrow">Press kit</span>
+        <strong>{metrics[0]?.value}</strong>
+        <p>{metrics[0]?.label}</p>
+        <div>
+          {bars.slice(0, 3).map((bar) => (
+            <i key={bar.label} style={{ "--bar-width": `${bar.value}%` } as CSSProperties}><b /></i>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "careers") {
+    return (
+      <div className="metrix-company-visual metrix-company-role-card" aria-hidden="true" data-reveal="right" data-delay="120">
+        {bars.map((bar, index) => (
+          <span key={bar.label} style={{ "--role-size": `${58 + index * 18}px` } as CSSProperties}>
+            {bar.label.split(" ")[0]}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (variant === "manifesto") {
+    return (
+      <div className="metrix-company-visual metrix-company-principle-card" aria-hidden="true" data-reveal="right" data-delay="120">
+        {bars.map((bar) => (
+          <section key={bar.label}>
+            <strong>{bar.label}</strong>
+            <i style={{ "--bar-width": `${bar.value}%` } as CSSProperties} />
+          </section>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="metrix-company-visual metrix-company-radar" aria-hidden="true" data-reveal="right" data-delay="120">
+      <i />
+      <i />
+      <i />
+      <strong>10</strong>
+      <span>Moscow locations</span>
+    </div>
   );
 }

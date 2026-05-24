@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { CSSProperties } from "react";
+import { MetrixFooter, MetrixHeader } from "@/components/metrix-shell";
 
 type ResourceMetric = {
   value: string;
@@ -35,13 +35,6 @@ type ResourcePageProps = {
   tableRows: ResourceRow[];
   codeSample?: string;
 };
-
-const navItems = [
-  ["FAQ", "/faq"],
-  ["Status", "/status"],
-  ["Changelog", "/changelog"],
-  ["API", "/api"],
-];
 
 function linkBot(text: string) {
   const handle = "@metritxsxbot";
@@ -79,22 +72,10 @@ export function ResourcePage({
   codeSample,
 }: ResourcePageProps) {
   return (
-    <main className="metrix-resource-page">
-      <header className="metrix-company-nav">
-        <Link href="/" className="metrix-logo" aria-label="Metrix home">
-          <span>M</span>
-          Metrix<b>.</b>
-        </Link>
-        <nav aria-label="Resource pages">
-          {navItems.map(([label, href]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </header>
+    <main className="metrix-site metrix-resource-page">
+      <MetrixHeader />
 
-      <section className="metrix-resource-hero">
+      <section className="metrix-resource-hero metrix-wrap">
         <div data-reveal="left">
           <span className="metrix-eyebrow metrix-tag-dot">{eyebrow}</span>
           <h1 className="metrix-display">{title}</h1>
@@ -107,7 +88,7 @@ export function ResourcePage({
         </aside>
       </section>
 
-      <section className="metrix-resource-metrics">
+      <section className="metrix-resource-metrics metrix-wrap">
         {metrics.map((metric, index) => (
           <article key={metric.label} data-reveal data-delay={String(index * 70)}>
             <strong className="metrix-num">{metric.value}</strong>
@@ -116,7 +97,7 @@ export function ResourcePage({
         ))}
       </section>
 
-      <section className="metrix-resource-grid">
+      <section className="metrix-resource-grid metrix-wrap">
         <div className="metrix-resource-cards">
           {cards.map((card, index) => (
             <article key={card.title} data-reveal="left" data-delay={String(index * 70)}>
@@ -143,7 +124,7 @@ export function ResourcePage({
         </aside>
       </section>
 
-      <section className="metrix-company-table-section metrix-resource-table-section" data-reveal>
+      <section className="metrix-company-table-section metrix-resource-table-section metrix-wrap" data-reveal>
         <div>
           <span className="metrix-eyebrow">Reference table</span>
           <h2>{tableTitle}</h2>
@@ -171,13 +152,14 @@ export function ResourcePage({
       </section>
 
       {codeSample ? (
-        <section className="metrix-resource-code" data-reveal="scale">
+        <section className="metrix-resource-code metrix-wrap" data-reveal="scale">
           <span className="metrix-eyebrow">Example</span>
           <pre>
             <code>{codeSample}</code>
           </pre>
         </section>
       ) : null}
+      <MetrixFooter />
     </main>
   );
 }
