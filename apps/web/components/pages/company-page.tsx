@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { Arrow, MetrixFooter, MetrixHeader } from "@/components/metrix-shell";
+import { Arrow, MetrixFooter, MetrixHeader } from "@/components/layout/metrix-shell";
 
 type Metric = {
   value: string;

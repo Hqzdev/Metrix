@@ -1,4 +1,4 @@
-import { CountUpNumber } from "@/components/count-up-number";
+import { CountUpNumber } from "@/components/metrics/count-up-number";
 
 const stats = [
   { value: "500+", label: "Bookings per month" },

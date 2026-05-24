@@ -18,7 +18,7 @@ import {
   TelegramIcon,
   ZapIcon,
 } from "@hugeicons/core-free-icons";
-import { MetrixFooter, MetrixHeader } from "@/components/metrix-shell";
+import { MetrixFooter, MetrixHeader } from "@/components/layout/metrix-shell";
 
 type PictProps = {
   size?: number;

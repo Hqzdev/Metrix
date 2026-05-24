@@ -1,5 +1,5 @@
-import { BookingMapExplorer } from "@/components/booking-map-explorer";
-import { MarketingPageShell } from "@/components/marketing-page-shell";
+import { BookingMapExplorer } from "@/components/booking/booking-map-explorer";
+import { MarketingPageShell } from "@/components/layout/marketing-page-shell";
 
 export default function BookingPage() {
   return (

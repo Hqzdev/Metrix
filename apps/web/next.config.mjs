@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 const appDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = dirname(dirname(appDir))
 
-// CSP управляется в middleware.ts — там генерируется nonce для каждого запроса.
+// CSP управляется в proxy.ts — там генерируется nonce для каждого запроса.
 // Здесь оставляем только заголовки, которые не зависят от nonce и безопасны
 // как статические (HSTS, X-Frame-Options и т.д.).
 const staticSecurityHeaders = [

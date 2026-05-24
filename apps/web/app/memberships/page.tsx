@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Tick01Icon } from "@hugeicons/core-free-icons";
-import { MarketingPageShell } from "@/components/marketing-page-shell";
+import { MarketingPageShell } from "@/components/layout/marketing-page-shell";
 
 const plans = [
   {

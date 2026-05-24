@@ -1,4 +1,4 @@
-import { LegalPage } from "@/components/legal-page";
+import { LegalPage } from "@/components/pages/legal-page";
 
 export default function ImprintPage() {
   return (

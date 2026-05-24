@@ -1,4 +1,4 @@
-import { CompanyPage } from "@/components/company-page";
+import { CompanyPage } from "@/components/pages/company-page";
 
 export default function CareersPage() {
   return (

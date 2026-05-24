@@ -7,7 +7,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 
 import { cn } from '@/lib/utils'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/actions/button'
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {
   return (

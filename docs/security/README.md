@@ -54,7 +54,7 @@
 | Token blacklist         | `packages/api/src/shared/auth/token-blacklist.ts`|
 | Login rate limiter      | `packages/api/src/shared/auth/login-rate-limiter.ts` |
 | Auth guard              | `packages/api/src/shared/auth/auth-guard.ts`     |
-| CSP middleware          | `apps/web/middleware.ts`                          |
+| CSP proxy               | `apps/web/proxy.ts`                               |
 
 ## Главный документ
 

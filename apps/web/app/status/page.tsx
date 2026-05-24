@@ -1,4 +1,4 @@
-import { ResourcePage } from "@/components/resource-page";
+import { ResourcePage } from "@/components/pages/resource-page";
 
 export default function StatusPage() {
   return (

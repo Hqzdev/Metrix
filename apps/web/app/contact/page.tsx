@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Mail01Icon, TelegramIcon } from "@hugeicons/core-free-icons";
-import { MarketingPageShell } from "@/components/marketing-page-shell";
+import { MarketingPageShell } from "@/components/layout/marketing-page-shell";
 
 export default function ContactPage() {
   return (

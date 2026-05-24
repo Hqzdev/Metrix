@@ -1,8 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { FooterSection } from "@/components/sections/footer-section";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { FooterSection } from "@/components/layout/footer-section";
+import { ThemeToggle } from "@/components/providers/theme-toggle";
 
 type MarketingPageShellProps = {
   eyebrow: string;

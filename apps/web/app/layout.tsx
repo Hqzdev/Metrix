@@ -2,7 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 import { Geist, Space_Grotesk } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import { AnimationInit } from "@/components/animation-init";
+import { AnimationInit } from "@/components/providers/animation-init";
 import "./globals.css";
 
 const geist = Geist({

@@ -94,7 +94,7 @@ Current: floating pill, minimal logo, small nav links, "Book a tour" CTA.
 
 ---
 
-## 3. Hero Section — `components/sections/hero-section.tsx`
+## 3. Hero Section — `components/landing/sections/hero-section.tsx`
 
 Current: full-screen scroll animation where "METRIX" text animates then a bento of coworking photos expands. Heavy on photography, almost no product copy.
 
@@ -137,7 +137,7 @@ available on your schedule via Telegram."
 
 ---
 
-## 4. Philosophy Section → "How It Works" — `components/sections/philosophy-section.tsx`
+## 4. Philosophy Section → "How It Works" — `components/landing/sections/philosophy-section.tsx`
 
 Current: scroll-animated 3D title rotation ("Work Near What Matters." etc.) + blurry word reveal paragraph.
 
@@ -171,7 +171,7 @@ Style: `bg-white` section, `glow-border` cards, soft drop shadow, rounded-xl cor
 
 ---
 
-## 5. Featured Products Section → "What you can book" — `components/sections/featured-products-section.tsx`
+## 5. Featured Products Section → "What you can book" — `components/landing/sections/featured-products-section.tsx`
 
 Current: photo bento grid of coworking spaces.
 
@@ -214,7 +214,7 @@ Cards: `rounded-2xl border border-zinc-100 p-8 hover:shadow-lg transition-shadow
 
 ---
 
-## 6. Technology Section → "Live Availability" Feature Highlight — `components/sections/technology-section.tsx`
+## 6. Technology Section → "Live Availability" Feature Highlight — `components/landing/sections/technology-section.tsx`
 
 Current: full-screen black section with scroll-driven image transitions and blur word reveals. Very cinematic, very editorial.
 
@@ -252,7 +252,7 @@ Section background: `bg-[#FAFAFA]` with a very subtle radial gradient.
 
 ---
 
-## 7. Gallery Section → Pricing — `components/sections/gallery-section.tsx`
+## 7. Gallery Section → Pricing — `components/landing/sections/gallery-section.tsx`
 
 Current: photo gallery (masonry or grid of coworking interior photos).
 
@@ -289,7 +289,7 @@ Card 3 — Team
 
 ---
 
-## 8. Collection Section → Testimonials/Social Proof — `components/sections/collection-section.tsx`
+## 8. Collection Section → Testimonials/Social Proof — `components/landing/sections/collection-section.tsx`
 
 Current: editorial collection/product showcase.
 
@@ -303,7 +303,7 @@ Current: editorial collection/product showcase.
 
 ---
 
-## 9. Editorial Section — `components/sections/editorial-section.tsx`
+## 9. Editorial Section — `components/landing/sections/editorial-section.tsx`
 
 Current: editorial/brand storytelling section.
 
@@ -328,7 +328,7 @@ so booking a desk is as easy as sending a message."
 
 ---
 
-## 10. Testimonials Section → Stats/Social Proof Strip — `components/sections/testimonials-section.tsx`
+## 10. Testimonials Section → Stats/Social Proof Strip — `components/landing/sections/testimonials-section.tsx`
 
 Current: single large full-bleed photo with white quote text overlay.
 
@@ -347,7 +347,7 @@ Each stat: number in bold 48px, label in `text-zinc-400 text-sm` below.
 
 ---
 
-## 11. Footer — `components/sections/footer-section.tsx`
+## 11. Footer — `components/layout/footer-section.tsx`
 
 Current: look at the existing file.
 

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { MetrixFooter, MetrixHeader } from "@/components/metrix-shell";
+import { MetrixFooter, MetrixHeader } from "@/components/layout/metrix-shell";
 
 type ResourceMetric = {
   value: string;

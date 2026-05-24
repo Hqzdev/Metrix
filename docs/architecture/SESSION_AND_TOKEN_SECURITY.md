@@ -174,7 +174,7 @@ await resetLoginAttempts(userId, redis)
 
 ## CSP nonce — как использовать в layout
 
-middleware.ts передаёт nonce через заголовок `x-nonce`.
+`proxy.ts` передаёт nonce через заголовок `x-nonce`.
 В layout.tsx его можно прочитать через Next.js `headers()`:
 
 ```tsx

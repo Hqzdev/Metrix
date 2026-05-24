@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MarketingPageShell } from "@/components/marketing-page-shell";
+import { MarketingPageShell } from "@/components/layout/marketing-page-shell";
 
 const locations = [
   {

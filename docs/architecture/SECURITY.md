@@ -191,7 +191,7 @@ Audit log пишется в stdout в структурированном JSON и
 - `unsafe-eval` — разрешал `eval()` и `Function()`, основной XSS вектор
 - `unsafe-inline` для скриптов — заменён на nonce
 
-Файл: `apps/web/middleware.ts`
+Файл: `apps/web/proxy.ts`
 
 ---
 
