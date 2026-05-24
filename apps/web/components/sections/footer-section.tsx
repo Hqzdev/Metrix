@@ -1,7 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { TelegramIcon } from "@hugeicons/core-free-icons";
 
 const navLinks = [
   { label: "Product", href: "#product" },
@@ -74,13 +72,6 @@ export function FooterSection() {
           <p className="text-xs text-zinc-400 dark:text-zinc-500">
             © 2026 Metrix. Made for freelancers and teams.
           </p>
-          <Link
-            href="https://t.me/metritxsxbot"
-            className="flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-indigo-600 dark:text-zinc-500"
-          >
-            <HugeiconsIcon icon={TelegramIcon} size={18} strokeWidth={1.75} />
-            Open in Telegram
-          </Link>
         </div>
       </div>
     </footer>

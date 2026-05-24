@@ -56,7 +56,7 @@ export function MetrixFooter() {
     ["Product", [["Hot desks", "/#spaces"], ["Meeting rooms", "/#spaces"], ["Private offices", "/#spaces"], ["Events", "/#spaces"]]],
     ["Company", [["About", "/about"], ["Press", "/press"], ["Careers", "/careers"], ["Manifesto", "/manifesto"]]],
     ["Resources", [["FAQ", "/faq"], ["Status", "/status"], ["Changelog", "/changelog"], ["API", "/api"]]],
-    ["Get in touch", [["@metritxsxbot", TELEGRAM_BOT_URL], ["hello@metrix.app", "mailto:hello@metrix.app"], ["Moscow HQ", "#"], ["Telegram", TELEGRAM_BOT_URL]]],
+    ["Get in touch", [["@metritxsxbot", TELEGRAM_BOT_URL], ["hello@metrix.app", "mailto:hello@metrix.app"], ["Moscow HQ", "#"]]],
   ];
 
   return (
@@ -68,7 +68,7 @@ export function MetrixFooter() {
               <Image src="/icons/app-icon-light.png" alt="" width={30} height={30} className="metrix-logo-icon" />
               Metrix<b>.</b>
             </Link>
-            <p>Booking workspaces shouldn't feel like booking a flight. Built for Moscow offices · since 2024.</p>
+            <p>Booking workspaces shouldn&apos;t feel like booking a flight. Built for Moscow offices · since 2024.</p>
           </div>
           {groups.map(([title, items]) => (
             <nav key={title} aria-label={title}>
