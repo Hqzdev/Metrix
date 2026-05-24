@@ -5,8 +5,8 @@
 ## Структура
 
 - `web` — основной сайт на `Next.js`
-- `telegram-bot` — Telegram-бот для быстрого бронирования и уведомлений
+- `bot` — Telegram bot microservices runtime: gateway, booking, payment, calendar, analytics, admin, notification, worker services
 
 ## Зачем это разделение
 
-Сайт и бот — это разные точки входа, но они работают с одной доменной моделью и общим backend-слоем.
+Сайт и bot runtime — это разные точки входа. Web отвечает за публичный интерфейс, а `apps/bot` содержит микросервисы и shared packages для Telegram booking flow.

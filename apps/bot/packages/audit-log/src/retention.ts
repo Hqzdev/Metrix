@@ -1,14 +1,13 @@
-import type { PrismaClient } from '@prisma/client'
-import type { AdminServiceLogger } from './logger.js'
+import type { AuditPrismaClient, AuditRetentionLogger } from './types.js'
 
 // Опции фоновой очистки: база, логгер и правила хранения audit log.
 type StartAuditRetentionCleanupOptions = {
   // Как часто запускать очистку.
   intervalMs: number
   // Куда писать события успеха и ошибок.
-  logger: AdminServiceLogger
+  logger: AuditRetentionLogger
   // Prisma-клиент для удаления записей из PostgreSQL.
-  prisma: PrismaClient
+  prisma: AuditPrismaClient
   // Сколько дней записи считаются актуальными.
   retentionDays: number
 }
@@ -19,13 +18,13 @@ type StartAuditRetentionCleanupOptions = {
 export function startAuditRetentionCleanup(options: StartAuditRetentionCleanupOptions): () => void {
   // cleanup не ждёт завершения снаружи, потому что это фоновая задача.
   const cleanup = (): void => {
-    // Ошибка очистки не должна ронять весь admin-service.
+    // Ошибка очистки не должна ронять сервис.
     void deleteExpiredAuditLogs(options).catch((error: unknown) => {
       options.logger.error({
         action: 'audit.retention.failed',
         error,
         message: 'Failed to cleanup expired audit logs',
-        service: 'admin-service',
+        service: 'audit-log',
       })
     })
   }
@@ -44,7 +43,7 @@ export function startAuditRetentionCleanup(options: StartAuditRetentionCleanupOp
 /**
  * Удаляет audit log записи старше retention window.
  */
-async function deleteExpiredAuditLogs(options: StartAuditRetentionCleanupOptions): Promise<void> {
+export async function deleteExpiredAuditLogs(options: StartAuditRetentionCleanupOptions): Promise<void> {
   // cutoff — граница времени: всё старше неё можно удалить.
   const cutoff = new Date(Date.now() - options.retentionDays * 24 * 60 * 60 * 1000)
   // deleteMany удаляет сразу все устаревшие записи одним запросом.
@@ -63,6 +62,6 @@ async function deleteExpiredAuditLogs(options: StartAuditRetentionCleanupOptions
     deletedCount: result.count,
     message: 'Expired audit logs cleaned',
     retentionDays: options.retentionDays,
-    service: 'admin-service',
+    service: 'audit-log',
   })
 }

@@ -29,13 +29,13 @@ apps/bot/packages
 
 Общий код для сервисов:
 
-- auth;
-- contracts;
-- health;
-- observability;
-- redis-bus;
-- audit-log;
-- rbac.
+- audit-log — persistent audit events, query helpers, retention cleanup;
+- auth — HMAC service auth, signed user id, OAuth state, bounded body helpers;
+- contracts — shared DTOs, request payloads, stream names, event payloads;
+- health — DB/Redis health checks and health HTTP helpers;
+- observability — metrics, readiness, route normalization, graceful shutdown;
+- rbac — roles, permissions, actor factories, policy evaluation;
+- redis-bus — Redis Streams, pending retry, DLQ, replay protection, slot locks.
 
 packages/api
 

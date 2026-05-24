@@ -23,4 +23,16 @@ Module — это кусок системы с понятной ответств
 
 В bot runtime module чаще всего живет внутри отдельного service.
 
+Shared infrastructure для bot runtime живёт в `apps/bot/packages`.
+Пакет туда попадает только если несколько сервисов используют одну и ту же границу:
+
+- contracts между сервисами;
+- auth/security primitives;
+- Redis bus primitives;
+- observability и health helpers;
+- audit-log persistence helpers;
+- RBAC primitives.
+
+Service-specific workflow остаётся в `apps/bot/services/*`.
+
 В packages/api module живет внутри src/modules.

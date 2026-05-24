@@ -4,20 +4,26 @@ import { fileURLToPath } from "node:url"
 const appDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = dirname(dirname(appDir))
 
-const securityHeaders = [
+// CSP управляется в middleware.ts — там генерируется nonce для каждого запроса.
+// Здесь оставляем только заголовки, которые не зависят от nonce и безопасны
+// как статические (HSTS, X-Frame-Options и т.д.).
+const staticSecurityHeaders = [
   {
     key: "X-DNS-Prefetch-Control",
     value: "on",
   },
   {
+    // HSTS: браузер всегда использует HTTPS для этого домена (2 года)
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
   {
+    // запрещает вставку страницы в iframe — защита от clickjacking
     key: "X-Frame-Options",
     value: "DENY",
   },
   {
+    // запрещает браузеру угадывать MIME-тип — защита от MIME sniffing атак
     key: "X-Content-Type-Options",
     value: "nosniff",
   },
@@ -26,22 +32,9 @@ const securityHeaders = [
     value: "strict-origin-when-cross-origin",
   },
   {
+    // отключаем API браузера, которые не используются
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), payment=()",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "connect-src 'self' https: wss:",
-    ].join("; "),
   },
 ]
 
@@ -57,7 +50,7 @@ const nextConfig = {
     return [
       {
         source: "/(.*)",
-        headers: securityHeaders,
+        headers: staticSecurityHeaders,
       },
     ]
   },

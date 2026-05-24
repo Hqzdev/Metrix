@@ -7,7 +7,7 @@
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "next typegen && tsc -p tsconfig.typecheck.json --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

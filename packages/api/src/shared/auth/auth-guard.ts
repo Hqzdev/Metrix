@@ -1,4 +1,6 @@
-import { verifyJwt } from './jwt.js'
+import type { Redis } from 'ioredis'
+import { isAccessTokenRevoked } from './token-blacklist.js'
+import { verifyJwt, type JwtSecrets } from './jwt.js'
 
 export type AuthUser = {
   id: string
@@ -12,19 +14,34 @@ export type AuthResult =
 /**
  * Извлекает и верифицирует пользователя из Authorization: Bearer <token>.
  *
- * Возвращает discriminated union вместо исключений — caller явно обязан
- * обработать оба случая, что исключает случайный пропуск auth-проверки.
+ * важно:
+ * - возвращает discriminated union вместо исключений — caller явно обязан
+ *   обработать оба случая, что исключает случайный пропуск auth-проверки.
+ * - если передан redis, дополнительно проверяет blacklist отозванных токенов.
+ *   Это нужно для мгновенного logout и смены пароля без ожидания TTL.
  */
-export function authenticateRequest(input: { authorization?: string; jwtSecret: string }): AuthResult {
+export async function authenticateRequest(input: {
+  authorization?: string
+  jwtSecrets: JwtSecrets
+  redis?: Redis
+}): Promise<AuthResult> {
   const token = input.authorization?.replace(/^Bearer\s+/i, '')
 
   if (!token) {
     return { status: 'error', message: 'authorization token is required' }
   }
 
-  const result = verifyJwt(token, input.jwtSecret)
+  const result = verifyJwt(token, input.jwtSecrets)
   if (result.status === 'error') {
     return result
+  }
+
+  // если redis передан — проверяем, не был ли токен отозван через logout или смену пароля
+  if (input.redis) {
+    const revoked = await isAccessTokenRevoked(token, input.redis)
+    if (revoked) {
+      return { status: 'error', message: 'token has been revoked' }
+    }
   }
 
   return {
