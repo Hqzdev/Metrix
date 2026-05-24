@@ -647,7 +647,7 @@ const MapCanvas = memo(function MapCanvas({
 export function BookingMapExplorer() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [hoveredLocationId, setHoveredLocationId] = useState<string>(locations[0].id);
-  const [sharedBookings, setSharedBookings] = useState<SharedBooking[]>([]);
+  const sharedBookings = useMemo<SharedBooking[]>(() => [], []);
   const [viewport, setViewport] = useState<Viewport>({
     lat: MAP_CENTER.lat,
     lng: MAP_CENTER.lng,
@@ -686,23 +686,6 @@ export function BookingMapExplorer() {
     hoveredZoneBookings.length > 0
       ? `${hoveredZoneBookings.length} active Telegram booking${hoveredZoneBookings.length === 1 ? "" : "s"}`
       : "0 bookings";
-
-  useEffect(() => {
-    let isMounted = true;
-    async function loadSharedBookings() {
-      try {
-        const response = await fetch("/api/shared-bookings", { cache: "no-store" });
-        if (!response.ok) { if (isMounted) setSharedBookings([]); return; }
-        const data = (await response.json()) as { bookings?: SharedBooking[] };
-        if (isMounted) setSharedBookings(data.bookings ?? []);
-      } catch {
-        if (isMounted) setSharedBookings([]);
-      }
-    }
-    void loadSharedBookings();
-    const intervalId = window.setInterval(loadSharedBookings, 15000);
-    return () => { isMounted = false; window.clearInterval(intervalId); };
-  }, []);
 
   const openLocation = (locationId: string) => {
     const location = locations.find((item) => item.id === locationId);

@@ -63,12 +63,6 @@ export function Header() {
         <div className="hidden items-center gap-2 md:flex">
           <ThemeToggle />
           <Link
-            href="/login"
-            className="text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400"
-          >
-            Sign in
-          </Link>
-          <Link
             href="/booking"
             className="rounded-full bg-[#6366F1] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#4338CA]"
           >
@@ -119,13 +113,6 @@ export function Header() {
               </Link>
             ))}
             <div className="mt-6 flex flex-col gap-3">
-              <Link
-                href="/login"
-                className="rounded-full border border-zinc-200 px-5 py-3 text-center text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Sign in
-              </Link>
               <Link
                 href="/booking"
                 className="rounded-full bg-[#6366F1] px-5 py-3 text-center text-sm font-semibold text-white"

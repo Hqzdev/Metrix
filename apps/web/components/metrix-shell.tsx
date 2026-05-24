@@ -43,9 +43,6 @@ export function MetrixHeader() {
         </nav>
 
         <div className="metrix-nav-actions">
-          <Link href="/#demo" className="metrix-btn metrix-btn-ghost">
-            Sign in
-          </Link>
           <a href={TELEGRAM_BOT_URL} className="metrix-btn metrix-btn-primary" target="_blank" rel="noreferrer">
             <HugeiconsIcon icon={TelegramIcon} size={15} strokeWidth={1.9} aria-hidden="true" /> Open <span>in</span> Telegram
           </a>
