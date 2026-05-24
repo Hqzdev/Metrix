@@ -237,6 +237,7 @@ export class AdminRouter {
    * Возвращает persistent audit log с ограниченным набором фильтров.
    */
   private async getAuditLogs(context: RequestContext): Promise<unknown> {
+    // listAuditLogs владеет pagination internals: parseAuditCursor и nextCursor.
     return listAuditLogs(this.dependencies.prisma, context.query)
   }
 

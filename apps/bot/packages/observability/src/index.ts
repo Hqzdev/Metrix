@@ -1,5 +1,6 @@
 export { DEFAULT_SHUTDOWN_TIMEOUT_MS, LATENCY_BUCKETS_MS } from './constants.js'
 export { createObservedHandler, sendMetrics, sendReadiness } from './http.js'
+// MetricsRegistry exposes incrementCounter for custom service counters.
 export { MetricsRegistry } from './metrics-registry.js'
 export { normalizeRoute } from './routes.js'
 export { installGracefulShutdown } from './shutdown.js'
