@@ -33,7 +33,9 @@ export default function ContactPage() {
             <HugeiconsIcon icon={TelegramIcon} size={18} strokeWidth={1.75} className="text-indigo-600" />
           </div>
           <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500">Telegram</p>
-          <p className="mt-3 text-xl font-semibold text-zinc-900 dark:text-white">@metrix_support</p>
+          <Link href="https://t.me/metritxsxbot" target="_blank" rel="noreferrer" className="mt-3 block text-xl font-semibold text-zinc-900 underline decoration-indigo-300 underline-offset-4 dark:text-white">
+            @metritxsxbot
+          </Link>
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Fastest response — usually within an hour.</p>
         </div>
 
@@ -50,7 +52,9 @@ export default function ContactPage() {
             Open the Telegram bot, choose a location, and lock in a workspace in under 30 seconds.
           </p>
           <Link
-            href="https://t.me/metrix_bot"
+            href="https://t.me/metritxsxbot"
+            target="_blank"
+            rel="noreferrer"
             className="mt-5 inline-block rounded-full bg-[#6366F1] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4338CA]"
           >
             Open in Telegram →

@@ -1,76 +1,34 @@
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ClipboardIcon,
-  Search01Icon,
-  LockKeyIcon,
-  Folder01Icon,
-  LegalDocument01Icon,
-} from "@hugeicons/core-free-icons";
-import { MarketingPageShell } from "@/components/marketing-page-shell";
-
-const sections = [
-  {
-    icon: ClipboardIcon,
-    title: "What we collect",
-    body: "We collect your Telegram user ID, booking history, payment confirmations, and location preferences. We do not collect names, email addresses, or phone numbers unless you provide them voluntarily.",
-    color: "from-indigo-50 to-violet-50 dark:from-indigo-950/40 dark:to-violet-950/40",
-  },
-  {
-    icon: Search01Icon,
-    title: "How we use your data",
-    body: "Your data is used to manage workspace access, process bookings, send reminders, and improve the booking experience. We do not use it for advertising.",
-    color: "from-sky-50 to-blue-50 dark:from-sky-950/40 dark:to-blue-950/40",
-  },
-  {
-    icon: LockKeyIcon,
-    title: "Data sharing",
-    body: "We do not sell personal data. We share booking confirmations with the relevant location operators only. Payment processing is handled by Telegram Payments — we do not store card details.",
-    color: "from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40",
-  },
-  {
-    icon: Folder01Icon,
-    title: "Data retention",
-    body: "Booking records are retained for 12 months for accounting and dispute resolution. You can request deletion of your account and data at any time via @metrix_support.",
-    color: "from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40",
-  },
-  {
-    icon: LegalDocument01Icon,
-    title: "Your rights",
-    body: "You may request access to, correction of, or deletion of your personal data at any time. Contact us at hello@metrix.space or via Telegram.",
-    color: "from-rose-50 to-pink-50 dark:from-rose-950/40 dark:to-pink-950/40",
-  },
-];
+import { LegalPage } from "@/components/legal-page";
 
 export default function PrivacyPage() {
   return (
-    <MarketingPageShell
-      eyebrow="Privacy Policy"
-      title="We collect only what's needed to run your bookings."
-      intro="Last updated May 2026. We keep this short and plain."
-    >
-      <div className="flex flex-col gap-4">
-        {sections.map((s, i) => (
-          <div
-            key={s.title}
-            data-reveal
-            data-delay={String(i * 70)}
-            className={`rounded-2xl bg-gradient-to-br ${s.color} border border-zinc-100 dark:border-zinc-700/50 p-7 transition-shadow hover:shadow-md`}
-          >
-            <div className="flex items-start gap-4">
-              <HugeiconsIcon
-                icon={s.icon}
-                size={22}
-                strokeWidth={1.75}
-                className="mt-0.5 shrink-0 text-indigo-600 dark:text-indigo-300"
-              />
-              <div>
-                <h2 className="text-base font-semibold text-zinc-900 dark:text-white">{s.title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{s.body}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </MarketingPageShell>
+    <LegalPage
+      eyebrow="Privacy"
+      title="Only the data needed to open the right door."
+      intro="Metrix uses Telegram identity, booking state, payment confirmation, and location preference data to run workspace bookings. No ad targeting, no resale, no hidden profile building."
+      updated="May 24, 2026"
+      metrics={[
+        { value: "12m", label: "booking record retention" },
+        { value: "0", label: "card numbers stored by Metrix" },
+        { value: "30s", label: "venue confirmation window" },
+        { value: "1", label: "support channel in Telegram" },
+      ]}
+      sections={[
+        { title: "What we collect", body: "We process Telegram user ID, booking history, selected location, booking time, resource type, payment confirmation status, cancellation events, and support messages you send to Metrix.", meta: "Collected when you use the bot or booking demo." },
+        { title: "What we do not collect", body: "Metrix does not need your password, full payment card number, device contact book, or private Telegram messages outside the Metrix bot conversation.", meta: "Payment credentials stay with the payment provider." },
+        { title: "How data is used", body: "We use booking data to show availability, confirm a desk or room, issue a door code, send receipts, prevent double-booking, and resolve refunds or disputes.", meta: "Operational use only." },
+        { title: "Sharing with venues", body: "Relevant venue operators receive the booking name or Telegram handle, time window, resource, people count, and payment confirmation needed to prepare the space.", meta: "Shared only for the selected venue." },
+        { title: "Deletion and access", body: "You can request export, correction, or deletion through @metritxsxbot or hello@metrix.app. Accounting records may be retained where legally required.", meta: "Handled by support." },
+      ]}
+      tableTitle="Data handling matrix"
+      tableColumns={["Data", "Purpose", "Retention", "Shared with"]}
+      tableRows={[
+        { cells: ["Telegram ID", "account and receipt matching", "until deletion request", "Metrix only"], accent: true },
+        { cells: ["Booking record", "access, refunds, disputes", "12 months", "selected venue"] },
+        { cells: ["Payment status", "confirm paid bookings", "accounting period", "payment provider"] },
+        { cells: ["Location preference", "surface nearby spaces", "until changed", "Metrix only"] },
+        { cells: ["Support messages", "resolve booking issues", "12 months", "Metrix support"], accent: true },
+      ]}
+    />
   );
 }

@@ -2,6 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 import { Geist, Space_Grotesk } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { AnimationInit } from "@/components/animation-init";
 import "./globals.css";
 
 const geist = Geist({
@@ -20,10 +21,10 @@ export const metadata: Metadata = {
     "Book hot desks, meeting rooms, private offices, and event spaces directly from Telegram.",
   icons: {
     icon: [
-      { url: "/logo-light.png", media: "(prefers-color-scheme: light)", sizes: "any" },
-      { url: "/logo-dark.png", media: "(prefers-color-scheme: dark)", sizes: "any" },
+      { url: "/icons/app-icon-light.png", media: "(prefers-color-scheme: light)", sizes: "any" },
+      { url: "/icons/app-icon-dark.png", media: "(prefers-color-scheme: dark)", sizes: "any" },
     ],
-    apple: "/logo-dark.png",
+    apple: "/icons/app-icon-dark.png",
   },
 };
 
@@ -36,6 +37,7 @@ export default function RootLayout({
         <meta name="color-scheme" content="light" />
       </head>
       <body className={`${geist.variable} ${spaceGrotesk.variable}`}>
+        <AnimationInit />
         {children}
         <Analytics />
       </body>

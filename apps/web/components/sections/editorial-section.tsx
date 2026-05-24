@@ -15,7 +15,7 @@ export function EditorialSection() {
             No new app to download. No new account to create. Metrix is a Telegram bot — your team uses Telegram, so booking a desk is as easy as sending a message.
           </p>
           <Link
-            href="https://t.me/metrix_bot"
+            href="https://t.me/metritxsxbot"
             className="mt-2 rounded-full bg-white px-8 py-3 text-base font-semibold text-indigo-600 transition-colors hover:bg-indigo-50"
           >
             Open in Telegram →

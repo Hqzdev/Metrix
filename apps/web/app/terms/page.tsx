@@ -1,77 +1,35 @@
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  CalendarCheckIn01Icon,
-  Tick01Icon,
-  Ticket01Icon,
-  RefreshIcon,
-  Alert01Icon,
-  Note01Icon,
-} from "@hugeicons/core-free-icons";
-import { MarketingPageShell } from "@/components/marketing-page-shell";
-
-const sections = [
-  {
-    icon: CalendarCheckIn01Icon,
-    title: "Booking and cancellation",
-    body: "Bookings are confirmed instantly upon payment. Cancellations are allowed up to 1 hour before the booking start time for a full refund. Late cancellations are non-refundable.",
-  },
-  {
-    icon: Tick01Icon,
-    title: "Fair use",
-    body: "Members may use booked desks, rooms, and offices for professional work only. Subletting, persistent personal storage beyond your plan, and disruptive conduct are not permitted.",
-  },
-  {
-    icon: Ticket01Icon,
-    title: "Meeting room credits",
-    body: "Monthly meeting room credits expire at the end of each billing cycle and do not carry over. Guest passes are valid for 30 days from issue.",
-  },
-  {
-    icon: RefreshIcon,
-    title: "Plan changes",
-    body: "You may upgrade or cancel your plan at any time via the Metrix bot. Downgrades take effect at the start of the next billing cycle. No partial refunds for early cancellation.",
-  },
-  {
-    icon: Alert01Icon,
-    title: "Liability",
-    body: "Metrix is not responsible for lost, stolen, or damaged property left at locations. Members use workspace facilities at their own risk.",
-  },
-  {
-    icon: Note01Icon,
-    title: "Changes to these terms",
-    body: "We may update these terms with 14 days notice via the bot or email. Continued use of Metrix after that date constitutes acceptance.",
-  },
-];
+import { LegalPage } from "@/components/legal-page";
 
 export default function TermsPage() {
   return (
-    <MarketingPageShell
-      eyebrow="Terms of Service"
-      title="Clear rules for booking and membership."
-      intro="Last updated May 2026. Questions? Contact us at hello@metrix.space."
-    >
-      <div className="flex flex-col gap-4">
-        {sections.map((s, i) => (
-          <div
-            key={s.title}
-            data-reveal
-            data-delay={String(i * 60)}
-            className="rounded-2xl border border-zinc-100 bg-white p-7 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700/50 dark:bg-zinc-800"
-          >
-            <div className="flex items-start gap-4">
-              <HugeiconsIcon
-                icon={s.icon}
-                size={22}
-                strokeWidth={1.75}
-                className="mt-0.5 shrink-0 text-indigo-600 dark:text-indigo-300"
-              />
-              <div>
-                <h2 className="text-base font-semibold text-zinc-900 dark:text-white">{s.title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{s.body}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </MarketingPageShell>
+    <LegalPage
+      eyebrow="Terms"
+      title="Clear rules for booking Moscow workspaces."
+      intro="These terms explain how Metrix bookings, cancellations, payments, venue access, and fair-use rules work for Telegram-based workspace reservations."
+      updated="May 24, 2026"
+      metrics={[
+        { value: "60m", label: "free cancellation window" },
+        { value: "6%", label: "Metrix service fee" },
+        { value: "5m", label: "temporary hold before payment" },
+        { value: "10", label: "live Moscow locations" },
+      ]}
+      sections={[
+        { title: "Bookings", body: "A booking is confirmed when payment is accepted and the venue confirms availability. The Telegram chat then receives the booking summary, receipt, and access instructions.", meta: "Confirmation appears in chat." },
+        { title: "Cancellations", body: "You can cancel free of charge up to 60 minutes before check-in. Later cancellations may be non-refundable because the venue has already held the space.", meta: "Refund timing depends on payment provider processing." },
+        { title: "Fair use", body: "Booked spaces are for professional work. Subletting, disruptive behavior, unsafe activity, and using a resource beyond the confirmed time window are not allowed.", meta: "Venue rules still apply." },
+        { title: "Prices and fees", body: "You pay the venue's live RUB rate plus the visible Metrix service fee. Prices may vary by venue, resource type, date, and availability.", meta: "Shown before confirmation." },
+        { title: "Venue issues", body: "If a confirmed space is unavailable, Metrix will help find a nearby replacement or process a refund where appropriate.", meta: "Handled through support." },
+        { title: "Changes", body: "We may update these terms when the product, network, or law changes. Material updates will be announced through the website or bot.", meta: "Continued use means acceptance." },
+      ]}
+      tableTitle="Booking rules"
+      tableColumns={["Rule", "Window", "Result", "Channel"]}
+      tableRows={[
+        { cells: ["Temporary hold", "5 minutes", "space reserved while paying", "Telegram"], accent: true },
+        { cells: ["Free cancellation", "60+ minutes before", "full refund request", "Telegram"] },
+        { cells: ["Late cancellation", "under 60 minutes", "venue policy applies", "Telegram"] },
+        { cells: ["No-show", "after start time", "booking consumed", "venue record"] },
+        { cells: ["Venue unavailable", "any time", "replacement or refund", "support"], accent: true },
+      ]}
+    />
   );
 }

@@ -36,7 +36,7 @@ export function MarketingPageShell({
           <Link href="/" className="flex items-center gap-2.5">
             <div className="relative h-7 w-7 shrink-0">
               <Image
-                src="/logo-light.png"
+                src="/icons/app-icon-light.png"
                 alt="Metrix"
                 width={28}
                 height={28}
@@ -44,7 +44,7 @@ export function MarketingPageShell({
                 priority
               />
               <Image
-                src="/logo-dark.png"
+                src="/icons/app-icon-dark.png"
                 alt="Metrix"
                 width={28}
                 height={28}

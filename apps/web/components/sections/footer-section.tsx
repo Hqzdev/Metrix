@@ -36,14 +36,14 @@ export function FooterSection() {
           <div className="flex items-center gap-2.5">
             <div className="relative h-7 w-7 shrink-0">
               <Image
-                src="/logo-light.png"
+                src="/icons/app-icon-light.png"
                 alt="Metrix"
                 width={28}
                 height={28}
                 className="rounded-lg dark:hidden"
               />
               <Image
-                src="/logo-dark.png"
+                src="/icons/app-icon-dark.png"
                 alt="Metrix"
                 width={28}
                 height={28}
@@ -75,7 +75,7 @@ export function FooterSection() {
             © 2026 Metrix. Made for freelancers and teams.
           </p>
           <Link
-            href="https://t.me/metrix_bot"
+            href="https://t.me/metritxsxbot"
             className="flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-indigo-600 dark:text-zinc-500"
           >
             <HugeiconsIcon icon={TelegramIcon} size={18} strokeWidth={1.75} />

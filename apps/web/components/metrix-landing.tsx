@@ -1,6 +1,22 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import type { IconSvgElement } from "@hugeicons/react";
+import {
+  ArrowRight02Icon,
+  Building03Icon,
+  CheckmarkCircle02Icon,
+  Clock01Icon,
+  Desk02Icon,
+  Location01Icon,
+  MeetingRoomIcon,
+  OfficeIcon,
+  PlusSignIcon,
+  TeamWorkIcon,
+  TelegramIcon,
+  ZapIcon,
+} from "@hugeicons/core-free-icons";
 
 type PictProps = {
   size?: number;
@@ -8,127 +24,38 @@ type PictProps = {
 };
 
 type SpaceId = "desk" | "meeting" | "office" | "event";
+type VenueOption = {
+  name: string;
+  area: string;
+  price: number;
+  unit: string;
+  seats: string;
+};
 
-const Pict = ({ children, size = 56, label }: PictProps & { children: React.ReactNode }) => (
+const Pict = ({ icon, size = 56, label, className }: PictProps & { icon: IconSvgElement; className?: string }) => (
   <span
     role={label ? "img" : undefined}
     aria-label={label}
     aria-hidden={label ? undefined : true}
-    className="metrix-pict"
+    className={`metrix-pict ${className ?? ""}`}
     style={{ width: size, height: size }}
   >
-    <svg viewBox="0 0 56 56" width={size} height={size} fill="none">
-      {children}
-    </svg>
+    <HugeiconsIcon icon={icon} size={size} strokeWidth={1.8} />
   </span>
 );
 
-const PictDesk = ({ size = 56 }: PictProps) => (
-  <Pict size={size} label="Hot desk">
-    <rect x="6" y="38" width="44" height="3" rx="1.5" fill="currentColor" />
-    <rect x="9" y="41" width="3" height="9" rx="1" fill="currentColor" />
-    <rect x="44" y="41" width="3" height="9" rx="1" fill="currentColor" />
-    <rect x="14" y="16" width="22" height="16" rx="2" stroke="currentColor" strokeWidth="2.4" />
-    <rect x="22" y="32" width="6" height="6" fill="currentColor" />
-    <circle cx="44" cy="22" r="5" fill="var(--metrix-accent)" stroke="currentColor" strokeWidth="2.4" />
-    <rect x="42" y="14" width="4" height="4" rx="1" fill="currentColor" />
-  </Pict>
-);
-
-const PictMeeting = ({ size = 56 }: PictProps) => (
-  <Pict size={size} label="Meeting room">
-    <rect x="14" y="22" width="28" height="12" rx="3" stroke="currentColor" strokeWidth="2.4" />
-    <circle cx="9" cy="18" r="4" fill="currentColor" />
-    <circle cx="47" cy="18" r="4" fill="currentColor" />
-    <circle cx="9" cy="38" r="4" fill="currentColor" />
-    <circle cx="47" cy="38" r="4" fill="currentColor" />
-    <circle cx="28" cy="28" r="3" fill="var(--metrix-accent)" />
-  </Pict>
-);
-
-const PictOffice = ({ size = 56 }: PictProps) => (
-  <Pict size={size} label="Private office">
-    <rect x="10" y="8" width="36" height="40" rx="2" stroke="currentColor" strokeWidth="2.4" />
-    <rect x="18" y="16" width="20" height="28" rx="1.5" fill="currentColor" />
-    <circle cx="33" cy="32" r="2.5" fill="var(--metrix-accent)" />
-    <rect x="6" y="46" width="44" height="3" rx="1.5" fill="currentColor" />
-  </Pict>
-);
-
-const PictEvent = ({ size = 56 }: PictProps) => (
-  <Pict size={size} label="Event space">
-    <rect x="6" y="42" width="44" height="6" rx="1.5" fill="currentColor" />
-    <rect x="12" y="28" width="32" height="14" rx="1.5" stroke="currentColor" strokeWidth="2.4" />
-    <circle cx="20" cy="35" r="2" fill="currentColor" />
-    <circle cx="28" cy="35" r="2" fill="currentColor" />
-    <circle cx="36" cy="35" r="2" fill="currentColor" />
-    <path d="M16 28 L28 12 L40 28" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" />
-    <circle cx="28" cy="20" r="3" fill="var(--metrix-accent)" />
-  </Pict>
-);
-
-const PictTelegram = ({ size = 18 }: PictProps) => (
-  <span className="metrix-pict" style={{ width: size, height: size }} aria-hidden="true">
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none">
-      <path d="M3 11.2L21 4l-3.2 16-5.8-5.4-3.4 3.2 0-4.6L19 6.6 8 12 3 11.2z" fill="currentColor" />
-    </svg>
-  </span>
-);
-
-const Arrow = ({ size = 16 }: PictProps) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" className="metrix-arrow" aria-hidden="true">
-    <path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const CheckDot = ({ size = 18, color = "var(--metrix-ok)" }: PictProps & { color?: string }) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" fill={color} />
-    <path d="M7.5 12.5l3 3 6-6.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const Plus = ({ size = 18 }: PictProps) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" aria-hidden="true">
-    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const Pin = ({ size = 16 }: PictProps) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" aria-hidden="true">
-    <path d="M12 22s7-7.5 7-13a7 7 0 10-14 0c0 5.5 7 13 7 13z" stroke="currentColor" strokeWidth="2" />
-    <circle cx="12" cy="9" r="2.4" fill="currentColor" />
-  </svg>
-);
-
-const Clock = ({ size = 16 }: PictProps) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" aria-hidden="true">
-    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-    <path d="M12 7v5l3.5 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
-const PictBuilding = ({ size = 56 }: PictProps) => (
-  <Pict size={size} label="Building">
-    <rect x="10" y="10" width="36" height="40" rx="2" stroke="currentColor" strokeWidth="2.4" />
-    <rect x="16" y="16" width="6" height="6" fill="currentColor" />
-    <rect x="25" y="16" width="6" height="6" fill="currentColor" />
-    <rect x="34" y="16" width="6" height="6" fill="var(--metrix-accent)" />
-    <rect x="16" y="25" width="6" height="6" fill="currentColor" />
-    <rect x="25" y="25" width="6" height="6" fill="var(--metrix-accent)" />
-    <rect x="34" y="25" width="6" height="6" fill="currentColor" />
-    <rect x="16" y="34" width="6" height="6" fill="var(--metrix-accent)" />
-    <rect x="25" y="34" width="6" height="6" fill="currentColor" />
-    <rect x="34" y="34" width="6" height="6" fill="currentColor" />
-    <rect x="24" y="43" width="8" height="7" fill="currentColor" />
-  </Pict>
-);
-
-const PictBolt = ({ size = 56 }: PictProps) => (
-  <Pict size={size} label="Fast">
-    <path d="M30 6 L14 32 L26 32 L22 50 L42 22 L30 22 L34 6 Z" fill="var(--metrix-accent)" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" />
-  </Pict>
-);
+const PictDesk = ({ size = 56 }: PictProps) => <Pict icon={Desk02Icon} size={size} label="Hot desk" />;
+const PictMeeting = ({ size = 56 }: PictProps) => <Pict icon={MeetingRoomIcon} size={size} label="Meeting room" />;
+const PictOffice = ({ size = 56 }: PictProps) => <Pict icon={OfficeIcon} size={size} label="Private office" />;
+const PictEvent = ({ size = 56 }: PictProps) => <Pict icon={TeamWorkIcon} size={size} label="Team pod" />;
+const PictTelegram = ({ size = 18 }: PictProps) => <Pict icon={TelegramIcon} size={size} />;
+const PictBuilding = ({ size = 56 }: PictProps) => <Pict icon={Building03Icon} size={size} label="Building" />;
+const PictBolt = ({ size = 56 }: PictProps) => <Pict icon={ZapIcon} size={size} label="Fast" />;
+const Arrow = ({ size = 16 }: PictProps) => <HugeiconsIcon icon={ArrowRight02Icon} size={size} strokeWidth={2} className="metrix-arrow" aria-hidden="true" />;
+const CheckDot = ({ size = 18, color = "var(--metrix-ok)" }: PictProps & { color?: string }) => <HugeiconsIcon icon={CheckmarkCircle02Icon} size={size} strokeWidth={2} color={color} aria-hidden="true" />;
+const Plus = ({ size = 18 }: PictProps) => <HugeiconsIcon icon={PlusSignIcon} size={size} strokeWidth={2} aria-hidden="true" />;
+const Pin = ({ size = 16 }: PictProps) => <HugeiconsIcon icon={Location01Icon} size={size} strokeWidth={2} aria-hidden="true" />;
+const Clock = ({ size = 16 }: PictProps) => <HugeiconsIcon icon={Clock01Icon} size={size} strokeWidth={2} aria-hidden="true" />;
 
 const SPACE_OPTIONS = [
   {
@@ -136,9 +63,10 @@ const SPACE_OPTIONS = [
     name: "Hot desk",
     pict: (size: number) => <PictDesk size={size} />,
     tag: "Drop-in",
-    price: 9,
-    blurb: "One seat, all the basics. Fast wi-fi, power, espresso. Book hourly or by the day in a tap.",
-    bullets: ["From EUR 6 / hour", "Wi-fi 1 Gbps", "24/7 in select spots", "Pay only for hours used"],
+    price: 3400,
+    unit: "day",
+    blurb: "One seat, all the basics. Fast wi-fi, power, espresso. Book a daily desk at Patriarchy or Belorusskaya in a tap.",
+    bullets: ["From 2 900 RUB / day", "Library Desks from 39 000 RUB / desk / month", "Wi-fi 1 Gbps", "Pay only for the slot used"],
     swatch: "linear-gradient(135deg, #FF5B2E 0%, #FFB39A 100%)",
   },
   {
@@ -146,9 +74,10 @@ const SPACE_OPTIONS = [
     name: "Meeting room",
     pict: (size: number) => <PictMeeting size={size} />,
     tag: "2-14 ppl",
-    price: 28,
-    blurb: "Glass-walled rooms with 4K screens and whiteboards. Bookable in 15-minute slots.",
-    bullets: ["From EUR 24 / hour", "Display + HDMI", "Whiteboards & markers", "Coffee for the table"],
+    price: 27000,
+    unit: "hour",
+    blurb: "Glass-walled rooms with 4K screens and whiteboards. Book real Moscow rooms in 15-minute slots.",
+    bullets: ["From 27 000 RUB / hour", "Garden Meeting Suite 32 000 RUB / hour", "Display + HDMI", "Coffee for the table"],
     swatch: "linear-gradient(135deg, #14110D 0%, #5A5247 100%)",
   },
   {
@@ -156,32 +85,96 @@ const SPACE_OPTIONS = [
     name: "Private office",
     pict: (size: number) => <PictOffice size={size} />,
     tag: "Daily / monthly",
-    price: 65,
-    blurb: "A locking door, your team, your time. Choose a single day or rent for the month.",
-    bullets: ["From EUR 89 / day", "Door code in chat", "Mail handling", "Daytime reception"],
+    price: 1080000,
+    unit: "month",
+    blurb: "A locking door, your team, your time. Choose real private offices across Moscow locations.",
+    bullets: ["From 1 080 000 RUB / month", "Founder Office 1 460 000 RUB / month", "Door code in chat", "Daytime reception"],
     swatch: "linear-gradient(135deg, #2C8C5A 0%, #C8E2C2 100%)",
   },
   {
     id: "event" as const,
-    name: "Event space",
+    name: "Team pod",
     pict: (size: number) => <PictEvent size={size} />,
-    tag: "Up to 240",
-    price: 180,
-    blurb: "Lofts, studios, rooftops. Host a meetup, demo day or workshop without the spreadsheet.",
-    bullets: ["From EUR 180 / hour", "AV crew on demand", "Catering partners", "Liability covered"],
+    tag: "Teams",
+    price: 33000,
+    unit: "desk / month",
+    blurb: "Dedicated team zones for launches, client sprints, and growing teams without the spreadsheet.",
+    bullets: ["Launch Pad from 33 000 RUB / desk / month", "Editorial Studio 36 000 RUB / desk / month", "10-16 desks", "One monthly invoice"],
     swatch: "linear-gradient(135deg, #FFD24D 0%, #FFE9A8 100%)",
   },
 ];
 
-const VENUES: Record<string, [string, string][]> = {
-  Berlin: [["Mokrym Loft", "Kreuzberg"], ["Quiet Wing", "Mitte"], ["Brutal Coffee", "Friedrichshain"]],
-  Lisbon: [["Amalia Studio", "Alfama"], ["Bairro Hub", "Bairro Alto"], ["Rio Sul", "Cais do Sodre"]],
-  Warsaw: [["Praga Atelier", "Praga"], ["Mokotow Wing", "Mokotow"], ["Wola 31", "Wola"]],
-  Amsterdam: [["Oost Loft", "Oost"], ["Jordaan Pod", "Jordaan"], ["Noord Atelier", "Noord"]],
-  Tbilisi: [["Vake Studio", "Vake"], ["Marjanishvili", "Centre"], ["Saburtalo Pod", "Saburtalo"]],
+const VENUES: Record<string, VenueOption[]> = {
+  Patriarchy: [
+    { name: "Courtyard Bench", area: "18 Malaya Bronnaya Street", price: 3400, unit: "day", seats: "14 desks" },
+    { name: "Library Desks", area: "18 Malaya Bronnaya Street", price: 39000, unit: "desk / month", seats: "12 desks" },
+    { name: "Garden Meeting Suite", area: "18 Malaya Bronnaya Street", price: 32000, unit: "hour", seats: "8 seats" },
+  ],
+  Belorusskaya: [
+    { name: "Hot Desk Boulevard", area: "34 Lesnaya Street", price: 2900, unit: "day", seats: "18 desks" },
+    { name: "Rail Meeting Room", area: "34 Lesnaya Street", price: 27000, unit: "hour", seats: "12 seats" },
+    { name: "Launch Pad", area: "34 Lesnaya Street", price: 33000, unit: "desk / month", seats: "16 desks" },
+  ],
+  Paveletskaya: [
+    { name: "Dockline Desks", area: "5 Letnikovskaya Street", price: 3100, unit: "day", seats: "20 desks" },
+    { name: "Investor Room", area: "5 Letnikovskaya Street", price: 31000, unit: "hour", seats: "10 seats" },
+    { name: "Build Room", area: "5 Letnikovskaya Street", price: 198000, unit: "month", seats: "9 seats" },
+  ],
+  "Moscow City": [
+    { name: "Skyline Room 6", area: "12 Presnenskaya Embankment", price: 2100, unit: "hour", seats: "3 seats" },
+    { name: "Summit Room 9", area: "12 Presnenskaya Embankment", price: 2550, unit: "hour", seats: "12 seats" },
+    { name: "Transit Room 7", area: "12 Presnenskaya Embankment", price: 2250, unit: "hour", seats: "5 seats" },
+  ],
+  Kurskaya: [
+    { name: "Focus Room 1", area: "11 Zemlyanoy Val", price: 1350, unit: "hour", seats: "2 seats" },
+    { name: "Board Room 2", area: "11 Zemlyanoy Val", price: 1500, unit: "hour", seats: "4 seats" },
+    { name: "Studio Room 3", area: "11 Zemlyanoy Val", price: 1650, unit: "hour", seats: "6 seats" },
+  ],
+  "Park Kultury": [
+    { name: "Garden Room 4", area: "21 Zubovsky Boulevard", price: 1800, unit: "hour", seats: "8 seats" },
+    { name: "Library Room 5", area: "21 Zubovsky Boulevard", price: 1950, unit: "hour", seats: "10 seats" },
+    { name: "Skyline Room 6", area: "21 Zubovsky Boulevard", price: 2100, unit: "hour", seats: "3 seats" },
+  ],
+  Tverskaya: [
+    { name: "Transit Room 7", area: "7 Tverskaya Street", price: 2250, unit: "hour", seats: "5 seats" },
+    { name: "Atrium Room 8", area: "7 Tverskaya Street", price: 2400, unit: "hour", seats: "7 seats" },
+    { name: "Summit Room 9", area: "7 Tverskaya Street", price: 2550, unit: "hour", seats: "12 seats" },
+  ],
+  "Chistye Prudy": [
+    { name: "Courtyard Room 10", area: "19 Myasnitskaya Street", price: 2700, unit: "hour", seats: "1 desk" },
+    { name: "Focus Room 1", area: "19 Myasnitskaya Street", price: 1350, unit: "hour", seats: "2 seats" },
+    { name: "Board Room 2", area: "19 Myasnitskaya Street", price: 1500, unit: "hour", seats: "4 seats" },
+  ],
+  Taganskaya: [
+    { name: "Studio Room 3", area: "3 Taganskaya Square", price: 1650, unit: "hour", seats: "6 seats" },
+    { name: "Garden Room 4", area: "3 Taganskaya Square", price: 1800, unit: "hour", seats: "8 seats" },
+    { name: "Library Room 5", area: "3 Taganskaya Square", price: 1950, unit: "hour", seats: "10 seats" },
+  ],
+  Sokol: [
+    { name: "Skyline Room 6", area: "14 Leningradsky Avenue", price: 2100, unit: "hour", seats: "3 seats" },
+    { name: "Transit Room 7", area: "14 Leningradsky Avenue", price: 2250, unit: "hour", seats: "5 seats" },
+    { name: "Atrium Room 8", area: "14 Leningradsky Avenue", price: 2400, unit: "hour", seats: "7 seats" },
+  ],
 };
 
 const HOURS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
+const TELEGRAM_BOT_URL = "https://t.me/metritxsxbot";
+const BotHandle = () => <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer">@metritxsxbot</a>;
+
+const formatRub = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} RUB`;
+const priceLabel = (price: number, unit: string) => `${formatRub(price)} / ${unit}`;
+const formatRubShort = (value: number) => {
+  if (value >= 1000000) {
+    return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value / 1000000)}M RUB`;
+  }
+
+  if (value >= 100000) {
+    return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value / 1000)}K RUB`;
+  }
+
+  return formatRub(value);
+};
+const priceLabelShort = (price: number, unit: string) => `${formatRubShort(price)} / ${unit}`;
 
 function Nav({ palette, onTogglePalette }: { palette: "bone" | "ink"; onTogglePalette: () => void }) {
   const [scrolled, setScrolled] = useState(false);
@@ -222,7 +215,7 @@ function Nav({ palette, onTogglePalette }: { palette: "bone" | "ink"; onTogglePa
             <span />
           </button>
           <a href="#demo" className="metrix-btn metrix-btn-ghost">Sign in</a>
-          <a href="#demo" className="metrix-btn metrix-btn-primary">
+          <a href={TELEGRAM_BOT_URL} className="metrix-btn metrix-btn-primary" target="_blank" rel="noreferrer">
             <PictTelegram size={15} /> Open <span>in</span> Telegram
           </a>
         </div>
@@ -250,7 +243,7 @@ function ChatPreview() {
       <div className="metrix-chat-head">
         <div className="metrix-chat-avatar">M</div>
         <div>
-          <strong>@metrix_bot</strong>
+          <a href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer"><strong>@metritxsxbot</strong></a>
           <span><i className="metrix-pulse-dot" />online · responds in 2s</span>
         </div>
         <PictTelegram size={18} />
@@ -259,16 +252,16 @@ function ChatPreview() {
       <div className="metrix-chat-body">
         <Msg visible={step >= 0}>
           <strong>Hi! Where do you need a workspace?</strong>
-          <small>Tap a city or send your location</small>
+          <small>Tap a Moscow location or send your address</small>
         </Msg>
-        <Msg visible={step >= 1} from="me">Berlin · today</Msg>
+        <Msg visible={step >= 1} from="me">Patriarchy · today</Msg>
         <Msg visible={step >= 2}>
           <strong>3 spaces near you</strong>
           <div className="metrix-chat-list">
             {[
-              ["Kreuzberg loft", "EUR 18 / hr", true],
-              ["Mitte focus pod", "EUR 12 / hr", false],
-              ["Friedrichshain hub", "EUR 9 / hr", false],
+              ["Courtyard Bench", "3 400 RUB / day", true],
+              ["Garden Meeting Suite", "32 000 RUB / hour", false],
+              ["Library Desks", "39 000 RUB / desk / month", false],
             ].map(([name, price, hot]) => (
               <span key={String(name)}>
                 <em><Pin size={11} /> {name}{hot && <b>hot</b>}</em>
@@ -277,9 +270,9 @@ function ChatPreview() {
             ))}
           </div>
         </Msg>
-        <Msg visible={step >= 3} from="me">Kreuzberg loft, 14:00-18:00</Msg>
+        <Msg visible={step >= 3} from="me">Courtyard Bench, 14:00-18:00</Msg>
         <Msg visible={step >= 4} accent>
-          <span className="metrix-chat-confirm"><CheckDot size={18} color="var(--metrix-ink)" /> <strong>Booked. EUR 72 paid.</strong></span>
+          <span className="metrix-chat-confirm"><CheckDot size={18} color="var(--metrix-ink)" /> <strong>Booked. 3 604 RUB paid.</strong></span>
           <small>Door code <b>4421</b> · receipt sent</small>
         </Msg>
       </div>
@@ -301,7 +294,7 @@ function Hero() {
         <div className="metrix-hero-kicker">
           <span className="metrix-eyebrow metrix-tag-dot">Booking that lives in chat</span>
           <i />
-          <span className="metrix-eyebrow metrix-num">v.26 · 1,248 spaces · 14 cities</span>
+          <span className="metrix-eyebrow metrix-num">v.26 · 10 Moscow locations · RUB pricing</span>
         </div>
 
         <div className="metrix-hero-grid">
@@ -314,17 +307,17 @@ function Hero() {
               </span>
             </h1>
             <p className="metrix-lead">
-              Metrix turns Telegram into your front desk. Find a hot desk, meeting room, or private office, pay in a tap, walk in. No accounts, no calls, no waiting.
+              Metrix turns Telegram into your front desk. Find a hot desk, meeting room, or private office in Moscow, pay in a tap, walk in. No accounts, no calls, no waiting.
             </p>
             <div className="metrix-hero-buttons">
-              <a href="#demo" className="metrix-btn metrix-btn-accent"><PictTelegram size={16} /> Open @metrix_bot <Arrow /></a>
+              <a href={TELEGRAM_BOT_URL} className="metrix-btn metrix-btn-accent" target="_blank" rel="noreferrer"><PictTelegram size={16} /> Open @metritxsxbot <Arrow /></a>
               <a href="#spaces" className="metrix-btn metrix-btn-ghost">Browse spaces</a>
             </div>
             <div className="metrix-mini-stats">
               {[
                 ["8s", "avg time to book"],
-                ["1,248", "verified spaces"],
-                ["4.9*", "from 12k bookings"],
+                ["10", "Moscow locations"],
+                ["2 900", "RUB daily desks from"],
               ].map(([num, label]) => (
                 <div key={label}>
                   <strong className="metrix-num">{num}</strong>
@@ -345,9 +338,9 @@ function Hero() {
 }
 
 function TrustStrip() {
-  const items = ["BERLIN", "LISBON", "WARSAW", "AMSTERDAM", "TBILISI", "BARCELONA", "PARIS", "VILNIUS", "PRAGUE", "TALLINN", "VIENNA", "BUCHAREST", "ZAGREB", "SOFIA"];
+  const items = ["PATRIARCHY", "BELORUSSKAYA", "PAVELETSKAYA", "MOSCOW CITY", "KURSKAYA", "PARK KULTURY", "TVERSKAYA", "CHISTYE PRUDY", "TAGANSKAYA", "SOKOL"];
   return (
-    <div className="metrix-trust-strip">
+    <div className="metrix-trust-strip" data-reveal>
       <div className="metrix-marquee">
         <div className="metrix-marquee-track">
           {[...items, ...items].map((city, index) => (
@@ -366,9 +359,9 @@ function SpaceTabs() {
   return (
     <section id="spaces" className="metrix-section">
       <div className="metrix-wrap">
-        <SectionHead eyebrow="What you can book" title={<>Four kinds of <em>space.</em><br />One bot.</>} lead="From a single hot desk to a 240-person rooftop. Every Metrix venue is vetted, photographed, and bookable in the same eight-second flow." />
+        <SectionHead eyebrow="What you can book" title={<>Real Moscow <em>spaces.</em><br />One bot.</>} lead="From a single hot desk to a meeting suite or a monthly team pod. Every Metrix venue uses the same live prices from the booking inventory." />
 
-        <div className="metrix-tabs" role="tablist" aria-label="Workspace types">
+        <div className="metrix-tabs" role="tablist" aria-label="Workspace types" data-reveal data-delay="80">
           {SPACE_OPTIONS.map((item) => (
             <button key={item.id} className={item.id === active ? "is-active" : ""} onClick={() => setActive(item.id)}>
               {item.pict(20)} {item.name}
@@ -377,7 +370,7 @@ function SpaceTabs() {
         </div>
 
         <div className="metrix-space-panel">
-          <div className={`metrix-space-hero is-${space.id}`} style={{ "--space-swatch": space.swatch } as React.CSSProperties}>
+          <div className={`metrix-space-hero is-${space.id}`} style={{ "--space-swatch": space.swatch } as React.CSSProperties} data-reveal="left" data-delay="120">
             <span className="metrix-space-sticker"><i />{space.tag}</span>
             {space.pict(88)}
             <div>
@@ -390,8 +383,8 @@ function SpaceTabs() {
           </div>
 
           <div className="metrix-listings">
-            {[1, 2, 3].map((idx) => <SpaceListing key={idx} idx={idx} spaceId={space.id} />)}
-            <a href="#demo" className="metrix-btn metrix-btn-ghost">See all {space.name.toLowerCase()}s <Arrow /></a>
+            {[1, 2, 3].map((idx) => <SpaceListing key={idx} idx={idx} spaceId={space.id} delay={140 + idx * 70} />)}
+            <a href="#demo" className="metrix-btn metrix-btn-ghost" data-reveal="right" data-delay="390">See all {space.name.toLowerCase()}s <Arrow /></a>
           </div>
         </div>
       </div>
@@ -399,42 +392,42 @@ function SpaceTabs() {
   );
 }
 
-function SpaceListing({ spaceId, idx }: { spaceId: SpaceId; idx: number }) {
+function SpaceListing({ spaceId, idx, delay = 0 }: { spaceId: SpaceId; idx: number; delay?: number }) {
   const space = SPACE_OPTIONS.find((item) => item.id === spaceId) ?? SPACE_OPTIONS[0];
-  const examples: Record<SpaceId, { name: string; area: string; price: number; time: string; seats: number }[]> = {
+  const examples: Record<SpaceId, { name: string; area: string; price: number; unit: string; time: string; seats: string }[]> = {
     desk: [
-      { name: "Mokrym Loft", area: "Kreuzberg, Berlin", price: 18, time: "Open · until 21:00", seats: 12 },
-      { name: "Quiet Wing", area: "Mitte, Berlin", price: 12, time: "Open · 24/7", seats: 6 },
-      { name: "Brutal Coffee", area: "Friedrichshain", price: 9, time: "Open · until 19:00", seats: 24 },
+      { name: "Hot Desk Boulevard", area: "Belorusskaya · 34 Lesnaya Street", price: 2900, unit: "day", time: "Open · until 21:00", seats: "18 desks" },
+      { name: "Dockline Desks", area: "Paveletskaya · 5 Letnikovskaya Street", price: 3100, unit: "day", time: "Open · 24/7", seats: "20 desks" },
+      { name: "Courtyard Bench", area: "Patriarchy · 18 Malaya Bronnaya Street", price: 3400, unit: "day", time: "Best same-day option", seats: "14 desks" },
     ],
     meeting: [
-      { name: "Glass Room A", area: "Mitte, Berlin", price: 28, time: "Free now · 90 min", seats: 6 },
-      { name: "Board Room", area: "Kreuzberg, Berlin", price: 48, time: "Free 16:30 ->", seats: 12 },
-      { name: "The Phone Booth", area: "Prenzlauer Berg", price: 14, time: "Free now", seats: 2 },
+      { name: "Rail Meeting Room", area: "Belorusskaya · 34 Lesnaya Street", price: 27000, unit: "hour", time: "Free now · 90 min", seats: "12 seats" },
+      { name: "Investor Room", area: "Paveletskaya · 5 Letnikovskaya Street", price: 31000, unit: "hour", time: "Free 16:30 ->", seats: "10 seats" },
+      { name: "Garden Meeting Suite", area: "Patriarchy · 18 Malaya Bronnaya Street", price: 32000, unit: "hour", time: "Open after 14:00", seats: "8 seats" },
     ],
     office: [
-      { name: "Studio 04", area: "Mitte, Berlin", price: 110, time: "Available tomorrow", seats: 4 },
-      { name: "The Annex", area: "Charlottenburg", price: 145, time: "Available today", seats: 8 },
-      { name: "Loft 12", area: "Kreuzberg, Berlin", price: 220, time: "From Monday", seats: 14 },
+      { name: "Transit Office", area: "Belorusskaya · 34 Lesnaya Street", price: 1080000, unit: "month", time: "Available now", seats: "4 seats" },
+      { name: "Bridge Office", area: "Paveletskaya · 5 Letnikovskaya Street", price: 1390000, unit: "month", time: "Available today", seats: "5 seats" },
+      { name: "Founder Office", area: "Patriarchy · 18 Malaya Bronnaya Street", price: 1460000, unit: "month", time: "Available now", seats: "6 seats" },
     ],
     event: [
-      { name: "Rooftop North", area: "Mitte, Berlin", price: 240, time: "Sat & Sun open", seats: 120 },
-      { name: "Black Box", area: "Kreuzberg, Berlin", price: 380, time: "Available Tue ->", seats: 240 },
-      { name: "The Garden", area: "Treptow, Berlin", price: 195, time: "Summer slots", seats: 80 },
+      { name: "Launch Pad", area: "Belorusskaya · 34 Lesnaya Street", price: 33000, unit: "desk / month", time: "7 desks open", seats: "16 desks" },
+      { name: "Editorial Studio", area: "Patriarchy · 18 Malaya Bronnaya Street", price: 36000, unit: "desk / month", time: "High demand", seats: "10 desks" },
+      { name: "Riverside Pod", area: "Paveletskaya · 5 Letnikovskaya Street", price: 36500, unit: "desk / month", time: "2 desks open", seats: "10 desks" },
     ],
   };
   const venue = examples[spaceId][idx - 1];
 
   return (
-    <article className="metrix-card metrix-listing">
+    <article className="metrix-card metrix-listing" data-reveal="right" data-delay={String(delay)}>
       <div className={`metrix-listing-icon is-${spaceId}`} style={{ "--space-swatch": space.swatch } as React.CSSProperties}>{space.pict(36)}</div>
       <div>
         <h3>{venue.name}{idx === 1 && <span>hot</span>}</h3>
         <p><Pin size={12} /> {venue.area}<i /> <Clock size={12} /> {venue.time}</p>
-        <small>{venue.seats} seats · verified Sept 2026</small>
+        <small>{venue.seats} · verified May 2026</small>
       </div>
       <aside>
-        <strong className="metrix-num">EUR {venue.price}<small>/hr</small></strong>
+        <strong className="metrix-num"><span>{formatRubShort(venue.price)}</span><small>/ {venue.unit}</small></strong>
         <button className="metrix-btn metrix-btn-primary">Book <Arrow size={12} /></button>
       </aside>
     </article>
@@ -443,7 +436,7 @@ function SpaceListing({ spaceId, idx }: { spaceId: SpaceId; idx: number }) {
 
 function HowItWorks() {
   const steps = [
-    { n: "01", pict: <PictTelegram size={28} />, title: "Open the bot", blurb: "Tap @metrix_bot. No app to install, no signup. Telegram already knows who you are." },
+    { n: "01", pict: <PictTelegram size={28} />, title: "Open the bot", blurb: <>Tap <BotHandle />. No app to install, no signup. Telegram already knows who you are.</> },
     { n: "02", pict: <Pin size={22} />, title: "Tell it where", blurb: "Send a city, an address, or your location. Metrix shows what's open right now around you." },
     { n: "03", pict: <Clock size={22} />, title: "Pick a slot", blurb: "Tap an hour. Hold a room for 5 minutes while you check. Reschedule any time before check-in." },
     { n: "04", pict: <CheckDot size={24} color="var(--metrix-accent)" />, title: "Pay & walk in", blurb: "One-tap pay with Apple Pay, Google Pay or card on file. Door code lands in chat. That's it." },
@@ -455,7 +448,7 @@ function HowItWorks() {
         <SectionHead eyebrow="How it works" title={<>From idea to <em>door open</em> in four taps.</>} lead="Built for people who already live in their messenger. Everything happens inside the chat: discovery, payment, the door code, the receipt." />
         <div className="metrix-step-grid">
           {steps.map((step, index) => (
-            <article key={step.n} className={index === 0 ? "is-accent" : ""}>
+            <article key={step.n} className={index === 0 ? "is-accent" : ""} data-reveal={index % 2 === 0 ? "left" : "right"} data-delay={String(index * 90)}>
               <header><strong className="metrix-num">{step.n}</strong>{step.pict}</header>
               <div><h3 className="metrix-display">{step.title}</h3><p>{step.blurb}</p></div>
             </article>
@@ -466,8 +459,8 @@ function HowItWorks() {
             ["8s", "median time to confirm a booking"],
             ["0", "phone calls. ever."],
             ["100%", "refundable up to one hour before"],
-          ].map(([num, label]) => (
-            <div key={label}><strong className="metrix-num">{num}</strong><span>{label}</span></div>
+          ].map(([num, label], index) => (
+            <div key={label} data-reveal data-delay={String(120 + index * 70)}><strong className="metrix-num">{num}</strong><span>{label}</span></div>
           ))}
         </div>
       </div>
@@ -476,7 +469,7 @@ function HowItWorks() {
 }
 
 function BookingDemo() {
-  const [city, setCity] = useState("Berlin");
+  const [city, setCity] = useState("Patriarchy");
   const [spaceId, setSpaceId] = useState<SpaceId>("desk");
   const [venueIdx, setVenueIdx] = useState(0);
   const [startIdx, setStartIdx] = useState(2);
@@ -487,10 +480,12 @@ function BookingDemo() {
 
   const space = SPACE_OPTIONS.find((item) => item.id === spaceId) ?? SPACE_OPTIONS[0];
   const venue = VENUES[city][venueIdx];
-  const subtotal = space.price * hours;
-  const extrasCost = (extras.coffee ? 3 * hours : 0) + (extras.parking ? 4 : 0);
+  const billableQuantity = venue.unit === "hour" ? hours : 1;
+  const subtotal = venue.price * billableQuantity;
+  const extrasCost = (extras.coffee ? 450 * hours : 0) + (extras.parking ? 800 : 0);
   const fee = Math.round((subtotal + extrasCost) * 0.06);
   const total = subtotal + extrasCost + fee;
+  const quantityLabel = venue.unit === "hour" ? `${hours}h x ${formatRub(venue.price)}` : priceLabel(venue.price, venue.unit);
   const startHour = HOURS[startIdx];
   const endHour = HOURS[Math.min(startIdx + hours, HOURS.length - 1)] ?? "20:00";
 
@@ -500,9 +495,9 @@ function BookingDemo() {
   return (
     <section id="demo" className="metrix-section metrix-demo">
       <div className="metrix-wrap">
-        <SectionHead eyebrow="Live booking" title={<>Try the bot, <em>right here.</em></>} lead="Play with the real booking surface. Every change updates the price calculator and the Telegram preview in real time. No card required." />
+        <SectionHead eyebrow="Live booking" title={<>Try real prices, <em>right here.</em></>} lead="Play with the booking surface using Moscow locations and RUB prices from the inventory. Every change updates the calculator and Telegram preview in real time." />
         <div className="metrix-demo-grid">
-          <div className="metrix-card metrix-booking-surface">
+          <div className="metrix-card metrix-booking-surface" data-reveal="left">
             <Field label="01  Where">
               <div className="metrix-chip-row">{Object.keys(VENUES).map((item) => <Chip key={item} on={item === city} onClick={() => setCity(item)}><Pin size={12} /> {item}</Chip>)}</div>
             </Field>
@@ -510,16 +505,16 @@ function BookingDemo() {
               <div className="metrix-space-options">
                 {SPACE_OPTIONS.map((item) => (
                   <button key={item.id} className={item.id === spaceId ? "is-active" : ""} onClick={() => setSpaceId(item.id)}>
-                    {item.pict(28)}<span>{item.name}</span><small>from EUR {item.price}/hr</small>
+                    {item.pict(28)}<span>{item.name}</span><small>from {priceLabelShort(item.price, item.unit)}</small>
                   </button>
                 ))}
               </div>
             </Field>
-            <Field label="03  Which" hint={`${VENUES[city].length} venues open in ${city}`}>
+            <Field label="03  Which" hint={`${VENUES[city].length} spaces open in ${city}`}>
               <div className="metrix-venue-list">
                 {VENUES[city].map((item, index) => (
-                  <button key={item[0]} className={index === venueIdx ? "is-active" : ""} onClick={() => setVenueIdx(index)}>
-                    <i /><strong>{item[0]}</strong><span>{item[1]}</span>{index === 0 && <b>hot</b>}
+                  <button key={item.name} className={index === venueIdx ? "is-active" : ""} onClick={() => setVenueIdx(index)}>
+                    <i /><strong>{item.name}</strong><span>{item.area} · {priceLabel(item.price, item.unit)}</span>{index === 0 && <b>hot</b>}
                   </button>
                 ))}
               </div>
@@ -536,25 +531,25 @@ function BookingDemo() {
                   <strong className="metrix-num">{people}</strong>
                   <button onClick={() => setPeople(people + 1)}>+</button>
                 </div>
-                <Chip on={extras.coffee} onClick={() => setExtras((current) => ({ ...current, coffee: !current.coffee }))}>Coffee EUR 3/hr</Chip>
-                <Chip on={extras.parking} onClick={() => setExtras((current) => ({ ...current, parking: !current.parking }))}>Parking EUR 4</Chip>
+                <Chip on={extras.coffee} onClick={() => setExtras((current) => ({ ...current, coffee: !current.coffee }))}>Coffee 450 RUB/hr</Chip>
+                <Chip on={extras.parking} onClick={() => setExtras((current) => ({ ...current, parking: !current.parking }))}>Parking 800 RUB</Chip>
                 {(spaceId === "meeting" || spaceId === "office") && <Chip on={extras.screen} onClick={() => setExtras((current) => ({ ...current, screen: !current.screen }))}>4K screen · free</Chip>}
               </div>
             </Field>
           </div>
 
-          <aside className="metrix-receipt-stack">
+          <aside className="metrix-receipt-stack" data-reveal="right" data-delay="120">
             <div className="metrix-card metrix-receipt">
               <header>
-                <div><span className="metrix-eyebrow">Receipt</span><h3 className="metrix-display">{venue[0]}</h3><p>{venue[1]}, {city}</p></div>
+                <div><span className="metrix-eyebrow">Receipt</span><h3 className="metrix-display">{venue.name}</h3><p>{venue.area}, {city}</p></div>
                 {space.pict(40)}
               </header>
-              <ReceiptRow label={`${space.name} · ${hours}h x EUR ${space.price}`} value={`EUR ${subtotal}`} />
-              {extras.coffee && <ReceiptRow label={`Coffee · ${hours}h x EUR 3`} value={`EUR ${3 * hours}`} />}
-              {extras.parking && <ReceiptRow label="Parking" value="EUR 4" />}
-              <ReceiptRow label="Service fee" value={`EUR ${fee}`} muted />
+              <ReceiptRow label={`${venue.name} · ${quantityLabel}`} value={formatRub(subtotal)} />
+              {extras.coffee && <ReceiptRow label={`Coffee · ${hours}h x ${formatRub(450)}`} value={formatRub(450 * hours)} />}
+              {extras.parking && <ReceiptRow label="Parking" value={formatRub(800)} />}
+              <ReceiptRow label="Service fee" value={formatRub(fee)} muted />
               <hr />
-              <div className="metrix-total"><span>Total · {hours}h</span><strong className="metrix-num">EUR {total}</strong></div>
+              <div className="metrix-total"><span>Total · {venue.unit === "hour" ? `${hours}h` : venue.unit}</span><strong className="metrix-num">{formatRub(total)}</strong></div>
               <button onClick={() => setConfirmed(true)} className={`metrix-btn ${confirmed ? "is-confirmed" : ""}`}>
                 {confirmed ? <><CheckDot color="var(--metrix-ink)" /> Booked!</> : <><PictTelegram size={16} /> Confirm via Telegram <Arrow /></>}
               </button>
@@ -563,9 +558,9 @@ function BookingDemo() {
             <div className="metrix-card metrix-chat-snippet">
               <span className="metrix-eyebrow">What you'll see in chat</span>
               {confirmed ? (
-                <p className="is-confirmed"><CheckDot color="var(--metrix-ink)" size={16} /> <strong>Booking confirmed</strong><br />{venue[0]} · {startHour}-{endHour} · EUR {total} paid<br />Door code <b>{1000 + (subtotal * 7) % 9000}</b></p>
+                <p className="is-confirmed"><CheckDot color="var(--metrix-ink)" size={16} /> <strong>Booking confirmed</strong><br />{venue.name} · {startHour}-{endHour} · {formatRub(total)} paid<br />Door code <b>{1000 + (subtotal * 7) % 9000}</b></p>
               ) : (
-                <p>Holding <strong>{venue[0]}</strong> for you · {startHour} &gt; {endHour}<br /><span>Confirm within 5 minutes</span></p>
+                <p>Holding <strong>{venue.name}</strong> for you · {startHour} &gt; {endHour}<br /><span>Confirm within 5 minutes</span></p>
               )}
             </div>
           </aside>
@@ -579,28 +574,28 @@ function B2B() {
   return (
     <section id="b2b" className="metrix-section">
       <div className="metrix-wrap">
-        <div className="metrix-b2b-panel">
+        <div className="metrix-b2b-panel" data-reveal>
           <div className="metrix-b2b-mark"><PictBuilding size={340} /></div>
           <div className="metrix-b2b-grid">
-            <div>
+            <div data-reveal="left" data-delay="80">
               <div className="metrix-eyebrow metrix-tag-dot">For business</div>
-              <h2 className="metrix-display">Turn every city into your <span className="metrix-display-italic">office.</span></h2>
-              <p className="metrix-lead">One invoice. One dashboard. A monthly allowance per teammate, redeemable across 1,248 verified spaces in 14 countries. Set up in 10 minutes.</p>
-              <div className="metrix-hero-buttons"><a href="#demo" className="metrix-btn metrix-btn-primary">Book a demo <Arrow /></a><a href="#demo" className="metrix-btn metrix-btn-ghost">Pricing for teams</a></div>
+              <h2 className="metrix-display">Turn Moscow into your <span className="metrix-display-italic">office.</span></h2>
+              <p className="metrix-lead">One invoice. One dashboard. A monthly allowance per teammate, redeemable across 10 Metrix Moscow locations from Patriarchy to Sokol. Set up in 10 minutes.</p>
+              <div className="metrix-b2b-actions"><a href="#demo" className="metrix-btn metrix-btn-primary">Book a demo <Arrow /></a><a href="#demo" className="metrix-btn metrix-btn-ghost">Pricing for teams</a></div>
             </div>
             <div className="metrix-b2b-features">
               {[
-                ["01", "Monthly stipends", "Set a per-seat budget. Unused hours roll over. No haggling, no expense reports."],
+                ["01", "Monthly stipends", "Set a per-seat budget in RUB. Unused hours roll over. No haggling, no expense reports."],
                 ["02", "SSO & SCIM", "Provision via Okta, Google, or Azure. Add a teammate and they're in the bot."],
-                ["03", "Real-time receipts", "Every booking syncs to Xero, QuickBooks or a CSV: itemized, VAT-split, audit-ready."],
+                ["03", "Real-time receipts", "Every booking syncs to accounting as a CSV: itemized, VAT-split, audit-ready."],
               ].map(([num, title, text], index) => (
-                <article key={num} className={index === 0 ? "is-dark" : ""}><h3><span className="metrix-num">{num}</span>{title}</h3><p>{text}</p></article>
+                <article key={num} className={index === 0 ? "is-dark" : ""} data-reveal="right" data-delay={String(120 + index * 90)}><h3><span className="metrix-num">{num}</span>{title}</h3><p>{text}</p></article>
               ))}
             </div>
           </div>
         </div>
-        <div className="metrix-logo-strip">
-          <p>Trusted by remote teams at <strong>147 companies</strong> from Series A to public.</p>
+        <div className="metrix-logo-strip" data-reveal data-delay="160">
+          <p>Trusted by teams booking desks, rooms, and offices across <strong>10 Moscow locations</strong>.</p>
           {["ATLAS/CO", "Tundra", "Halcyon", "Northbound", "PARSE.fm", "Vellum&Co"].map((name) => <span key={name}>{name}</span>)}
         </div>
       </div>
@@ -610,12 +605,12 @@ function B2B() {
 
 function FAQ() {
   const [open, setOpen] = useState(0);
-  const faqs = [
-    ["Do I need an account?", "No. The Telegram bot is your account. Open @metrix_bot, send one message, and you're in. We use your Telegram identity for receipts and remember your card so you never re-enter it."],
+  const faqs: Array<[string, React.ReactNode]> = [
+    ["Do I need an account?", <>No. The Telegram bot is your account. Open <BotHandle />, send one message, and you're in. We use your Telegram identity for receipts and remember your card so you never re-enter it.</>],
     ["What if a space turns out to be busy or closed?", "Every booking is live-confirmed by the venue within 30 seconds. If we can't confirm, you're auto-refunded and offered the next-closest space at the same hour."],
     ["Can I cancel or move a booking?", "Yes. Free cancellation up to 60 minutes before check-in. Within the hour, you keep 50%. Move a booking to a different time, same venue, at any point."],
-    ["How does pricing work?", "You pay the venue's hourly rate plus a 6% Metrix fee. No subscription, no hidden markup. Teams on the Business plan get volume discounts starting at 50 hours / month."],
-    ["Which cities are live?", "Berlin, Lisbon, Warsaw, Amsterdam, Tbilisi, Barcelona, Paris, Vilnius, Prague, Tallinn, Vienna, Bucharest, Zagreb, and Sofia."],
+    ["How does pricing work?", "You pay the live venue rate in RUB plus a 6% Metrix fee. Desks start at 2 900 RUB / day, meeting rooms at 27 000 RUB / hour, private offices at 1 080 000 RUB / month, and team pods at 33 000 RUB / desk / month."],
+    ["Which locations are live?", "Patriarchy, Belorusskaya, Paveletskaya, Moscow City, Kurskaya, Park Kultury, Tverskaya, Chistye Prudy, Taganskaya, and Sokol."],
     ["Is there a website to book from?", "Yes, this one. Use the live booking demo above to reserve right here. But once you've tried the Telegram flow, you probably won't come back."],
   ];
 
@@ -625,7 +620,7 @@ function FAQ() {
         <SectionHead eyebrow="Questions" title={<>Common <em>questions.</em></>} lead={<>Still unsure? Send <strong>/help</strong> to the bot. A human picks up within 90 seconds.</>} />
         <div className="metrix-faq-list">
           {faqs.map(([question, answer], index) => (
-            <article key={question} className={`metrix-card ${open === index ? "is-open" : ""}`}>
+            <article key={question} className={`metrix-card ${open === index ? "is-open" : ""}`} data-reveal data-delay={String(index * 60)}>
               <button onClick={() => setOpen(open === index ? -1 : index)} aria-expanded={open === index}>
                 <span><b className="metrix-num">0{index + 1}</b>{question}</span>
                 <i><Plus size={16} /></i>
@@ -643,11 +638,11 @@ function FooterCTA() {
   return (
     <section className="metrix-footer-cta-section">
       <div className="metrix-wrap">
-        <div className="metrix-footer-cta">
+        <div className="metrix-footer-cta" data-reveal="scale">
           <div className="metrix-footer-bolt"><PictBolt size={220} /></div>
           <span className="metrix-eyebrow metrix-tag-dot">Get started</span>
           <h2 className="metrix-display">Your next desk is <span className="metrix-display-italic">one</span><br />message <span className="metrix-display-italic">away.</span></h2>
-          <div className="metrix-hero-buttons"><a href="#demo" className="metrix-btn metrix-btn-accent"><PictTelegram size={16} /> Open @metrix_bot <Arrow /></a><a href="#demo" className="metrix-btn metrix-btn-ghost">Get a city demo</a></div>
+          <div className="metrix-hero-buttons"><a href={TELEGRAM_BOT_URL} className="metrix-btn metrix-btn-accent" target="_blank" rel="noreferrer"><PictTelegram size={16} /> Open @metritxsxbot <Arrow /></a><a href="#demo" className="metrix-btn metrix-btn-ghost">Get a Moscow demo</a></div>
         </div>
       </div>
     </section>
@@ -655,30 +650,30 @@ function FooterCTA() {
 }
 
 function Footer() {
-  const groups: Array<[string, string[]]> = [
-    ["Product", ["Hot desks", "Meeting rooms", "Private offices", "Events"]],
-    ["Company", ["About", "Press", "Careers", "Manifesto"]],
-    ["Resources", ["FAQ", "Status", "Changelog", "API"]],
-    ["Get in touch", ["@metrix_bot", "hello@metrix.app", "Berlin HQ", "Twitter"]],
+  const groups: Array<[string, Array<[string, string]>]> = [
+    ["Product", [["Hot desks", "#spaces"], ["Meeting rooms", "#spaces"], ["Private offices", "#spaces"], ["Events", "#spaces"]]],
+    ["Company", [["About", "/about"], ["Press", "/press"], ["Careers", "/careers"], ["Manifesto", "/manifesto"]]],
+    ["Resources", [["FAQ", "/faq"], ["Status", "/status"], ["Changelog", "/changelog"], ["API", "/api"]]],
+    ["Get in touch", [["@metritxsxbot", TELEGRAM_BOT_URL], ["hello@metrix.app", "mailto:hello@metrix.app"], ["Moscow HQ", "#"], ["Telegram", TELEGRAM_BOT_URL]]],
   ];
   return (
     <footer className="metrix-footer">
       <div className="metrix-wrap">
-        <div className="metrix-footer-grid">
+        <div className="metrix-footer-grid" data-reveal>
           <div>
             <a href="#" className="metrix-logo"><span>M</span>Metrix<b>.</b></a>
-            <p>Booking workspaces shouldn't feel like booking a flight. Built in Berlin · since 2024.</p>
+            <p>Booking workspaces shouldn't feel like booking a flight. Built for Moscow offices · since 2024.</p>
           </div>
           {groups.map(([title, items]) => (
             <nav key={title} aria-label={title}>
               <h3 className="metrix-eyebrow">{title}</h3>
-              {items.map((item) => <a key={item} href="#">{item}</a>)}
+              {items.map(([item, href]) => <a key={item} href={href} target={href.startsWith("https://") ? "_blank" : undefined} rel={href.startsWith("https://") ? "noreferrer" : undefined}>{item}</a>)}
             </nav>
           ))}
         </div>
         <hr className="metrix-rule" />
-        <div className="metrix-footer-bottom"><span>© 2026 Metrix Booking GmbH · Berlin</span><span><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Imprint</a></span></div>
-        <div className="metrix-wordmark">Metrix<span>.</span></div>
+        <div className="metrix-footer-bottom" data-reveal data-delay="80"><span>© 2026 Metrix Booking · Moscow</span><span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/imprint">Imprint</a></span></div>
+        <div className="metrix-wordmark" data-reveal="scale" data-delay="120">Metrix<span className="metrix-dot">.</span></div>
       </div>
     </footer>
   );
@@ -686,7 +681,7 @@ function Footer() {
 
 function SectionHead({ eyebrow, title, lead }: { eyebrow: string; title: React.ReactNode; lead: React.ReactNode }) {
   return (
-    <div className="metrix-section-head">
+    <div className="metrix-section-head" data-reveal>
       <div><div className="metrix-eyebrow metrix-tag-dot">{eyebrow}</div><h2 className="metrix-section-title">{title}</h2></div>
       <p className="metrix-lead">{lead}</p>
     </div>

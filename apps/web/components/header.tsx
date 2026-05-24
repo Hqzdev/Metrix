@@ -23,7 +23,7 @@ export function Header() {
         <Link href="#hero" className="flex items-center gap-2.5 shrink-0">
           <div className="relative h-7 w-7 shrink-0">
             <Image
-              src="/logo-light.png"
+              src="/icons/app-icon-light.png"
               alt="Metrix"
               width={28}
               height={28}
@@ -31,7 +31,7 @@ export function Header() {
               priority
             />
             <Image
-              src="/logo-dark.png"
+              src="/icons/app-icon-dark.png"
               alt="Metrix"
               width={28}
               height={28}
