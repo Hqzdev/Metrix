@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,13 +21,16 @@ type SharedBookingRow = {
   createdAt: Date;
 };
 
-const globalForPrisma = globalThis as unknown as {
-  metrixWebPrisma?: PrismaClient;
+const globalForPg = globalThis as unknown as {
+  metrixWebPool?: Pool;
 };
 
-function getPrisma() {
-  globalForPrisma.metrixWebPrisma ??= new PrismaClient();
-  return globalForPrisma.metrixWebPrisma;
+function getPool() {
+  globalForPg.metrixWebPool ??= new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL?.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
+  });
+  return globalForPg.metrixWebPool;
 }
 
 export async function GET() {
@@ -36,7 +39,7 @@ export async function GET() {
   }
 
   try {
-    const bookings = await getPrisma().$queryRaw<SharedBookingRow[]>`
+    const { rows: bookings } = await getPool().query<SharedBookingRow>(`
       SELECT
         "id",
         "locationId",
@@ -56,7 +59,7 @@ export async function GET() {
       FROM booking."Booking"
       WHERE "status" = 'active'
       ORDER BY "startsAtIso" ASC
-    `;
+    `);
 
     return Response.json(
       {
