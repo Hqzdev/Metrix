@@ -2,247 +2,172 @@
 
 # Metrix
 
-Инфраструктура бронирования офисных ресурсов: web-интерфейс, Telegram-бот, микросервисы, оплаты, календарные интеграции, аналитика и production-grade операционный слой.
+Metrix is a coworking and office-resource booking platform with a Next.js web
+app, a Telegram bot, and a microservice backend for booking, payments,
+calendar sync, analytics, audit, and operations.
 
-[Website](https://metrixplatform.vercel.app) · [Telegram Bot](https://t.me/metritxsxbot) · [Docs](./docs/README.md) · [Engineering Report](./docs/REPORT.md) · [API](./docs/openapi/README.md)
+[Website](https://metrixplatform.vercel.app) · [Docs](./docs/README.md) · [OpenAPI](./docs/openapi/README.md) · [Engineering Report](./docs/REPORT.md)
 
 ![CI](https://github.com/Hqzdev/Metrix/actions/workflows/ci.yml/badge.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-green)
 ![Quality gates](https://img.shields.io/badge/quality%20gates-typecheck%20%7C%20tests%20%7C%20openapi%20%7C%20audit-informational)
 
----
+## What Metrix Does
 
-## Что это
+Metrix replaces manual coworking coordination in chats and spreadsheets with a
+single booking flow:
 
-Metrix решает проблему хаотичного управления переговорными, рабочими местами и офисными ресурсами. Вместо таблиц, чатов и ручных договорённостей система даёт единый слой управления:
+- users book desks, private offices, and meeting rooms from web or Telegram;
+- admins manage resources, availability, pricing, and operational recovery;
+- payments use Telegram/YooKassa-style invoice and saga flows;
+- calendars can connect to external providers;
+- analytics exposes utilization, summary stats, and reports;
+- backend services communicate through signed requests, Redis, and typed contracts.
 
-- пользователи бронируют ресурсы через web или Telegram;
-- администраторы управляют ресурсами, ценами, статусами и загрузкой;
-- события синхронизируются с календарями;
-- платежи проходят через Telegram/YooKassa flow;
-- аналитика показывает загрузку, peak hours, utilization и отчёты;
-- backend защищает внутренние сервисы через HMAC, replay protection, RBAC и audit log.
+The repository is intentionally production-oriented: it includes API contracts,
+OpenAPI, audit log, RBAC, Redis Streams, DLQ recovery, health/readiness checks,
+observability helpers, security docs, runbooks, and test structure.
 
-Проект сделан не только как продуктовый прототип, но и как инженерная система: с ADR, OpenAPI, CI, observability, runbooks, backup strategy, security model и production readiness checklist.
-
----
-
-## Ключевые возможности
-
-### Пользовательские сценарии
-
-- бронирование переговорных и рабочих мест;
-- просмотр доступных слотов;
-- отмена и просмотр своих броней;
-- Telegram UX без обязательного web-интерфейса;
-- напоминания и уведомления;
-- платежи и подтверждение оплаты;
-- синхронизация с календарями.
-
-### Администрирование
-
-- Telegram admin-сценарии по `ADMIN_TELEGRAM_IDS`;
-- управление ресурсами, статусами и ценами;
-- просмотр статистики и аналитики;
-- audit log административных и security-событий;
-- DLQ и recovery endpoints для операторских сценариев.
-
-### Production-grade слой
-
-- HMAC service-to-service authentication;
-- replay protection через Redis TTL и `X-Request-Id`;
-- signed Telegram user identity;
-- Redis locks для конкурентного бронирования;
-- rate limiting в bot-gateway;
-- structured JSON logs;
-- `/health`, `/ready`, `/metrics` endpoints;
-- Redis Streams retry, pending processing и DLQ;
-- persistent audit log и RBAC package;
-- OpenAPI spec и typed contracts;
-- PostgreSQL backup/restore strategy;
-- CI quality gates: typecheck, tests, OpenAPI validation, audit.
-
----
-
-## Архитектура
-
-Metrix состоит из web-приложения и отдельного Telegram bot runtime на микросервисах.
+## Main Parts
 
 ```txt
-Telegram User
-  -> Telegram API
-  -> bot-gateway
+apps/web
+  Next.js 16 web app, booking UI, marketing pages, shared UI components.
+
+apps/bot
+  Telegram bot runtime and backend microservices.
+
+apps/bot/services
+  bot-gateway, booking-service, payment-service, calendar-service,
+  analytics-service, admin-service, notification-service, worker-service.
+
+apps/bot/packages
+  audit-log, auth, contracts, health, observability, redis-bus, rbac.
+
+packages/api
+  Root shared API package.
+
+docs
+  Architecture, operations, OpenAPI, testing, deployment, and decisions.
+
+tests
+  Unit, integration, and e2e test suites.
+```
+
+## Architecture
+
+```txt
+Telegram / Web
+  -> bot-gateway / web app
   -> booking-service
   -> payment-service
   -> calendar-service
   -> analytics-service
   -> admin-service
-  -> PostgreSQL / Redis
+  -> PostgreSQL + Redis
 ```
 
-Основные runtime-компоненты:
+Core infrastructure:
 
-- `apps/web` — Next.js web-интерфейс и маркетинговые страницы;
-- `apps/bot/services/bot-gateway` — публичная точка входа Telegram-бота;
-- `apps/bot/services/booking-service` — бронирования, слоты, locks, idempotency;
-- `apps/bot/services/payment-service` — payment holds, sagas, retry/recovery;
-- `apps/bot/services/calendar-service` — Google OAuth, calendar tokens, sync;
-- `apps/bot/services/analytics-service` — отчёты и агрегаты;
-- `apps/bot/services/admin-service` — admin API, audit, DLQ replay;
-- `apps/bot/services/notification-service` — Telegram delivery;
-- `apps/bot/services/worker-service` — фоновые задачи;
-- `apps/bot/packages/*` — shared auth, contracts, Redis bus, health, audit, RBAC, observability.
+- PostgreSQL for persistent domain data;
+- Prisma for schema and database access;
+- Redis for locks, queues, idempotency, rate limits, replay protection, and DLQ;
+- Redis Streams for event flow and retry/recovery paths;
+- Docker Compose for local bot-service runtime;
+- OpenAPI and TypeScript contracts for service boundaries.
 
-Инфраструктура:
+Useful docs:
 
-- PostgreSQL — основной источник данных;
-- PgBouncer — connection pooling;
-- Redis — queues, locks, rate limit, replay protection, idempotency;
-- Docker Compose — локальный runtime микросервисов;
-- GitHub Actions — CI и dependency audit.
+- [System overview](./docs/architecture/SYSTEM_OVERVIEW.md)
+- [Architecture diagrams](./docs/architecture/DIAGRAMS.md)
+- [Security](./docs/architecture/SECURITY.md)
+- [Queues and events](./docs/architecture/QUEUES_AND_EVENTS.md)
+- [Observability](./docs/architecture/OBSERVABILITY.md)
+- [Production readiness](./docs/architecture/PRODUCTION_READINESS.md)
 
-Подробнее: [System overview](./docs/architecture/SYSTEM_OVERVIEW.md), [Architecture diagrams](./docs/architecture/DIAGRAMS.md), [Production readiness](./docs/architecture/PRODUCTION_READINESS.md).
+## Web App
 
----
+`apps/web` is the public product surface. It contains the landing page,
+booking explorer, company/resource/legal pages, and a categorized component
+system.
 
-## Telegram-бот
-
-Telegram-бот — не отдельный скрипт, а микросервисный runtime.
-
-Поддержанные сценарии:
-
-- `/start`, `/help` и навигация через inline keyboards;
-- выбор ресурса, даты и времени;
-- создание бронирования или payment hold;
-- оплата через Telegram/YooKassa;
-- просмотр своих броней;
-- отмена брони;
-- admin-команды и статистика;
-- rate limit и idempotency Telegram updates;
-- Redis-backed FSM state;
-- delivery уведомлений и reminders.
-
-Скриншоты:
-
-<img src="/apps/web/public/screen/telegram/start.png" width="220" />
-<img src="/apps/web/public/screen/telegram/book.png" width="220" />
-<img src="/apps/web/public/screen/telegram/payment.png" width="220" />
-<img src="/apps/web/public/screen/telegram/mybook.png" width="220" />
-<img src="/apps/web/public/screen/telegram/admin.png" width="220" />
-<img src="/apps/web/public/screen/telegram/analytics.png" width="220" />
-
-Документация: [Bot block](./docs/telegram-bot/bot-block.md), [Services block](./docs/telegram-bot/services-block.md), [Operations and security](./docs/telegram-bot/operations.md), [Telegram diagrams](./docs/telegram-bot-diagrams/README.md).
-
----
-
-## Web-интерфейс
-
-Web-часть показывает продуктовую оболочку Metrix: главную страницу, бронирование, локации, memberships, about, FAQ, contacts, legal pages и адаптивный UI.
-
-![Homepage](/apps/web/public/screen/1.png)
-![Dashboard](/apps/web/public/screen/2.png)
-![Booking](/apps/web/public/screen/4.png)
-
-Mobile preview:
-
-<img src="/apps/web/public/screen/mobile/1.png" width="200" />
-<img src="/apps/web/public/screen/mobile/2.png" width="200" />
-<img src="/apps/web/public/screen/mobile/3.png" width="200" />
-<img src="/apps/web/public/screen/mobile/4.png" width="200" />
-
----
-
-## Технологии
-
-Frontend:
-
-- Next.js;
-- React;
-- TypeScript;
-- Tailwind CSS;
-- shadcn-style UI components.
-
-Backend и bot runtime:
-
-- Node.js;
-- TypeScript;
-- PostgreSQL;
-- Prisma;
-- Redis;
-- Redis Streams;
-- BullMQ;
-- Docker Compose.
-
-Интеграции:
-
-- Telegram Bot API;
-- Google Calendar OAuth/API;
-- Microsoft Calendar architecture;
-- YooKassa / Telegram Payments.
-
-Engineering:
-
-- OpenAPI;
-- GitHub Actions;
-- structured logging;
-- Prometheus-compatible metrics;
-- Vector logging config;
-- ADR;
-- backup scripts;
-- unit, integration и e2e test structure.
-
----
-
-## Структура проекта
+Component layout:
 
 ```txt
-Metrix/
-├── apps/
-│   ├── web/                         # Next.js web app
-│   └── bot/                         # Telegram bot microservices runtime
-│       ├── services/
-│       │   ├── bot-gateway/
-│       │   ├── booking-service/
-│       │   ├── calendar-service/
-│       │   ├── payment-service/
-│       │   ├── analytics-service/
-│       │   ├── admin-service/
-│       │   ├── notification-service/
-│       │   └── worker-service/
-│       ├── packages/
-│       │   ├── auth/
-│       │   ├── contracts/
-│       │   ├── health/
-│       │   ├── observability/
-│       │   ├── redis-bus/
-│       │   ├── audit-log/
-│       │   └── rbac/
-│       ├── prisma/
-│       └── docker-compose.yml
-├── packages/
-│   ├── api/                         # shared backend modules/contracts
-│   ├── shared/
-│   └── ui/
-├── prisma/                          # root Prisma schema and migrations
-├── docs/                            # architecture, API, testing, operations
-├── monitoring/                      # alert rules and logging collector config
-├── scripts/                         # backup and validation scripts
-└── tests/                           # unit, integration, e2e tests
+apps/web/components
+  booking      Booking-specific UI.
+  landing      Landing composition and section modules.
+  layout       Cross-page shells, headers, footer.
+  media        Image/media helpers.
+  metrics      Visual metric helpers.
+  pages        Reusable page templates.
+  providers    Client providers and initializers.
+  ui           Low-level primitives grouped by purpose.
 ```
 
----
+`components/ui` is split by responsibility:
 
-## Быстрый старт
+- `actions`
+- `data-display`
+- `feedback`
+- `forms`
+- `hooks`
+- `layout`
+- `navigation`
+- `overlays`
 
-### Web
+Large primitives keep a stable import file and move internals into an adjacent
+folder. Example: `components/ui/layout/sidebar.tsx` re-exports smaller modules
+from `components/ui/layout/sidebar/*`.
+
+## Telegram Bot And Services
+
+`apps/bot` is a microservice runtime, not a single bot script.
+
+Runtime services:
+
+- `bot-gateway` receives Telegram updates and handles public bot flow;
+- `booking-service` owns locations, resources, slots, bookings, locks, and idempotency;
+- `payment-service` owns invoices, payment holds, and compensation/retry saga logic;
+- `calendar-service` owns provider connections and encrypted calendar tokens;
+- `analytics-service` owns stats, summaries, and reports;
+- `admin-service` exposes privileged operator endpoints, audit views, DLQ replay, and saga recovery;
+- `notification-service` sends Telegram notifications;
+- `worker-service` processes background work.
+
+Shared packages:
+
+- `audit-log` persistent audit log helpers;
+- `auth` service-to-service HMAC auth, signed user identity, request body helpers;
+- `contracts` public TypeScript contracts and validation;
+- `health` health/readiness response helpers;
+- `observability` metrics, observed handlers, graceful shutdown, trace context helpers;
+- `redis-bus` Redis Streams event bus and DLQ utilities;
+- `rbac` role and permission checks.
+
+Bot docs:
+
+- [Bot block](./docs/telegram-bot/bot-block.md)
+- [Commands block](./docs/telegram-bot/commands-block.md)
+- [Services block](./docs/telegram-bot/services-block.md)
+- [Operations and security](./docs/telegram-bot/operations.md)
+
+## Quick Start
+
+Install from the repository root:
 
 ```bash
 npm install
+```
+
+Run the web app:
+
+```bash
 npm run dev:web
 ```
 
-### Telegram bot runtime
+Run the bot runtime:
 
 ```bash
 cd apps/bot
@@ -251,25 +176,17 @@ npm install
 npm run dev
 ```
 
-`npm run dev` внутри `apps/bot` запускает Docker Compose с PostgreSQL, Redis, PgBouncer и bot services.
+`apps/bot` uses Docker Compose for PostgreSQL, Redis, PgBouncer, and services.
+See [deployment docs](./docs/deployment/README.md) for environment variables
+and operational startup details.
 
-Минимальная проверка после запуска:
+## Common Commands
 
-```bash
-curl http://localhost:3000/health
-curl http://localhost:3000/ready
-curl http://localhost:3000/metrics
-```
-
-Подробный порядок запуска и env-файлы описаны в [Deployment runbook](./docs/deployment/README.md).
-
----
-
-## Проверки
-
-Root:
+Root commands:
 
 ```bash
+npm run dev:web
+npm run dev:bot
 npm run prisma:validate
 npm run typecheck
 npm test
@@ -277,82 +194,100 @@ npm run openapi:validate
 npm run verify
 ```
 
-Bot workspace:
+Web-only:
 
 ```bash
-npm --prefix apps/bot install
-npm --prefix apps/bot run build
-```
-
-Web:
-
-```bash
-npm --prefix apps/web install
+npm --prefix apps/web run dev
 npm --prefix apps/web run typecheck
+npm --prefix apps/web run build
 ```
 
-CI выполняет Prisma validate, API typecheck, tests, OpenAPI validation, bot workspace build, web typecheck и dependency audit. См. [.github/workflows/ci.yml](./.github/workflows/ci.yml).
+Bot-only:
 
----
+```bash
+npm --prefix apps/bot run typecheck
+npm --prefix apps/bot run build
+npm --prefix apps/bot run db:generate
+```
 
-## Документация
+## Quality Gates
 
-Главные документы:
+Local hooks are configured around:
 
-- [Documentation overview](./docs/README.md);
-- [Engineering system report](./docs/REPORT.md);
-- [Architecture overview](./docs/architecture/README.md);
-- [Security architecture](./docs/architecture/SECURITY.md);
-- [API contracts](./docs/architecture/API_CONTRACTS.md);
-- [OpenAPI](./docs/openapi/README.md);
-- [Queues and events](./docs/architecture/QUEUES_AND_EVENTS.md);
-- [Observability](./docs/architecture/OBSERVABILITY.md);
-- [Production readiness](./docs/architecture/PRODUCTION_READINESS.md);
-- [Backup strategy](./docs/architecture/BACKUP_STRATEGY.md);
-- [Testing evidence](./docs/testing/README.md);
-- [Architecture decisions](./docs/decisions/README.md);
-- [Deployment runbook](./docs/deployment/README.md).
+```bash
+npm run hook:pre-commit
+npm run hook:pre-push
+```
 
-Telegram bot:
+Pre-commit:
 
-- [Bot block](./docs/telegram-bot/bot-block.md);
-- [Commands block](./docs/telegram-bot/commands-block.md);
-- [Services block](./docs/telegram-bot/services-block.md);
-- [Calendar integrations](./docs/telegram-bot/calendar-integrations.md);
-- [Reports block](./docs/telegram-bot/reports-block.md);
-- [Operations and security](./docs/telegram-bot/operations.md);
-- [Telegram bot diagrams](./docs/telegram-bot-diagrams/README.md).
+- API typecheck;
+- web typecheck.
 
----
+Pre-push:
 
-## Текущий статус
+- `npm audit --audit-level=high`;
+- test suite;
+- OpenAPI validation.
 
-Сделано:
+Some integration and e2e tests are placeholders unless the required services
+are running with the expected environment flags.
 
-- web preview и адаптивные страницы;
-- Telegram bot flow для бронирований, оплаты, просмотра броней, админки и аналитики;
-- микросервисы для booking, calendar, payment, analytics, admin, notification и workers;
-- Redis-backed rate limit, replay protection, locks, idempotency и queues;
-- HMAC service-to-service auth и signed user identity;
-- Google Calendar OAuth/token encryption lifecycle;
-- payment holds, saga recovery и admin retry endpoints;
-- audit log, RBAC package, DLQ replay docs и operator endpoints;
-- OpenAPI spec, typed contracts, CI и test structure;
-- docs по architecture, security, deployment, testing, backup и production readiness.
+## API And Contracts
 
-Осталось усилить:
+The public bot/service API is documented in:
 
-- реальные load test results и p95/p99 evidence;
-- observability screenshots из Prometheus/Grafana/logs;
-- Docker healthchecks для всех application services;
-- единый error catalog;
-- отдельные SLO/SLA и incident simulation reports;
-- Git hooks для локального quality gate.
+- [OpenAPI overview](./docs/openapi/README.md)
+- [OpenAPI YAML](./docs/openapi/metrix-bot-api.yaml)
+- [API contracts](./docs/architecture/API_CONTRACTS.md)
 
-Подробная оценка: [Engineering System Report](./docs/REPORT.md).
+Typed contracts live in `apps/bot/packages/contracts` and should be updated
+with service API changes.
 
----
+## Operations
 
-## Команда
+Operational capabilities included in the repository:
 
-Проект разработан с фокусом на системный дизайн, reliability, maintainability, operational thinking и понятный пользовательский опыт.
+- `/health`, `/ready`, and `/metrics` helpers;
+- structured JSON logging;
+- traceparent propagation helpers;
+- Redis replay protection and request idempotency;
+- DLQ streams and admin replay endpoints;
+- audit log persistence;
+- RBAC package;
+- backup scripts and backup strategy docs;
+- deployment and production readiness docs.
+
+Key docs:
+
+- [Deployment runbook](./docs/deployment/README.md)
+- [Backup strategy](./docs/architecture/BACKUP_STRATEGY.md)
+- [Testing evidence](./docs/testing/README.md)
+- [Architecture decisions](./docs/decisions/README.md)
+
+## Repository Rules
+
+- Keep service boundaries explicit: shared logic belongs in `apps/bot/packages/*`.
+- Keep route files thin; reusable page and UI composition belongs in `apps/web/components`.
+- Keep UI primitives grouped by category under `components/ui`.
+- Prefer small focused files. For large primitives, keep the public entry file
+  stable and move implementation details into a same-name folder.
+- Update contracts, OpenAPI, and docs when changing service behavior.
+
+## Status
+
+Implemented:
+
+- Next.js web app and booking UI;
+- Telegram booking, payment, admin, analytics, and notification flows;
+- microservices for booking, calendar, payment, analytics, admin, notification, and workers;
+- shared bot packages for auth, contracts, health, observability, Redis bus, audit log, and RBAC;
+- Redis locks, idempotency, rate limiting, replay protection, retries, and DLQ;
+- OpenAPI, docs, tests, and local quality hooks.
+
+Still worth strengthening:
+
+- load-test evidence with p95/p99 data;
+- production observability screenshots and dashboards;
+- full Docker healthchecks for every application service;
+- a single error catalog and incident simulation reports.
