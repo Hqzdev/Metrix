@@ -484,6 +484,7 @@ body ::selection {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  max-width: 100%;
   min-height: 42px;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -491,6 +492,7 @@ body ::selection {
   font-size: 15px;
   font-weight: 500;
   transition: transform .25s ease, background .2s, color .2s, border-color .2s;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -604,7 +606,7 @@ body ::selection {
   position: fixed;
   top: 18px;
   left: 50%;
-  width: min(1180px, calc(100% - 32px));
+  width: min(980px, calc(100% - 32px));
   overflow: hidden;
   border: 1px solid var(--metrix-line);
   border-radius: 999px;
@@ -626,10 +628,10 @@ body ::selection {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   max-width: none;
   margin: 0 auto;
-  padding: 10px 12px 10px 18px;
+  padding: 9px 10px 9px 16px;
 }
 
 .metrix-logo {
@@ -676,7 +678,7 @@ body ::selection {
 
 .metrix-nav-links a {
   border-radius: 999px;
-  padding: 8px 11px;
+  padding: 8px 9px;
   transition: background .2s, color .2s;
   white-space: nowrap;
 }
@@ -694,7 +696,7 @@ body ::selection {
 }
 
 .metrix-nav-actions .metrix-btn {
-  padding: 9px 13px;
+  padding: 9px 12px;
   font-size: 14px;
 }
 
@@ -3263,7 +3265,7 @@ body ::selection {
 
 @media (max-width: 760px) {
   .metrix-wrap {
-    width: min(100% - 32px, 1320px);
+    width: min(100% - 28px, 1320px);
   }
 
   .metrix-section {
@@ -3285,16 +3287,40 @@ body ::selection {
   }
 
   .metrix-hero {
-    padding: 206px 0 80px;
+    padding: 172px 0 72px;
   }
 
   .metrix-hero-title {
-    font-size: clamp(48px, 17vw, 76px);
+    max-width: 9ch;
+    margin-bottom: 22px;
+    font-size: clamp(42px, 14.8vw, 62px);
+    line-height: .94;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .metrix-nowrap {
+    white-space: normal;
+  }
+
+  .metrix-hero-title mark {
+    margin-top: .04em;
+    max-width: 100%;
+    vertical-align: top;
   }
 
   .metrix-hero-title mark .metrix-pict {
-    width: 32px !important;
-    height: 32px !important;
+    width: .7em !important;
+    height: .7em !important;
+    flex: 0 0 auto;
+  }
+
+  .metrix-hero .metrix-lead {
+    max-width: 34ch;
+    margin-bottom: 28px;
+    font-size: 16.5px;
+    line-height: 1.5;
+    text-wrap: pretty;
   }
 
   .metrix-hero-kicker {
@@ -3312,12 +3338,78 @@ body ::selection {
     grid-template-columns: 1fr;
   }
 
+  .metrix-hero-buttons {
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .metrix-hero-buttons .metrix-btn {
+    width: 100%;
+    min-height: 50px;
+    padding: 13px 16px;
+    font-size: 15px;
+  }
+
+  .metrix-mini-stats {
+    gap: 12px;
+  }
+
+  .metrix-mini-stats div {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .metrix-mini-stats strong {
+    font-size: 26px;
+  }
+
   .metrix-hero-preview {
-    min-height: 450px;
+    min-height: 0;
+    padding: 22px 0 4px;
   }
 
   .metrix-chat-card {
+    width: min(100%, 360px);
     transform: none;
+  }
+
+  .metrix-chat-head {
+    padding: 12px 14px;
+  }
+
+  .metrix-chat-body {
+    min-height: 304px;
+    gap: 8px;
+    padding: 14px 12px;
+  }
+
+  .metrix-chat-msg {
+    max-width: 88%;
+    padding: 9px 11px;
+    font-size: 13.5px;
+  }
+
+  .metrix-chat-msg small {
+    font-size: 11.5px;
+  }
+
+  .metrix-chat-list span {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 9px;
+  }
+
+  .metrix-chat-list strong {
+    font-size: 11.5px;
+  }
+
+  .metrix-demo-badge {
+    left: 8px;
+    top: 2px;
+    transform: rotate(-3deg);
   }
 
   .metrix-section-head {

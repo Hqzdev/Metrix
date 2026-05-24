@@ -30,7 +30,6 @@ export function MetrixHeader() {
     <header className={`metrix-nav ${scrolled ? "is-scrolled" : ""}`}>
       <div className="metrix-nav-inner">
         <Link href="/" className="metrix-logo" aria-label="Metrix home">
-          <Image src="/icons/app-icon-light.png" alt="" width={30} height={30} className="metrix-logo-icon" priority />
           Metrix<b>.</b>
         </Link>
 
