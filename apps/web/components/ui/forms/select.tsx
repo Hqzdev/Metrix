@@ -3,9 +3,14 @@
 import * as React from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ChevronDown, ChevronUp, Tick01Icon } from '@hugeicons/core-free-icons'
+import { ChevronDown, Tick01Icon } from '@hugeicons/core-free-icons'
 
 import { cn } from '@/lib/utils'
+import {
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+} from './select/scroll-buttons'
+import { SelectSeparator } from './select/separator'
 
 function Select({
   ...props
@@ -120,55 +125,6 @@ function SelectItem({
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
-  )
-}
-
-function SelectSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
-  return (
-    <SelectPrimitive.Separator
-      data-slot="select-separator"
-      className={cn('bg-border pointer-events-none -mx-1 my-1 h-px', className)}
-      {...props}
-    />
-  )
-}
-
-function SelectScrollUpButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
-  return (
-    <SelectPrimitive.ScrollUpButton
-      data-slot="select-scroll-up-button"
-      className={cn(
-        'flex cursor-default items-center justify-center py-1',
-        className,
-      )}
-      {...props}
-    >
-      <HugeiconsIcon icon={ChevronUp} className="size-4" />
-    </SelectPrimitive.ScrollUpButton>
-  )
-}
-
-function SelectScrollDownButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
-  return (
-    <SelectPrimitive.ScrollDownButton
-      data-slot="select-scroll-down-button"
-      className={cn(
-        'flex cursor-default items-center justify-center py-1',
-        className,
-      )}
-      {...props}
-    >
-      <HugeiconsIcon icon={ChevronDown} className="size-4" />
-    </SelectPrimitive.ScrollDownButton>
   )
 }
 

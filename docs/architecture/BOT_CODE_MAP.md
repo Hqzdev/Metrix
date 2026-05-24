@@ -16,6 +16,7 @@ analytics-service — статистика.
 admin-service — operator/admin endpoints.
 notification-service — отправка Telegram сообщений.
 worker-service — фоновые задачи.
+security-service — JWT, сессии, blacklist, brute-force защита. Порт 3008.
 
 Общие пакеты
 
@@ -35,3 +36,4 @@ rbac — роли и права.
 Если проблема с уведомлением — notification-service.
 Если проблема с DLQ — admin-service и redis-bus.
 Если проблема с метриками — observability и service index.ts.
+Если проблема с логином, токенами или сессиями — security-service.

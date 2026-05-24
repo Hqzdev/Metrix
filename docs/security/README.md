@@ -10,6 +10,7 @@
 ## Что используется
 
 **Аутентификация и сессии**
+- Выделенный security-service — единственное место, которое выпускает и проверяет токены
 - HMAC-подписанные JWT с версионированием ключа (kid) — можно менять секрет без разлогина всех пользователей
 - Одноразовые refresh токены — каждый refresh уничтожает старый токен и выдаёт новый
 - Blacklist отозванных access токенов в Redis — мгновенный logout без ожидания TTL
@@ -44,18 +45,24 @@
 - хранить refresh token открытым текстом
 - replay-ить payment event без проверки
 - использовать один JWT секрет без возможности ротации
+- выпускать JWT не через security-service
 
 ## Файлы с реализацией
 
-| Что                     | Где                                               |
-|-------------------------|---------------------------------------------------|
-| JWT + kid versioning    | `packages/api/src/shared/auth/jwt.ts`            |
-| Refresh rotation        | `packages/api/src/shared/auth/session-service.ts`|
-| Token blacklist         | `packages/api/src/shared/auth/token-blacklist.ts`|
-| Login rate limiter      | `packages/api/src/shared/auth/login-rate-limiter.ts` |
-| Auth guard              | `packages/api/src/shared/auth/auth-guard.ts`     |
-| CSP proxy               | `apps/web/proxy.ts`                               |
+| Что                         | Где                                                             |
+|-----------------------------|-----------------------------------------------------------------|
+| Весь auth bot runtime       | `apps/bot/services/security-service/src/`                       |
+| JWT + kid versioning        | `apps/bot/services/security-service/src/jwt.ts`                 |
+| Сессии (refresh rotation)   | `apps/bot/services/security-service/src/session-store.ts`       |
+| Token blacklist             | `apps/bot/services/security-service/src/token-blacklist.ts`     |
+| Login rate limiter          | `apps/bot/services/security-service/src/login-rate-limiter.ts`  |
+| HTTP endpoints              | `apps/bot/services/security-service/src/security-router.ts`     |
+| CSP nonce (веб)             | `apps/web/proxy.ts`                                             |
+| HMAC service-to-service     | `apps/bot/packages/auth/src/index.ts`                           |
 
-## Главный документ
+## Документация по темам
 
-Подробности лежат в: `docs/architecture/SECURITY.md`
+- Все endpoints security-service: `docs/architecture/SECURITY_SERVICE.md`
+- Полная архитектура безопасности: `docs/architecture/SECURITY.md`
+- Как работают сессии и токены: `docs/architecture/SESSION_AND_TOKEN_SECURITY.md`
+- Ротация секретов: `docs/architecture/SECRET_ROTATION.md`

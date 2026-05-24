@@ -36,6 +36,13 @@ import { Button } from "@/components/ui/actions/button";
 
 Keep `ui` primitives in `components/ui/<category>`. Higher-level page and product components should live outside `ui`.
 
+Large primitives can keep a stable public file while moving internals into an
+adjacent folder with the same base name. For example,
+`ui/layout/sidebar.tsx` re-exports the smaller files in `ui/layout/sidebar/*`,
+and `landing/sections/hero-section.tsx` composes `landing/sections/hero/*`.
+Keep component files below roughly 150 lines so a single file stays focused on
+one responsibility.
+
 ## Boundary Rule
 
 Use `pages` for reusable page templates, not actual route files. Actual routes stay in `apps/web/app`.

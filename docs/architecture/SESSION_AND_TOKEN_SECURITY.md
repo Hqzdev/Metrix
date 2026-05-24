@@ -2,155 +2,115 @@
 
 Этот документ объясняет как работают сессии и токены в Metrix — для разработчиков.
 
+Вся логика живёт в `security-service`. Другие сервисы вызывают его по HTTP.
+Полный список endpoints: `docs/architecture/SECURITY_SERVICE.md`.
+
 ## Как это работает вместе
 
 ```
-Вход пользователя
+Вход пользователя (в bot-gateway)
       │
       ▼
- verifyPassword()   ← PBKDF2 120k итераций
+POST /login/check × 2   ← security-service проверяет IP и userId (brute-force)
       │
       ▼
-checkLoginAllowed() ← проверяем, не заблокирован ли IP/userId (brute-force защита)
+ verifyPassword()        ← PBKDF2 120k итераций (в bot-gateway)
       │
       ▼
- createSession()    ← создаём сессию: access token (JWT) + refresh token (случайные байты)
+POST /login/reset × 2   ← security-service сбрасывает счётчики
       │
-      ├── access token  → живёт 15 минут, проверяется без БД
-      └── refresh token → живёт 30 дней, хранится в базе
+      ▼
+POST /sessions          ← security-service создаёт сессию
+      │
+      ├── accessToken   → JWT, живёт 15 минут
+      └── refreshToken  → случайные 32 байта, живёт 30 дней
 ```
 
 ```
-Запрос с access token
+Запрос с access token (в bot-gateway)
       │
       ▼
-authenticateRequest() ← проверяем подпись JWT + kid
+POST /tokens/verify     ← security-service проверяет подпись JWT + blacklist
       │
       ▼
-isAccessTokenRevoked() ← проверяем blacklist в Redis (если redis передан)
+  { id, role }          ← identity пользователя
       │
       ▼
   обрабатываем запрос
 ```
 
 ```
-Обновление токена (refresh)
+Обновление токена (в bot-gateway)
       │
       ▼
-rotateSession()  ← находим сессию, удаляем старый токен, создаём новый (атомарно)
+POST /sessions/rotate   ← security-service удаляет старый токен, создаёт новый
       │
-      ├── ok        → новый access token + новый refresh token
-      ├── not_found → токен не существует или уже использован
-      └── expired   → сессия истекла, нужен повторный вход
+      ├── 200 → новый accessToken + новый refreshToken
+      ├── 401 "refresh token not found" → токен уже использован (возможна кража)
+      └── 401 "session expired" → прошло 30 дней, нужен повторный вход
 ```
 
 ```
-Logout
+Logout (в bot-gateway)
       │
       ▼
-revokeAccessToken()  ← кладём SHA-256 хеш токена в Redis blacklist на 16 минут
-      │
-      ▼
-deleteSession()      ← удаляем refresh token из базы
+DELETE /sessions        ← security-service удаляет сессию и кладёт токен в blacklist
 ```
 
 ---
 
-## JWT с kid — как использовать
+## Почему одноразовые refresh токены
 
-### Создание секретов
+При обычном подходе refresh token можно использовать много раз.
+Если он утёк — атакующий незаметно обновляет сессию снова и снова.
 
-```ts
-import type { JwtSecrets } from '@metrix/api'
+В Metrix каждый refresh token используется ровно один раз:
+1. При ротации старый токен удаляется из базы атомарно.
+2. Если тот же токен придёт снова — его уже нет в базе → `401`.
+3. Легитимный пользователь заметит, что его токен не работает.
 
-const jwtSecrets: JwtSecrets = {
-  current: {
-    id: 'v2',           // уникальный идентификатор ключа
-    secret: process.env.JWT_SECRET_V2,
-  },
-  // previous нужен только во время ротации
-  previous: [
-    {
-      id: 'v1',
-      secret: process.env.JWT_SECRET_V1,
-    },
-  ],
-}
-```
-
-### Создание сессии
-
-```ts
-import { createSession } from '@metrix/api'
-
-const tokens = await createSession({
-  jwtSecrets,
-  prisma,
-  role: 'employee',
-  userId: user.id,
-})
-// tokens.accessToken  — JWT с kid в header
-// tokens.refreshToken — случайные 32 байта
-```
-
-### Проверка токена
-
-```ts
-import { authenticateRequest } from '@metrix/api'
-
-const result = await authenticateRequest({
-  authorization: req.headers.authorization,
-  jwtSecrets,
-  redis, // опционально — для проверки blacklist
-})
-
-if (result.status === 'error') {
-  // отклоняем запрос
-}
-// result.user.id, result.user.role
-```
+Это детектирование кражи токена — side effect одноразовости.
 
 ---
 
 ## Ротация JWT секрета
 
 Менять секрет нужно периодически или при подозрении на компрометацию.
-Благодаря kid это можно сделать без мгновенного разлогина пользователей.
+Благодаря `kid` это можно сделать без мгновенного разлогина пользователей.
 
 **Шаг 1.** Генерируем новый секрет:
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-**Шаг 2.** Обновляем конфиг — старый секрет в `previous`, новый в `current`:
-```ts
-const jwtSecrets: JwtSecrets = {
-  current: { id: 'v3', secret: NEW_SECRET },
-  previous: [{ id: 'v2', secret: OLD_SECRET }],
-}
+**Шаг 2.** Обновляем env у security-service — старый секрет в `JWT_PREVIOUS_KEYS`:
+```
+JWT_KEY_ID=v2
+JWT_SECRET=<новый секрет>
+JWT_PREVIOUS_KEYS=v1:<старый секрет>
 ```
 
-**Шаг 3.** Деплоим сервис. Новые токены подписываются v3, старые (v2) продолжают работать.
+**Шаг 3.** Деплоим security-service. Новые токены подписываются v2, старые (v1) продолжают работать.
 
-**Шаг 4.** Через 15 минут (TTL access token) убираем v2 из `previous`.
+**Шаг 4.** Через 15 минут (TTL access token) убираем `JWT_PREVIOUS_KEYS`.
 
 ---
 
-## Brute-force защита — как подключить
+## Brute-force защита — как вызвать из сервиса
 
-Вызывать до проверки пароля, передавая IP и userId как отдельные идентификаторы:
+Вызывать security-service дважды: для IP и для userId. Оба должны быть разрешены.
 
 ```ts
-import { checkLoginAllowed, recordFailedLogin, resetLoginAttempts } from '@metrix/api'
+// перед проверкой пароля — проверяем оба идентификатора
+const [ipCheck, userCheck] = await Promise.all([
+  securityClient.post('/login/check', { identifier: clientIp }),
+  securityClient.post('/login/check', { identifier: userId }),
+])
 
-// проверяем оба идентификатора
-const ipCheck = await checkLoginAllowed(clientIp, redis)
-const userCheck = await checkLoginAllowed(userId, redis)
-
-if (ipCheck.status === 'locked' || userCheck.status === 'locked') {
+if (!ipCheck.allowed || !userCheck.allowed) {
   const retryAfter = Math.max(
-    ipCheck.status === 'locked' ? ipCheck.retryAfterSeconds : 0,
-    userCheck.status === 'locked' ? userCheck.retryAfterSeconds : 0,
+    ipCheck.retryAfterSeconds ?? 0,
+    userCheck.retryAfterSeconds ?? 0,
   )
   // вернуть 429 Too Many Requests с Retry-After: retryAfter
 }
@@ -160,14 +120,19 @@ const passwordOk = await verifyPassword(password, user.passwordHash)
 
 if (!passwordOk) {
   // записываем неудачу для обоих идентификаторов
-  await recordFailedLogin(clientIp, redis)
-  await recordFailedLogin(userId, redis)
+  await Promise.all([
+    securityClient.post('/login/failure', { identifier: clientIp }),
+    securityClient.post('/login/failure', { identifier: userId }),
+  ])
   // вернуть 401
 }
 
-// успешный вход — сбрасываем счётчики
-await resetLoginAttempts(clientIp, redis)
-await resetLoginAttempts(userId, redis)
+// успешный вход — сбрасываем счётчики, потом создаём сессию
+await Promise.all([
+  securityClient.post('/login/reset', { identifier: clientIp }),
+  securityClient.post('/login/reset', { identifier: userId }),
+])
+const session = await securityClient.post('/sessions', { userId, userRole: 'employee' })
 ```
 
 ---

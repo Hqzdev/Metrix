@@ -259,6 +259,43 @@ services:
       redis:
         condition: service_healthy
 
+  security-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: security-service
+    environment:
+      DATABASE_URL: postgresql://metrix:${POSTGRES_PASSWORD}@pgbouncer:5432/metrix?pgbouncer=true
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      PORT: '3008'
+      SECURITY_SIGNING_SECRET: ${SECURITY_SIGNING_SECRET}
+      JWT_KEY_ID: ${JWT_KEY_ID}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_PREVIOUS_KEYS: ${JWT_PREVIOUS_KEYS:-}
+      # сервисы, которым разрешено обращаться к security-service
+      TRUSTED_GATEWAY_SECRET: ${GATEWAY_SIGNING_SECRET}
+      TRUSTED_GATEWAY_SECRET_NEXT: ${GATEWAY_SIGNING_SECRET_NEXT:-}
+      TRUSTED_ADMIN_SECRET: ${ADMIN_SIGNING_SECRET}
+      TRUSTED_ADMIN_SECRET_NEXT: ${ADMIN_SIGNING_SECRET_NEXT:-}
+    expose:
+      - '3008'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3008/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
   admin-service:
     build:
       context: .
@@ -296,6 +333,8 @@ services:
         condition: service_healthy
       payment-service:
         condition: service_started
+      security-service:
+        condition: service_started
 
   bot-gateway:
     build:
@@ -314,6 +353,7 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:3003
       ANALYTICS_SERVICE_URL: http://analytics-service:3005
       ADMIN_SERVICE_URL: http://admin-service:3006
+      SECURITY_SERVICE_URL: http://security-service:3008
       GATEWAY_SIGNING_SECRET: ${GATEWAY_SIGNING_SECRET}
       USER_ID_SIGNING_SECRET: ${USER_ID_SIGNING_SECRET}
       TELEGRAM_MODE: ${TELEGRAM_MODE:-polling}
@@ -338,6 +378,8 @@ services:
       analytics-service:
         condition: service_started
       admin-service:
+        condition: service_started
+      security-service:
         condition: service_started
 
   dashboard:

@@ -21,6 +21,22 @@
 
 ---
 
+## Security-service — единая точка авторизации
+
+Вся аутентификация и управление сессиями сосредоточена в одном сервисе — `security-service`.
+
+Только он:
+- выпускает access и refresh токены
+- проверяет JWT и blacklist
+- ведёт счётчики brute-force
+- хранит сессии в базе данных
+
+Остальные сервисы не работают с JWT напрямую — они вызывают security-service через HTTP.
+
+Порт: `3008`. Документация endpoints: `docs/architecture/SECURITY_SERVICE.md`.
+
+---
+
 ## HMAC для внутренних сервисов
 
 Когда один сервис вызывает другой, он подписывает запрос своим секретом.
@@ -213,19 +229,24 @@ PostgreSQL, Redis и внутренние сервисы не публикуют
 
 **Новый внутренний endpoint:**
 1. Добавь HMAC-проверку через `verifyServiceRequest`.
-2. Добавь replay protection через `checkReplay`.
+2. Добавь replay protection — security-service делает это через Redis NX.
 3. Проверь user identity, если endpoint действует от имени пользователя.
 4. Запиши audit log для опасных действий.
 
 **Ротация JWT секрета:**
-1. Добавь новый ключ как `current`, старый переместить в `previous`.
-2. Подожди 15 минут (TTL access token).
-3. Убери старый ключ из `previous`.
+1. Сгенерируй новый секрет.
+2. Установи `JWT_KEY_ID=v2`, `JWT_SECRET=<новый>`, `JWT_PREVIOUS_KEYS=v1:<старый>` в security-service.
+3. Задеплой. Новые токены подписываются v2, старые (v1) продолжают работать 15 минут.
+4. Через 15 минут убери `JWT_PREVIOUS_KEYS`.
 
-**Компрометация refresh token:**
-1. Удали все сессии пользователя из базы (`Session` table).
+**Компрометация refresh token одного пользователя:**
+1. Вызови `DELETE /sessions/all` с его userId в security-service.
 2. Попроси пользователя войти заново.
 
 **Компрометация access token:**
-1. Вызови `revokeAccessToken(token, redis)` — токен немедленно попадёт в blacklist.
-2. Удали сессию пользователя из базы.
+1. Вызови `POST /tokens/revoke` в security-service — токен немедленно попадёт в blacklist.
+2. Вызови `DELETE /sessions/all` для пользователя.
+
+**Компрометация JWT секрета:**
+1. Убери старый ключ из `JWT_PREVIOUS_KEYS` — все старые токены немедленно станут невалидными.
+2. Задеплой — все пользователи будут разлогинены и попросят войти заново.

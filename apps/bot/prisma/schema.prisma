@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["booking", "calendar", "payment", "analytics", "audit"]
+  schemas  = ["booking", "calendar", "payment", "analytics", "audit", "security"]
 }
 
 // ─── booking schema ───────────────────────────────────────────────────────────
@@ -208,4 +208,26 @@ model AuditLog {
   @@index([service, action, ts])
   @@index([entityType, entityId])
   @@schema("audit")
+}
+
+// ─── security schema ──────────────────────────────────────────────────────────
+
+// SecuritySession хранит активные пользовательские сессии.
+//
+// Каждая запись = один refresh token.
+// После использования токен удаляется и создаётся новый (atomic rotation).
+// expiresAt не продлевается при ротации — сессия живёт ровно 30 дней.
+model SecuritySession {
+  id           String   @id @default(cuid())
+  userId       String
+  userRole     String
+  // одноразовый токен, хранится в открытом виде — доступ к БД = доступ к сессиям
+  // доп. защита: только security-service имеет права на security schema
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  // быстрый поиск всех сессий пользователя (logout all, смена пароля)
+  @@index([userId])
+  @@schema("security")
 }
