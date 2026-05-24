@@ -1,6 +1,7 @@
 import type { UpdateLocationInput, UpdateResourceInput } from '@metrix/contracts'
 import { ValidationError } from './errors.js'
 
+// Удобное имя для обычного JSON-объекта без массивов.
 type JsonObject = Record<string, unknown>
 
 /**
@@ -10,17 +11,22 @@ type JsonObject = Record<string, unknown>
  * mass assignment через id, resource ids или другие внутренние свойства.
  */
 export function parseUpdateLocationInput(input: unknown): UpdateLocationInput {
+  // Сначала убеждаемся, что тело запроса является объектом.
   const body = requireObject(input)
+  // safeBody собирает только те поля, которые разрешено менять администратору.
   const safeBody: UpdateLocationInput = {}
 
+  // occupancy — человекочитаемая вместимость/загрузка локации.
   if (body.occupancy !== undefined) {
     safeBody.occupancy = requireString(body.occupancy, 'occupancy')
   }
 
+  // members — описание участников или доступности для локации.
   if (body.members !== undefined) {
     safeBody.members = requireString(body.members, 'members')
   }
 
+  // Нельзя отправлять пустой PATCH без полезных полей.
   return requireAtLeastOneField(safeBody)
 }
 
@@ -28,25 +34,32 @@ export function parseUpdateLocationInput(input: unknown): UpdateLocationInput {
  * Валидирует и фильтрует поля, разрешённые для обновления ресурса.
  */
 export function parseUpdateResourceInput(input: unknown): UpdateResourceInput {
+  // Сначала требуем объект, иначе дальше нельзя безопасно читать поля.
   const body = requireObject(input)
+  // В итоговый payload попадут только явно разрешённые поля.
   const safeBody: UpdateResourceInput = {}
 
+  // priceLabel — строка для отображения цены пользователю.
   if (body.priceLabel !== undefined) {
     safeBody.priceLabel = requireString(body.priceLabel, 'priceLabel')
   }
 
+  // priceMinorUnits — цена в минимальных единицах валюты, например в копейках.
   if (body.priceMinorUnits !== undefined) {
     safeBody.priceMinorUnits = requirePositiveNumber(body.priceMinorUnits, 'priceMinorUnits')
   }
 
+  // occupancy описывает вместимость или занятость ресурса.
   if (body.occupancy !== undefined) {
     safeBody.occupancy = requireString(body.occupancy, 'occupancy')
   }
 
+  // status хранит состояние ресурса, например активен он или нет.
   if (body.status !== undefined) {
     safeBody.status = requireString(body.status, 'status')
   }
 
+  // Если ни одно разрешённое поле не пришло, обновлять нечего.
   return requireAtLeastOneField(safeBody)
 }
 
@@ -54,10 +67,12 @@ export function parseUpdateResourceInput(input: unknown): UpdateResourceInput {
  * Извлекает непустой id из route path prefix.
  */
 export function readIdFromPath(path: string, prefix: string, suffix = ''): string {
+  // Проверяем, что путь соответствует ожидаемому шаблону endpoint-а.
   if (!path.startsWith(prefix) || (suffix && !path.endsWith(suffix))) {
     throw new ValidationError('invalid path')
   }
 
+  // Вырезаем id между prefix и optional suffix.
   const id = path.slice(prefix.length, suffix ? path.length - suffix.length : undefined)
   if (id.trim() === '') {
     throw new ValidationError('id is required')
@@ -70,6 +85,7 @@ export function readIdFromPath(path: string, prefix: string, suffix = ''): strin
  * Гарантирует, что входное значение является JSON-объектом.
  */
 function requireObject(input: unknown): JsonObject {
+  // null и массивы в JavaScript тоже считаются object, поэтому проверяем их отдельно.
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new ValidationError('request body must be an object')
   }
@@ -81,6 +97,7 @@ function requireObject(input: unknown): JsonObject {
  * Гарантирует, что поле передано непустой строкой.
  */
 function requireString(value: unknown, fieldName: string): string {
+  // Пустые строки не принимаем, потому что они обычно ломают отображение в интерфейсе.
   if (typeof value !== 'string' || value.trim() === '') {
     throw new ValidationError(`${fieldName} must be a non-empty string`)
   }
@@ -92,6 +109,7 @@ function requireString(value: unknown, fieldName: string): string {
  * Гарантирует, что поле передано положительным числом.
  */
 function requirePositiveNumber(value: unknown, fieldName: string): number {
+  // Number.isFinite отсекает NaN и Infinity.
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     throw new ValidationError(`${fieldName} must be a positive number`)
   }
@@ -99,7 +117,11 @@ function requirePositiveNumber(value: unknown, fieldName: string): number {
   return value
 }
 
+/**
+ * Проверяет, что после фильтрации осталось хотя бы одно поле для обновления.
+ */
 function requireAtLeastOneField<T extends Record<string, unknown>>(value: T): T {
+  // Object.keys показывает, сколько разрешённых полей реально попало в payload.
   if (Object.keys(value).length === 0) {
     throw new ValidationError('no valid fields to update')
   }

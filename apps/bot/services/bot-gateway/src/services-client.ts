@@ -12,16 +12,23 @@ import { buildAuthHeaders, signUserId } from '@metrix/auth'
 import type { BotLanguage } from './messages.js'
 
 type Urls = {
+  // Booking-service отвечает за локации, ресурсы, слоты и бронирования.
   booking: string
+  // Calendar-service отвечает за OAuth и подключения календарей.
   calendar: string
+  // Payment-service создаёт invoice и обрабатывает Telegram payments.
   payment: string
+  // Analytics-service отдаёт статистику и отчёты.
   analytics: string
+  // Admin-service проксирует административные чтения.
   admin: string
 }
 
+// Ошибка HTTP-вызова во внутренний сервис.
 export class ServiceHttpError extends Error {
   constructor(
     message: string,
+    // HTTP status downstream-сервиса.
     public readonly statusCode: number,
   ) {
     super(message)
@@ -33,11 +40,13 @@ export class ServiceHttpError extends Error {
  * Инкапсулирует HTTP-вызовы из gateway во внутренние сервисы.
  */
 export class ServicesClient {
+  // Секрет для подписи service-to-service запросов.
   private readonly signingSecret: string
+  // Секрет для подписи Telegram user id.
   private readonly userIdSecret: string
 
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Сохраняет URL сервисов и секреты подписи.
    */
   constructor(
     private readonly urls: Urls,
@@ -48,28 +57,28 @@ export class ServicesClient {
   }
 
   /**
-   * Возвращает список сущностей для текущего запроса.
+   * Возвращает список локаций для booking flow.
    */
   async listLocations(): Promise<BookingLocation[]> {
     return this.get(`${this.urls.booking}/locations`)
   }
 
   /**
-   * Возвращает список сущностей для текущего запроса.
+   * Возвращает ресурсы выбранной локации.
    */
   async listResources(locationId: string): Promise<BookingResource[]> {
     return this.get(`${this.urls.booking}/resources?locationId=${locationId}`)
   }
 
   /**
-   * Получает данные из downstream-сервиса или хранилища.
+   * Получает один ресурс по id.
    */
   async getResource(resourceId: string): Promise<BookingResource> {
     return this.get(`${this.urls.booking}/resources/${resourceId}`)
   }
 
   /**
-   * Возвращает список сущностей для текущего запроса.
+   * Возвращает доступные слоты ресурса.
    */
   async listAvailableSlots(resourceId: string): Promise<AvailableSlot[]> {
     return this.get(`${this.urls.booking}/slots?resourceId=${resourceId}`)
@@ -83,15 +92,18 @@ export class ServicesClient {
   }
 
   async getUserLanguage(telegramUserId: number): Promise<BotLanguage | null> {
+    // Preferences endpoint требует подписанный user id.
     const response = await this.get<{ language: BotLanguage | null }>(`${this.urls.booking}/users/me/preferences`, telegramUserId)
     return response.language
   }
 
   async setUserLanguage(telegramUserId: number, language: BotLanguage): Promise<void> {
+    // Сохраняем выбранный язык пользователя в booking-service.
     await this.patch(`${this.urls.booking}/users/me/preferences`, { language }, telegramUserId)
   }
 
   async createBooking(input: { resourceId: string; slotId: string }, userId: number): Promise<Booking> {
+    // Legacy method: сейчас основной путь оплаты идёт через createInvoice.
     return this.post(`${this.urls.booking}/bookings`, input, userId)
   }
 
@@ -110,14 +122,28 @@ export class ServicesClient {
   }
 
   /**
-   * Обновляет существующую доменную сущность.
+   * Помечает старое бронирование как перенесённое (rescheduled).
+   * Вызывается после successful_payment при наличии rescheduleFromId в сессии.
+   */
+  async rescheduleBooking(bookingId: string, telegramUserId: number): Promise<Booking | null> {
+    try {
+      // Старое бронирование помечаем rescheduled после успешной оплаты нового.
+      return await this.patch(`${this.urls.booking}/bookings/${bookingId}`, { status: 'rescheduled' }, telegramUserId)
+    } catch {
+      // Ошибка не должна ломать уже успешную оплату новой брони.
+      return null
+    }
+  }
+
+  /**
+   * Обновляет локацию через booking-service.
    */
   async updateLocation(locationId: string, update: UpdateLocationInput): Promise<BookingLocation> {
     return this.patch(`${this.urls.booking}/locations/${locationId}`, update)
   }
 
   /**
-   * Обновляет существующую доменную сущность.
+   * Обновляет ресурс через booking-service.
    */
   async updateResource(resourceId: string, update: UpdateResourceInput): Promise<BookingResource> {
     return this.patch(`${this.urls.booking}/resources/${resourceId}`, update)
@@ -125,14 +151,16 @@ export class ServicesClient {
 
   async getCalendarAuthUrl(input: { provider: string; telegramUserId: number; scope: string }): Promise<{ url: string } | null> {
     try {
+      // Возвращает URL Google OAuth consent.
       return await this.post(`${this.urls.calendar}/auth-url`, input, input.telegramUserId)
     } catch {
+      // Если calendar-service недоступен или Google не настроен, UI просто не покажет кнопку.
       return null
     }
   }
 
   /**
-   * Получает данные из downstream-сервиса или хранилища.
+   * Возвращает подключения календаря пользователя.
    */
   async getUserCalendarConnections(telegramUserId: number): Promise<CalendarConnection[]> {
     return this.get(`${this.urls.calendar}/connections?telegramUserId=${telegramUserId}&scope=user`, telegramUserId)
@@ -146,6 +174,7 @@ export class ServicesClient {
   }
 
   async createInvoice(input: { chatId: number; messageId: number; telegramUserId: number; resourceId: string; slotId: string }): Promise<void> {
+    // Payment-service сам отправит invoice через notification-service.
     await this.post(`${this.urls.payment}/invoices`, input, input.telegramUserId)
   }
 
@@ -167,6 +196,7 @@ export class ServicesClient {
    * Получает данные из downstream-сервиса или хранилища.
    */
   async getStats(): Promise<{ total: number; active: number; cancelled: number; revenue: number }> {
+    // Stats нужны админской команде /stats.
     return this.get(`${this.urls.analytics}/stats`)
   }
 
@@ -202,6 +232,7 @@ export class ServicesClient {
    * Готовит заголовки подписи и user id для межсервисного запроса.
    */
   private userHeaders(userId?: number): Record<string, string> {
+    // Если user id неизвестен или secret пустой, user headers не добавляем.
     if (!userId || !this.userIdSecret) return {}
     return {
       'x-user-id': String(userId),
@@ -210,14 +241,17 @@ export class ServicesClient {
   }
 
   private async get<T>(url: string, userId?: number): Promise<T> {
+    // Для подписи важны path и query, но не origin.
     const parsed = new URL(url)
     const authHeaders = buildAuthHeaders('GET', parsed.pathname + parsed.search, '', 'bot-gateway', this.signingSecret)
     const res = await fetch(url, { headers: { ...authHeaders, ...this.userHeaders(userId) }, signal: AbortSignal.timeout(5_000) })
+    // Неуспешные ответы превращаем в ServiceHttpError для верхнего уровня.
     if (!res.ok) throw new ServiceHttpError(`GET ${url} failed: ${res.status}`, res.status)
     return res.json() as Promise<T>
   }
 
   private async post<T>(url: string, body: unknown, userId?: number): Promise<T> {
+    // Body должен совпадать с тем, что подписываем.
     const parsed = new URL(url)
     const bodyStr = JSON.stringify(body)
     const authHeaders = buildAuthHeaders('POST', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
@@ -227,6 +261,7 @@ export class ServicesClient {
   }
 
   private async patch<T>(url: string, body: unknown, userId?: number): Promise<T> {
+    // PATCH используется для отмены/переноса и обновления сущностей.
     const parsed = new URL(url)
     const bodyStr = JSON.stringify(body)
     const authHeaders = buildAuthHeaders('PATCH', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
@@ -236,6 +271,7 @@ export class ServicesClient {
   }
 
   private async del<T>(url: string, body: unknown, userId?: number): Promise<T> {
+    // DELETE тоже подписывается вместе с JSON body.
     const parsed = new URL(url)
     const bodyStr = JSON.stringify(body)
     const authHeaders = buildAuthHeaders('DELETE', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)

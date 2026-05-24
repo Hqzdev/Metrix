@@ -1,42 +1,44 @@
-import React from "react"
-import type { Metadata } from 'next'
-import { Analytics } from '@vercel/analytics/next'
-import './globals.css'
+import React from "react";
+import type { Metadata } from "next";
+import { Geist, Space_Grotesk } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import "./globals.css";
+
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+});
 
 export const metadata: Metadata = {
-  title: 'Metrix',
-  description: 'Premium coworking desk rental, private offices, and meeting room booking for teams that want flexible space without friction.',
-  generator: 'v0.app',
+  title: "Metrix — Book a workspace from Telegram",
+  description:
+    "Book hot desks, meeting rooms, private offices, and event spaces directly from Telegram.",
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: "/logo-light.png", media: "(prefers-color-scheme: light)", sizes: "any" },
+      { url: "/logo-dark.png", media: "(prefers-color-scheme: dark)", sizes: "any" },
     ],
-    apple: '/apple-icon.png',
+    apple: "/logo-dark.png",
   },
-}
+};
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">
+      <head>
+        <meta name="color-scheme" content="light" />
+      </head>
+      <body className={`${geist.variable} ${spaceGrotesk.variable}`}>
         {children}
         <Analytics />
       </body>
     </html>
-  )
+  );
 }

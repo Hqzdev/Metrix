@@ -4,10 +4,10 @@ import type { PrismaClient } from '@prisma/client'
 import { QUEUE_NAMES, createCalendarRefreshQueue, type CalendarRefreshJobData } from '../queues.js'
 import type { WorkerLogger } from '../logger.js'
 
-// обновляем токен за 5 минут до истечения
+// Обновляем токен за 5 минут до истечения.
 const REFRESH_BUFFER_MS = 5 * 60 * 1_000
 
-// переставляем следующий refresh-job за час до нового истечения
+// Переставляем следующий refresh-job за час до нового истечения.
 const RESCHEDULE_BUFFER_MS = 60 * 60 * 1_000
 
 /**
@@ -27,11 +27,13 @@ export function startCalendarRefreshWorker(
   calendarSigningSecret: string,
   logger: WorkerLogger,
 ): Worker<CalendarRefreshJobData> {
+  // Queue нужна, чтобы worker мог поставить следующий refresh job.
   const queue = createCalendarRefreshQueue(connection)
 
   const worker = new Worker<CalendarRefreshJobData>(
     QUEUE_NAMES.CALENDAR_REFRESH,
     async (job) => {
+      // connectionId указывает на CalendarConnection в базе.
       const { connectionId, telegramUserId, provider } = job.data
 
       logger.info({
@@ -42,6 +44,7 @@ export function startCalendarRefreshWorker(
         telegramUserId,
       })
 
+      // Проверяем, что подключение ещё существует.
       const conn = await prisma.calendarConnection.findUnique({ where: { id: connectionId } })
       if (!conn) {
         logger.warn({
@@ -52,13 +55,13 @@ export function startCalendarRefreshWorker(
         return
       }
 
-      // token уже свежий — пересчитываем следующий refresh и выходим
+      // Token уже свежий — пересчитываем следующий refresh и выходим.
       if (conn.expiresAt && conn.expiresAt.getTime() - Date.now() > REFRESH_BUFFER_MS) {
         await scheduleNextRefresh(queue, job.data, conn.expiresAt)
         return
       }
 
-      // вызываем calendar-service для обновления токена
+      // Вызываем calendar-service для обновления токена.
       const body = JSON.stringify({ connectionId, provider })
       const response = await fetch(`${calendarServiceUrl}/tokens/refresh`, {
         method: 'POST',
@@ -71,10 +74,12 @@ export function startCalendarRefreshWorker(
         signal: AbortSignal.timeout(10_000),
       })
 
+      // Если calendar-service не смог обновить token, job упадёт и будет retry.
       if (!response.ok) {
         throw new Error(`calendar-service token refresh failed: ${response.status}`)
       }
 
+      // Если вернулся expiresAt, ставим следующий refresh.
       const result = (await response.json()) as { expiresAt?: string }
       if (result.expiresAt) {
         await scheduleNextRefresh(queue, job.data, new Date(result.expiresAt))
@@ -89,6 +94,7 @@ export function startCalendarRefreshWorker(
     { connection, concurrency: 5 },
   )
 
+  // Логируем падения refresh jobs.
   worker.on('failed', (job, err) => {
     logger.error({
       message: 'Calendar refresh job failed',
@@ -107,7 +113,9 @@ async function scheduleNextRefresh(
   data: CalendarRefreshJobData,
   expiresAt: Date,
 ): Promise<void> {
+  // Планируем refresh за RESCHEDULE_BUFFER_MS до истечения token.
   const fireAt = expiresAt.getTime() - RESCHEDULE_BUFFER_MS
+  // delay не должен быть отрицательным.
   const delay = Math.max(0, fireAt - Date.now())
   await queue.add('refresh', data, { delay, removeOnComplete: true, removeOnFail: 100 })
 }

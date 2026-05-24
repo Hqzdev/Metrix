@@ -1,346 +1,113 @@
-"use client";
+import React from "react";
 
-import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const slots = ["9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
 
-function ScrollRevealText({ text }: { text: string }) {
-  const containerRef = useRef<HTMLParagraphElement>(null);
-  const [progress, setProgress] = useState(0);
+type SlotState = "available" | "booked" | "mine";
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!containerRef.current) return;
-      
-      const rect = containerRef.current.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-      
-      // Slower animation - more viewport range
-      const startOffset = windowHeight * 0.9;
-      const endOffset = windowHeight * 0.1;
-      
-      const totalDistance = startOffset - endOffset;
-      const currentPosition = startOffset - rect.top;
-      
-      const newProgress = Math.max(0, Math.min(1, currentPosition / totalDistance));
-      setProgress(newProgress);
-    };
+const slotGrid: Record<string, SlotState> = {
+  "Mon-9:00": "booked",  "Mon-10:00": "available", "Mon-11:00": "available", "Mon-12:00": "booked",
+  "Mon-13:00": "available", "Mon-14:00": "mine", "Mon-15:00": "mine", "Mon-16:00": "available",
+  "Tue-9:00": "available", "Tue-10:00": "booked", "Tue-11:00": "mine", "Tue-12:00": "mine",
+  "Tue-13:00": "available", "Tue-14:00": "booked", "Tue-15:00": "available", "Tue-16:00": "available",
+  "Wed-9:00": "booked", "Wed-10:00": "booked", "Wed-11:00": "available", "Wed-12:00": "available",
+  "Wed-13:00": "booked", "Wed-14:00": "available", "Wed-15:00": "available", "Wed-16:00": "booked",
+  "Thu-9:00": "available", "Thu-10:00": "available", "Thu-11:00": "booked", "Thu-12:00": "available",
+  "Thu-13:00": "available", "Thu-14:00": "booked", "Thu-15:00": "booked", "Thu-16:00": "available",
+  "Fri-9:00": "mine", "Fri-10:00": "mine", "Fri-11:00": "mine", "Fri-12:00": "available",
+  "Fri-13:00": "available", "Fri-14:00": "available", "Fri-15:00": "booked", "Fri-16:00": "available",
+};
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll(); // Initial check
-    
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+const slotColors: Record<SlotState, string> = {
+  available: "bg-green-100 border-green-200 dark:bg-green-900/30 dark:border-green-800/40",
+  booked: "bg-zinc-100 border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600",
+  mine: "bg-indigo-500 border-indigo-600",
+};
 
-  const words = text.split(" ");
-  
-  return (
-    <p
-      ref={containerRef}
-      className="text-3xl font-semibold leading-snug text-white md:text-4xl lg:text-5xl"
-    >
-      {words.map((word, index) => {
-        // Calculate blur and opacity based on scroll progress
-        const appearProgress = progress * (words.length + 1);
-        const wordAppearProgress = Math.max(0, Math.min(1, appearProgress - index));
-        const wordOpacity = wordAppearProgress;
-        const wordBlur = (1 - wordAppearProgress) * 40;
-        
-        return (
-          <span
-            key={index}
-            className="inline-block"
-            style={{
-              opacity: wordOpacity,
-              filter: `blur(${wordBlur}px)`,
-              transition: 'opacity 0.1s linear, filter 0.1s linear',
-              marginRight: '0.3em',
-            }}
-          >
-            {word}
-          </span>
-        );
-      })}
-    </p>
-  );
-}
-
-const sideImages = [
-  {
-    src: "/images/interior-view.png",
-    alt: "Coworking lounge with natural light",
-    position: "left",
-  },
-  {
-    src: "/images/rusted-metal.png",
-    alt: "Material detail inside a premium workspace",
-    position: "right",
-  },
-];
-
-const textCycles = [
-  "Live Desk Availability.",
-  "Private Rooms On Demand.",
-  "Teams That Move Fast.",
+const features = [
+  "Live availability updated every 60 seconds",
+  "Instant payment confirmation via Telegram Payments",
+  "Automatic reminders 15 min before your booking",
+  "Works on any device — no app install required",
 ];
 
 export function TechnologySection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const textSectionRef = useRef<HTMLDivElement>(null);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [textProgress, setTextProgress] = useState(0);
-  
-  const descriptionText = "Metrix is designed for modern coworking operations: live availability, flexible bookings, premium interiors, fast check-in, and a booking flow that makes desk rental feel effortless for freelancers, startups, and distributed teams.";
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!sectionRef.current) return;
-      
-      const rect = sectionRef.current.getBoundingClientRect();
-      const scrollableHeight = window.innerHeight * 6; // Increased for 3 text cycles
-      const scrolled = -rect.top;
-      const progress = Math.max(0, Math.min(1, scrolled / scrollableHeight));
-      
-      setScrollProgress(progress);
-
-      // Text scroll progress
-      if (textSectionRef.current) {
-        const textRect = textSectionRef.current.getBoundingClientRect();
-        const windowHeight = window.innerHeight;
-        
-        const startOffset = windowHeight * 0.9;
-        const endOffset = windowHeight * 0.1;
-        
-        const totalDistance = startOffset - endOffset;
-        const currentPosition = startOffset - textRect.top;
-        
-        const newTextProgress = Math.max(0, Math.min(1, currentPosition / totalDistance));
-        setTextProgress(newTextProgress);
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
-  // Title fades out first (0 to 0.2)
-  const titleOpacity = Math.max(0, 1 - (scrollProgress / 0.2));
-  
-  // Image transforms start after title fades (0.2 to 1)
-  const imageProgress = Math.max(0, Math.min(1, (scrollProgress - 0.2) / 0.8));
-  
-  // Smooth interpolations
-  const centerWidth = 100 - (imageProgress * 58); // 100% to 42%
-  const centerHeight = 100 - (imageProgress * 30); // 100% to 70%
-  const sideWidth = imageProgress * 22; // 0% to 22%
-  const sideOpacity = imageProgress;
-  const sideTranslateLeft = -100 + (imageProgress * 100); // -100% to 0%
-  const sideTranslateRight = 100 - (imageProgress * 100); // 100% to 0%
-  const gap = imageProgress * 16; // 0px to 16px
-
-  // Calculate grayscale for text section based on textProgress
-  const grayscaleAmount = Math.round((1 - textProgress) * 100);
-
   return (
-    <section ref={sectionRef} className="relative bg-foreground">
-      {/* Sticky container for scroll animation */}
-      <div className="sticky top-0 h-screen overflow-hidden">
-        <div className="flex h-full w-full items-center justify-center">
-          {/* Bento Grid Container */}
-          <div 
-            className="relative flex h-full w-full items-stretch justify-center"
-            style={{ gap: `${gap}px`, padding: `${imageProgress * 16}px` }}
-          >
-            
-            {/* Left Column */}
-            <div 
-              className="relative overflow-hidden will-change-transform"
-              style={{
-                width: `${sideWidth}%`,
-                height: "100%",
-                transform: `translateX(${sideTranslateLeft}%)`,
-                opacity: sideOpacity,
-              }}
-            >
-              {sideImages.filter(img => img.position === "left").map((img, idx) => (
-                <Image
-                  key={idx}
-                  src={img.src || "/placeholder.svg"}
-                  alt={img.alt}
-                  fill
-                  className="object-cover"
-                />
-              ))}
-            </div>
+    <section id="availability" className="bg-[#FAFAFA] dark:bg-zinc-950 py-24 md:py-32">
+      <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-20">
+        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
 
-            {/* Main Center Image */}
-            <div 
-              className="relative overflow-hidden will-change-transform"
-              style={{
-                width: `${centerWidth}%`,
-                height: "100%",
-                flex: "0 0 auto",
-              }}
-            >
-              {/* Layered Images - Progressive Fade In */}
-              {/* Image 1 - Base layer - Sunrise/Sunset with sun rays */}
-              <Image
-                src="/images/mono-1.png"
-                alt="Coworking lobby at opening hours"
-                fill
-                className="object-cover"
-                style={{
-                  opacity: scrollProgress < 0.25 ? 1 : 1,
-                }}
-              />
-              
-              {/* Image 2 - Daytime scene - Fades in during first text cycle */}
-              <Image
-                src="/images/mono-2.png"
-                alt="Focused desk area during the workday"
-                fill
-                className="absolute inset-0 object-cover"
-                style={{
-                  opacity: Math.max(0, Math.min(1, (scrollProgress - 0.1) / 0.2)),
-                  transition: 'opacity 0.3s ease',
-                }}
-              />
-              
-              {/* Image 3 - Dusk/Evening - Fades in during second text cycle */}
-              <Image
-                src="/images/mono-3.png"
-                alt="Private office ready for team sessions"
-                fill
-                className="absolute inset-0 object-cover"
-                style={{
-                  opacity: Math.max(0, Math.min(1, (scrollProgress - 0.4) / 0.2)),
-                  transition: 'opacity 0.3s ease',
-                }}
-              />
-              
-              {/* Image 4 - Night with stars - Fades in during third text cycle */}
-              <Image
-                src="/images/mono-4.png"
-                alt="Meeting room available in the evening"
-                fill
-                className="absolute inset-0 object-cover"
-                style={{
-                  opacity: Math.max(0, Math.min(1, (scrollProgress - 0.7) / 0.2)),
-                  transition: 'opacity 0.3s ease',
-                }}
-              />
-              
-              <div className="absolute inset-0 bg-foreground/40" />
-              
-              {/* Title Text - Cycles through 3 texts with blur effect */}
-              <div 
-                className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
-              >
-                {textCycles.map((text, cycleIndex) => {
-                  // Each text cycle takes 1/3 of the scroll progress
-                  const cycleStart = cycleIndex / textCycles.length;
-                  const cycleEnd = (cycleIndex + 1) / textCycles.length;
-                  const cycleMid = (cycleStart + cycleEnd) / 2;
-                  
-                  const words = text.split(" ");
-                  
-                  return (
-                    <h2 
-                      key={cycleIndex}
-                      className="absolute max-w-3xl font-medium leading-tight tracking-tight text-white md:text-5xl lg:text-7xl text-5xl"
-                    >
-                      {words.map((word, wordIndex) => {
-                        let wordOpacity = 0;
-                        let wordBlur = 40;
-                        
-                        if (scrollProgress >= cycleStart && scrollProgress < cycleEnd) {
-                          const localProgress = (scrollProgress - cycleStart) / (cycleEnd - cycleStart);
-                          
-                          // First half: appear (blur 40→0, opacity 0→1)
-                          if (localProgress < 0.5) {
-                            const appearProgress = (localProgress / 0.5) * (words.length + 1);
-                            const wordAppearProgress = Math.max(0, Math.min(1, appearProgress - wordIndex));
-                            wordOpacity = wordAppearProgress;
-                            wordBlur = (1 - wordAppearProgress) * 40;
-                          } 
-                          // Second half: disappear (blur 0→40, opacity 1→0)
-                          else {
-                            const disappearProgress = ((localProgress - 0.5) / 0.5) * (words.length + 1);
-                            const wordDisappearProgress = Math.max(0, Math.min(1, disappearProgress - wordIndex));
-                            wordOpacity = 1 - wordDisappearProgress;
-                            wordBlur = wordDisappearProgress * 40;
-                          }
-                        }
-                        
+          <div data-reveal="left">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-indigo-500">
+              Real-time booking
+            </p>
+            <h2 className="text-4xl font-bold leading-[1.1] tracking-[-0.03em] text-zinc-900 dark:text-white md:text-5xl">
+              Always know what's open before you leave home.
+            </h2>
+            <p className="mt-6 text-lg leading-relaxed text-zinc-500 dark:text-zinc-400">
+              Metrix syncs desk and room availability in real time. No stale calendars, no double-bookings. What you see in the bot is what's actually free.
+            </p>
+            <ul className="mt-8 flex flex-col gap-3">
+              {features.map((f) => (
+                <li key={f} className="flex items-start gap-3 text-sm text-zinc-700 dark:text-zinc-300">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                    ✓
+                  </span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div data-reveal="right" className="flex justify-center">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-100 bg-white p-5 mockup-shadow dark:border-zinc-700/50 dark:bg-zinc-800">
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">Desk Availability — This Week</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-green-500 pulse-dot" />
+                  <span className="text-xs font-medium text-green-600">Live</span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div
+                  className="grid gap-1 text-center"
+                  style={{ gridTemplateColumns: `40px repeat(${days.length}, 1fr)` }}
+                >
+                  <div />
+                  {days.map((d) => (
+                    <div key={d} className="pb-1 text-xs font-medium text-zinc-400 dark:text-zinc-500">{d}</div>
+                  ))}
+                  {slots.map((slot) => (
+                    <React.Fragment key={slot}>
+                      <div className="flex items-center text-[10px] text-zinc-400 dark:text-zinc-500">{slot}</div>
+                      {days.map((day) => {
+                        const state: SlotState = slotGrid[`${day}-${slot}`] ?? "available";
                         return (
-                          <span
-                            key={wordIndex}
-                            className="inline-block"
-                            style={{
-                              opacity: wordOpacity,
-                              filter: `blur(${wordBlur}px)`,
-                              transition: 'opacity 0.1s linear, filter 0.1s linear',
-                              marginRight: '0.3em',
-                            }}
-                          >
-                            {word}
-                          </span>
+                          <div
+                            key={`${day}-${slot}`}
+                            className={`h-6 rounded border ${slotColors[state]}`}
+                          />
                         );
                       })}
-                    </h2>
-                  );
-                })}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-4 text-[10px] text-zinc-500 dark:text-zinc-400">
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded bg-green-100 border border-green-200 dark:bg-green-900/30 dark:border-green-800/40" /> Available
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded bg-zinc-100 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600" /> Booked
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded bg-indigo-500 border border-indigo-600" /> Your booking
+                </span>
               </div>
             </div>
-
-            {/* Right Column */}
-            <div 
-              className="relative overflow-hidden will-change-transform"
-              style={{
-                width: `${sideWidth}%`,
-                height: "100%",
-                transform: `translateX(${sideTranslateRight}%)`,
-                opacity: sideOpacity,
-              }}
-            >
-              {sideImages.filter(img => img.position === "right").map((img, idx) => (
-                <Image
-                  key={idx}
-                  src={img.src || "/placeholder.svg"}
-                  alt={img.alt}
-                  fill
-                  className="object-cover"
-                />
-              ))}
-            </div>
-
           </div>
-        </div>
-      </div>
-
-      {/* Scroll space to enable animation - increased for 3 text cycles */}
-      <div className="h-[600vh]" />
-
-      {/* Description Section with Background Image and Scroll Reveal */}
-      <div
-        ref={textSectionRef}
-        className="relative overflow-hidden px-6 py-40 md:px-12 md:py-52 lg:px-20 lg:py-64 bg-black"
-      >
-        {/* Gradient Overlay - Top to transparent */}
-        <div 
-          className="absolute top-0 left-0 right-0 z-0 pointer-events-none"
-          style={{
-            height: '150px',
-            background: 'linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 100%)'
-          }}
-        />
-
-        {/* Text Content */}
-        <div className="relative z-10 mx-auto max-w-4xl">
-          <ScrollRevealText text={descriptionText} />
         </div>
       </div>
     </section>

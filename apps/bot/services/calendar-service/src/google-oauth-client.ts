@@ -1,26 +1,42 @@
+// Endpoint обмена authorization code или refresh token на access token.
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
+// Endpoint отзыва токена при отключении календаря.
 const REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke'
+// Endpoint, куда отправляем пользователя для Google consent.
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
+// Права, которые нужны сервису: создавать события и читать занятость.
 const CALENDAR_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy'
+// Максимальное ожидание ответа Google.
 const REQUEST_TIMEOUT_MS = 10_000
 
-// SSRF guard: только эти хосты доступны для OAuth-запросов
+// SSRF guard: только эти хосты доступны для OAuth-запросов.
 const ALLOWED_EXTERNAL_HOSTS = new Set(['oauth2.googleapis.com', 'accounts.google.com'])
 
+// Ответ Google при первичном обмене code на tokens.
 export type GoogleTokenResponse = {
+  // Короткоживущий token для API-запросов.
   access_token: string
+  // Через сколько секунд access token истечёт.
   expires_in?: number
+  // Долгоживущий token для обновления access token.
   refresh_token?: string
 }
 
+// Ответ Google при refresh access token.
 export type GoogleRefreshResponse = {
+  // Новый access token.
   access_token: string
+  // Сколько секунд он будет жить.
   expires_in?: number
 }
 
+// Настройки Google OAuth приложения.
 export type GoogleOAuthClientConfig = {
+  // OAuth client id.
   clientId: string
+  // OAuth client secret.
   clientSecret: string
+  // Redirect URI, зарегистрированный в Google Cloud.
   redirectUri: string
 }
 
@@ -36,14 +52,15 @@ export type GoogleOAuthClientConfig = {
  */
 export class GoogleOAuthClient {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Сохраняет настройки Google OAuth приложения.
    */
   constructor(private readonly config: GoogleOAuthClientConfig) {}
 
   /**
-   * Выполняет шаг buildAuthUrl внутри сервисного сценария.
+   * Строит ссылку, по которой пользователь разрешает доступ к календарю.
    */
   buildAuthUrl(state: string): string {
+    // access_type=offline просит Google вернуть refresh_token.
     const params = new URLSearchParams({
       access_type: 'offline',
       client_id: this.config.clientId,
@@ -67,9 +84,11 @@ export class GoogleOAuthClient {
    * что consent не был получен и сохранять нечего.
    */
   async exchangeCode(code: string): Promise<GoogleTokenResponse & { refresh_token: string }> {
+    // Endpoint фиксированный, но всё равно проверяем host.
     const target = new URL(TOKEN_ENDPOINT)
     this.assertAllowedHost(target.hostname)
 
+    // Google ждёт application/x-www-form-urlencoded, не JSON.
     const response = await fetch(target.toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -83,10 +102,12 @@ export class GoogleOAuthClient {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
+    // Любой неуспешный ответ означает, что токены использовать нельзя.
     if (!response.ok) {
       throw new Error(`Google token exchange failed with status ${response.status}`)
     }
 
+    // Парсим JSON-ответ Google.
     const token = (await response.json()) as GoogleTokenResponse
 
     // refresh_token выдаётся только при первом consent или при prompt=consent.
@@ -105,9 +126,11 @@ export class GoogleOAuthClient {
    * Refresh token при этом не меняется (Google не ротирует его при обычном refresh).
    */
   async refreshAccessToken(refreshToken: string): Promise<GoogleRefreshResponse> {
+    // Refresh тоже идёт в token endpoint.
     const target = new URL(TOKEN_ENDPOINT)
     this.assertAllowedHost(target.hostname)
 
+    // Отправляем refresh_token и client credentials.
     const response = await fetch(target.toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -120,6 +143,7 @@ export class GoogleOAuthClient {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
+    // Если Google не обновил token, caller должен увидеть ошибку.
     if (!response.ok) {
       throw new Error(`Google token refresh failed with status ${response.status}`)
     }
@@ -138,9 +162,11 @@ export class GoogleOAuthClient {
    * иметь возможность отключить аккаунт даже если Google API недоступен.
    */
   async revokeToken(token: string): Promise<void> {
+    // Revoke endpoint фиксированный и проходит SSRF guard.
     const target = new URL(REVOKE_ENDPOINT)
     this.assertAllowedHost(target.hostname)
 
+    // Google принимает token в query-параметре.
     const response = await fetch(`${target.toString()}?token=${encodeURIComponent(token)}`, {
       method: 'POST',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -154,7 +180,7 @@ export class GoogleOAuthClient {
   }
 
   /**
-   * Выполняет шаг assertAllowedHost внутри сервисного сценария.
+   * Проверяет, что HTTP-запрос уйдёт только на разрешённый Google host.
    */
   private assertAllowedHost(hostname: string): void {
     if (!ALLOWED_EXTERNAL_HOSTS.has(hostname)) {

@@ -1,5 +1,7 @@
+// Роль пользователя или сервиса.
 export type Role = 'admin' | 'employee' | 'service'
 
+// Разрешения, которыми оперирует RBAC.
 export type Permission =
   | 'admin:read'
   | 'admin:write'
@@ -12,16 +14,19 @@ export type Permission =
   | 'report:create'
   | 'report:read'
 
+// Actor — тот, кто пытается выполнить действие.
 export type Actor = {
   id: string
   roles: Role[]
   type: 'telegram-user' | 'service' | 'web-user'
 }
 
+// Решение policy: разрешено или запрещено с причиной.
 export type PolicyDecision =
   | { allowed: true }
   | { allowed: false; reason: string }
 
+// Таблица соответствия ролей и разрешений.
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [
     'admin:read',
@@ -65,6 +70,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 export function createTelegramActor(userId: number, adminTelegramIds: number[]): Actor {
   return {
     id: String(userId),
+    // Админ также получает роль employee, чтобы иметь обычные пользовательские права.
     roles: adminTelegramIds.includes(userId) ? ['admin', 'employee'] : ['employee'],
     type: 'telegram-user',
   }
@@ -74,6 +80,7 @@ export function createTelegramActor(userId: number, adminTelegramIds: number[]):
  * Создаёт actor для доверенного internal service.
  */
 export function createServiceActor(serviceName: string): Actor {
+  // Internal services получают роль service.
   return {
     id: serviceName,
     roles: ['service'],
@@ -85,6 +92,7 @@ export function createServiceActor(serviceName: string): Actor {
  * Проверяет наличие permission у actor.
  */
 export function can(actor: Actor, permission: Permission): boolean {
+  // Достаточно, чтобы хотя бы одна роль actor-а содержала permission.
   return actor.roles.some((role) => ROLE_PERMISSIONS[role].includes(permission))
 }
 
@@ -106,5 +114,6 @@ export function evaluatePolicy(actor: Actor, permission: Permission): PolicyDeci
  * Возвращает уникальный список permissions actor.
  */
 export function listPermissions(actor: Actor): Permission[] {
+  // Set убирает дубли permissions между ролями.
   return [...new Set(actor.roles.flatMap((role) => ROLE_PERMISSIONS[role]))]
 }

@@ -1,6 +1,6 @@
 import type { Redis } from 'ioredis'
 
-// время жизни блокировки: достаточно для завершения DB-транзакции с запасом
+// Время жизни блокировки: достаточно для завершения DB-транзакции с запасом.
 const LOCK_TTL_MS = 10_000
 
 // Lua-скрипт атомарного release: удаляем ключ только если token совпадает.
@@ -28,6 +28,7 @@ const RELEASE_SCRIPT = `
  *   TTL 10 с гарантирует автоснятие при краше процесса.
  */
 export class SlotLocker {
+  // Redis client приходит снаружи, обычно из RedisBus.
   constructor(private readonly redis: Redis) {}
 
   /**
@@ -36,8 +37,11 @@ export class SlotLocker {
    * @returns уникальный token для последующего release, или null если слот уже заблокирован
    */
   async acquire(resourceId: string, slotId: string): Promise<string | null> {
+    // Ключ один на пару resourceId + slotId.
     const key = lockKey(resourceId, slotId)
+    // Token нужен, чтобы снять только свою блокировку.
     const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    // NX ставит ключ только если его ещё нет, PX задаёт TTL в миллисекундах.
     const result = await this.redis.set(key, token, 'PX', LOCK_TTL_MS, 'NX')
     return result === 'OK' ? token : null
   }
@@ -47,11 +51,13 @@ export class SlotLocker {
    * Игнорирует ошибку если блокировка уже истекла.
    */
   async release(resourceId: string, slotId: string, token: string): Promise<void> {
+    // Lua-скрипт проверяет token и удаляет ключ атомарно.
     const key = lockKey(resourceId, slotId)
     await this.redis.eval(RELEASE_SCRIPT, 1, key, token)
   }
 }
 
 function lockKey(resourceId: string, slotId: string): string {
+  // Человекочитаемый Redis key для lock-а слота.
   return `lock:slot:${resourceId}:${slotId}`
 }

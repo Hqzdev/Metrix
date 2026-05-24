@@ -1,8 +1,11 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 
+// Сколько ждём graceful shutdown перед принудительным exit.
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 10_000
+// Buckets для HTTP latency histogram в миллисекундах.
 const LATENCY_BUCKETS_MS = [5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000]
 
+// Одна запись лога для observability helper-ов.
 export type ObservabilityLogEntry<TService extends string> = {
   error?: unknown
   message: string
@@ -10,37 +13,44 @@ export type ObservabilityLogEntry<TService extends string> = {
   [key: string]: unknown
 }
 
+// Минимальный интерфейс логгера, который должны передать сервисы.
 export type ObservabilityLogger<TService extends string> = {
   error: (entry: ObservabilityLogEntry<TService>) => void
   info: (entry: ObservabilityLogEntry<TService>) => void
   warn?: (entry: ObservabilityLogEntry<TService>) => void
 }
 
+// Ключ HTTP-метрики.
 type HttpMetricKey = {
   method: string
   route: string
   status: number
 }
 
+// Накопленные значения HTTP-метрики.
 type HttpMetricValue = {
   count: number
   durationSumMs: number
   buckets: Map<number, number>
 }
 
+// Gauge metric value.
 type GaugeValue = {
   labels: Record<string, string>
   name: string
   value: number
 }
 
+// Counter metric value.
 type CounterValue = {
   labels: Record<string, string>
   name: string
   value: number
 }
 
+// Простая in-memory registry для Prometheus metrics.
 export class MetricsRegistry {
+  // Время старта процесса.
   private readonly startedAt = Date.now()
   private readonly counters = new Map<string, CounterValue>()
   private readonly httpMetrics = new Map<string, HttpMetricValue>()
@@ -49,6 +59,7 @@ export class MetricsRegistry {
   constructor(private readonly service: string) {}
 
   observeHttpRequest(input: HttpMetricKey & { durationMs: number }): void {
+    // Группируем HTTP-метрики по method/route/status.
     const key = this.createHttpKey(input)
     const metric = this.httpMetrics.get(key) ?? {
       buckets: new Map(LATENCY_BUCKETS_MS.map((bucket) => [bucket, 0])),
@@ -56,9 +67,11 @@ export class MetricsRegistry {
       durationSumMs: 0,
     }
 
+    // Обновляем счётчик и сумму duration.
     metric.count += 1
     metric.durationSumMs += input.durationMs
 
+    // Histogram buckets накопительные: если duration <= bucket, увеличиваем bucket.
     for (const bucket of LATENCY_BUCKETS_MS) {
       if (input.durationMs <= bucket) {
         metric.buckets.set(bucket, (metric.buckets.get(bucket) ?? 0) + 1)
@@ -69,10 +82,12 @@ export class MetricsRegistry {
   }
 
   setGauge(name: string, value: number, labels: Record<string, string> = {}): void {
+    // Gauge хранит последнее значение.
     this.gauges.set(createMetricKey(name, labels), { labels, name, value })
   }
 
   incrementCounter(name: string, labels: Record<string, string> = {}, value = 1): void {
+    // Counter только увеличивается.
     const key = createMetricKey(name, labels)
     const counter = this.counters.get(key) ?? { labels, name, value: 0 }
     counter.value += value
@@ -80,6 +95,7 @@ export class MetricsRegistry {
   }
 
   renderPrometheus(): string {
+    // Формируем текстовый формат Prometheus exposition.
     const lines: string[] = [
       '# HELP metrix_process_uptime_seconds Process uptime in seconds.',
       '# TYPE metrix_process_uptime_seconds gauge',
@@ -88,6 +104,7 @@ export class MetricsRegistry {
       '# TYPE metrix_http_requests_total counter',
     ]
 
+    // HTTP request counters.
     for (const [key, metric] of this.httpMetrics.entries()) {
       const labels = this.parseHttpKey(key)
       lines.push(
@@ -95,6 +112,7 @@ export class MetricsRegistry {
       )
     }
 
+    // HTTP latency histogram.
     lines.push(
       '# HELP metrix_http_request_duration_ms HTTP request duration in milliseconds.',
       '# TYPE metrix_http_request_duration_ms histogram',
@@ -118,6 +136,7 @@ export class MetricsRegistry {
       )
     }
 
+    // Custom gauges.
     for (const gauge of this.gauges.values()) {
       const labels = renderLabels({
         service: this.service,
@@ -127,6 +146,7 @@ export class MetricsRegistry {
       lines.push(`${gauge.name}{${labels}} ${gauge.value}`)
     }
 
+    // Custom counters.
     for (const counter of this.counters.values()) {
       const labels = renderLabels({
         service: this.service,
@@ -140,6 +160,7 @@ export class MetricsRegistry {
   }
 
   private createHttpKey(input: HttpMetricKey): string {
+    // escapeKeyPart нужен, чтобы separator | не ломал key.
     return [input.method, input.route, String(input.status)].map(escapeKeyPart).join('|')
   }
 
@@ -159,8 +180,10 @@ export function createObservedHandler(input: {
   routeResolver?: (req: IncomingMessage) => string
 }): (req: IncomingMessage, res: ServerResponse) => void {
   return (req, res) => {
+    // performance.now точнее Date.now для duration.
     const startedAt = performance.now()
 
+    // finish сработает, когда response уже отправлен.
     res.once('finish', () => {
       input.metrics.observeHttpRequest({
         durationMs: performance.now() - startedAt,
@@ -170,11 +193,13 @@ export function createObservedHandler(input: {
       })
     })
 
+    // После установки listener-а передаём запрос в настоящий handler.
     input.handler(req, res)
   }
 }
 
 export function sendMetrics(res: ServerResponse, metrics: MetricsRegistry): void {
+  // Prometheus ожидает text/plain exposition format.
   res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' })
   res.end(metrics.renderPrometheus())
 }
@@ -183,11 +208,13 @@ export async function sendReadiness(
   res: ServerResponse,
   checks: Record<string, () => Promise<void>>,
 ): Promise<void> {
+  // Каждый check пишет ok/error в results.
   const results: Record<string, { error?: string; ok: boolean }> = {}
 
   await Promise.all(
     Object.entries(checks).map(async ([name, check]) => {
       try {
+        // Check сам решает, что значит "готов".
         await check()
         results[name] = { ok: true }
       } catch (error) {
@@ -199,6 +226,7 @@ export async function sendReadiness(
     }),
   )
 
+  // Если хотя бы один check упал, сервис не ready.
   const ok = Object.values(results).every((result) => result.ok)
   res.writeHead(ok ? 200 : 503, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ checks: results, ok }))
@@ -211,12 +239,14 @@ export function installGracefulShutdown<TService extends string>(input: {
   service: TService
   timeoutMs?: number
 }): void {
+  // Защищает от двойной обработки SIGTERM/SIGINT.
   let shuttingDown = false
 
   const shutdown = (signal: NodeJS.Signals): void => {
     if (shuttingDown) return
     shuttingDown = true
 
+    // Таймаут не даёт shutdown зависнуть навсегда.
     const timeoutMs = input.timeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS
     const timeout = setTimeout(() => {
       input.logger.error({
@@ -228,9 +258,11 @@ export function installGracefulShutdown<TService extends string>(input: {
       process.exit(1)
     }, timeoutMs)
 
+    // Сначала закрываем HTTP server, потом внешние resources.
     void closeServer(input.server)
       .then(async () => {
         for (const close of input.resources ?? []) {
+          // Resources закрываются последовательно, чтобы не создавать гонок.
           await close()
         }
         clearTimeout(timeout)
@@ -253,11 +285,13 @@ export function installGracefulShutdown<TService extends string>(input: {
       })
   }
 
+  // Kubernetes обычно шлёт SIGTERM, локально часто SIGINT.
   process.once('SIGTERM', shutdown)
   process.once('SIGINT', shutdown)
 }
 
 export function normalizeRoute(rawUrl: string | undefined): string {
+  // Нормализация нужна, чтобы не создавать отдельную метрику на каждый id.
   if (!rawUrl) return '/unknown'
 
   const path = rawUrl.split('?')[0] || '/'
@@ -267,6 +301,7 @@ export function normalizeRoute(rawUrl: string | undefined): string {
 }
 
 async function closeServer(server: Server | undefined): Promise<void> {
+  // Если сервера нет или он уже закрыт, делать нечего.
   if (!server || !server.listening) return
 
   await new Promise<void>((resolve, reject) => {
@@ -281,23 +316,28 @@ async function closeServer(server: Server | undefined): Promise<void> {
 }
 
 function escapeLabel(value: string): string {
+  // Экранируем значения labels для Prometheus.
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
 }
 
 function createMetricKey(name: string, labels: Record<string, string>): string {
+  // Сортируем labels, чтобы одинаковые наборы давали одинаковый key.
   return `${name}|${Object.entries(labels).sort(([left], [right]) => left.localeCompare(right)).map(([key, value]) => `${escapeKeyPart(key)}=${escapeKeyPart(value)}`).join('|')}`
 }
 
 function renderLabels(labels: Record<string, string>): string {
+  // Превращает объект labels в prometheus label string.
   return Object.entries(labels)
     .map(([key, value]) => `${key}="${escapeLabel(value)}"`)
     .join(',')
 }
 
 function escapeKeyPart(value: string): string {
+  // encodeURIComponent безопасно прячет separators.
   return encodeURIComponent(value)
 }
 
 function unescapeKeyPart(value: string): string {
+  // Обратная операция для parseHttpKey.
   return decodeURIComponent(value)
 }

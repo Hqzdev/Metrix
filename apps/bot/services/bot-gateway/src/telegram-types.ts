@@ -1,3 +1,4 @@
+// Один update от Telegram: сообщение, callback-кнопка или payment query.
 export type TelegramUpdate = {
   update_id: number
   message?: TelegramMessage
@@ -5,6 +6,7 @@ export type TelegramUpdate = {
   pre_checkout_query?: TelegramPreCheckoutQuery
 }
 
+// Обычное Telegram message.
 export type TelegramMessage = {
   message_id: number
   chat: { id: number }
@@ -13,12 +15,14 @@ export type TelegramMessage = {
   text?: string
 }
 
+// Пользователь Telegram.
 export type TelegramUser = {
   id: number
   first_name?: string
   username?: string
 }
 
+// Нажатие inline-кнопки.
 export type TelegramCallbackQuery = {
   id: string
   from: TelegramUser
@@ -26,6 +30,7 @@ export type TelegramCallbackQuery = {
   data?: string
 }
 
+// Запрос Telegram перед финальным списанием оплаты.
 export type TelegramPreCheckoutQuery = {
   id: string
   from: TelegramUser
@@ -34,6 +39,7 @@ export type TelegramPreCheckoutQuery = {
   invoice_payload: string
 }
 
+// Сообщение Telegram об успешной оплате.
 export type TelegramSuccessfulPayment = {
   currency: string
   total_amount: number
@@ -42,16 +48,19 @@ export type TelegramSuccessfulPayment = {
   provider_payment_charge_id: string
 }
 
+// Одна inline-кнопка Telegram.
 export type InlineKeyboardButton = {
   text: string
   callback_data?: string
   url?: string
 }
 
+// Telegram inline keyboard: строки кнопок.
 export type InlineKeyboardMarkup = {
   inline_keyboard: InlineKeyboardButton[][]
 }
 
+// Стандартная форма ответа Telegram Bot API.
 export type TelegramApiResponse<T> = {
   ok: boolean
   result?: T

@@ -1,11 +1,19 @@
+// Поддерживаемые уровни логирования.
 type LogLevel = 'info' | 'warn' | 'error'
 
+// Одна структурированная запись лога.
 type LogEntry = {
+  // Машиночитаемое действие, например booking.created.
   action?: string
+  // Ошибка, если логируем исключение.
   error?: unknown
+  // Человекочитаемое сообщение.
   message: string
+  // requestId помогает связать логи одного запроса.
   requestId?: string
+  // Имя сервиса фиксировано для фильтрации.
   service: 'analytics-service'
+  // Дополнительный контекст события.
   [key: string]: unknown
 }
 
@@ -41,25 +49,30 @@ export class AnalyticsServiceLogger {
    * Сериализует запись лога и отправляет её в stdout/stderr.
    */
   private write(level: LogLevel, entry: LogEntry): void {
+    // Собираем итоговый JSON payload.
     const payload = {
       ...entry,
+      // Error превращаем в обычный объект, чтобы не потерять message/name/stack.
       error: entry.error instanceof Error ? serializeError(entry.error) : entry.error,
       level,
       timestamp: new Date().toISOString(),
     }
 
+    // Один лог пишется одной строкой.
     const line = JSON.stringify(payload)
     if (level === 'error') {
+      // Ошибки отправляем в stderr.
       console.error(line)
       return
     }
 
+    // Info/warn отправляем в stdout.
     console.log(line)
   }
 }
 
 /**
- * Преобразует внутреннюю модель в публичный контракт ответа.
+ * Преобразует Error в JSON-safe объект.
  */
 function serializeError(error: Error): { message: string; name: string; stack?: string } {
   return {

@@ -14,25 +14,40 @@ import type { BookingServiceClient } from './booking-service-client.js'
 // Telegram Stars ограничивает сумму одного инвойса значением 9 999 999 минимальных единиц.
 // Суммы выше разбиваются на последовательные инвойсы.
 const TELEGRAM_MAX_INVOICE_MINOR_UNITS = 9_900_000
+// Hold держит слот за пользователем 10 минут, пока он оплачивает invoice.
 const SLOT_HOLD_TTL_MS = 10 * 60 * 1000
 
+// Зависимости PaymentRouter.
 type PaymentRouterDependencies = {
+  // Клиент booking-service.
   bookingClient: BookingServiceClient
+  // RedisBus для публикации событий.
   bus: RedisBus
+  // Runtime-конфиг.
   config: PaymentServiceConfig
+  // JSON-логгер.
   logger: PaymentServiceLogger
+  // Prisma для invoices, holds и sagas.
   prisma: PrismaClient
 }
 
+// Контекст одного HTTP-запроса после auth и парсинга.
 type RequestContext = {
+  // Имя caller-сервиса.
   callerName: string
+  // Telegram user id из подписанного заголовка.
   callerUserId: number | undefined
+  // HTTP-метод.
   method: string
+  // JSON body.
   parsedBody: unknown
+  // URL path.
   path: string
+  // requestId для audit/replay.
   requestId: string
 }
 
+// Telegram pre_checkout_query в упрощённом виде.
 type PreCheckoutQuery = {
   id: string
   from: { id: number }
@@ -41,6 +56,7 @@ type PreCheckoutQuery = {
   invoice_payload: string
 }
 
+// Telegram message с successful_payment.
 type SuccessfulPaymentMessage = {
   chat: { id: number }
   from?: { id: number }
@@ -66,10 +82,14 @@ export class PaymentRouter {
    */
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
+      // Проверяем auth и собираем request context.
       const context = await this.createRequestContext(req)
+      // Выбираем нужный handler.
       const result = await this.dispatch(context)
+      // Отдаём JSON-ответ.
       sendJson(res, result.body, result.statusCode)
     } catch (error) {
+      // Ошибки тоже переводим в HTTP.
       this.handleError(res, error)
     }
   }
@@ -78,26 +98,32 @@ export class PaymentRouter {
    * Собирает метод, путь, тело и сведения об авторизации в единый контекст.
    */
   private async createRequestContext(req: IncomingMessage): Promise<RequestContext> {
+    // IncomingMessage содержит относительный URL.
     const url = new URL(req.url ?? '/', `http://localhost:${this.deps.config.port}`)
     const method = req.method ?? 'GET'
     const path = url.pathname
 
+    // Health доступен без подписи.
     if (method === 'GET' && path === '/health') {
       return { callerName: 'health-check', callerUserId: undefined, method, parsedBody: {}, path, requestId: 'health-check' }
     }
 
+    // rawBody нужен для подписи, parsedBody — для логики.
     const { parsedBody, rawBody } = await readRequestBody(req, method)
+    // Проверяем service-to-service подпись.
     const auth = verifyServiceRequest(req, rawBody, this.deps.config.trustedCallers)
 
     if (!auth.ok) {
       throw new AuthenticationError(auth.error)
     }
 
+    // Replay-защита requestId.
     const fresh = await this.deps.bus.checkReplay(auth.requestId)
     if (!fresh) {
       throw new ReplayAttackError()
     }
 
+    // Достаём подписанный user id, если он есть.
     const callerUserId = this.extractCallerUserId(req)
 
     return {
@@ -114,9 +140,11 @@ export class PaymentRouter {
    * Извлекает проверенный Telegram user id из доверенных заголовков.
    */
   private extractCallerUserId(req: IncomingMessage): number | undefined {
+    // Без секрета user id не доверяем.
     if (!this.deps.config.userIdSigningSecret) return undefined
 
     try {
+      // extractUserId проверяет подпись заголовка.
       return extractUserId(req, this.deps.config.userIdSigningSecret)
     } catch {
       throw new AuthenticationError('invalid user identity')
@@ -129,38 +157,47 @@ export class PaymentRouter {
   private async dispatch(context: RequestContext): Promise<{ body: unknown; statusCode: number }> {
     const { method, path } = context
 
+    // Проверка живости.
     if (method === 'GET' && path === '/health') {
       return { body: { ok: true }, statusCode: 200 }
     }
 
+    // Создать invoice и hold слота.
     if (method === 'POST' && path === '/invoices') {
       return { body: await this.createInvoice(context), statusCode: 201 }
     }
 
+    // Telegram спрашивает перед списанием, можно ли принимать оплату.
     if (method === 'POST' && path === '/pre-checkout') {
       return { body: await this.handlePreCheckout(context), statusCode: 200 }
     }
 
+    // Telegram сообщил, что оплата прошла успешно.
     if (method === 'POST' && path === '/successful-payment') {
       return { body: await this.handleSuccessfulPayment(context), statusCode: 200 }
     }
 
+    // Ручной запуск компенсации failed saga.
     if (method === 'POST' && path.startsWith('/sagas/') && path.endsWith('/compensate')) {
       return { body: await this.compensateSaga(context), statusCode: 200 }
     }
 
+    // Повторить создание booking после успешной оплаты.
     if (method === 'POST' && path.startsWith('/sagas/') && path.endsWith('/retry-booking')) {
       return { body: await this.retrySagaBooking(context), statusCode: 200 }
     }
 
+    // Отметить ручную компенсацию завершённой.
     if (method === 'POST' && path.startsWith('/sagas/') && path.endsWith('/mark-compensated')) {
       return { body: await this.markSagaCompensated(context), statusCode: 200 }
     }
 
+    // Получить saga для админки.
     if (method === 'GET' && path.startsWith('/sagas/')) {
       return { body: await this.getSaga(context), statusCode: 200 }
     }
 
+    // Остальные маршруты не поддерживаются.
     throw new NotFoundError()
   }
 
@@ -168,9 +205,12 @@ export class PaymentRouter {
    * Создаёт доменную сущность или запрос к downstream-сервису.
    */
   private async createInvoice(context: RequestContext): Promise<{ ok: boolean; invoiceId: string }> {
+    // invoice создаётся для конкретного пользователя, чата, ресурса и слота.
     const body = context.parsedBody as { chatId?: unknown; telegramUserId?: unknown; resourceId?: unknown; slotId?: unknown }
 
+    // userId берём из подписи или body fallback.
     const userId = resolveUserId(context.callerUserId, body.telegramUserId)
+    // chatId нужен Telegram для отправки invoice.
     const chatId = resolveChatId(body.chatId)
 
     if (typeof body.resourceId !== 'string' || !body.resourceId) {
@@ -181,24 +221,32 @@ export class PaymentRouter {
       throw new ValidationError('slotId is required')
     }
 
+    // Сначала проверяем ресурс в booking-service.
     const resource = await this.deps.bookingClient.getResource(body.resourceId)
     if (!resource) {
       throw new NotFoundError('resource not found')
     }
 
+    // Затем проверяем, что слот ещё доступен.
     const slotAvailable = await this.deps.bookingClient.isSlotAvailable(body.resourceId, body.slotId)
     if (!slotAvailable) {
       throw new ConflictError('slot is already booked')
     }
 
+    // total — полная цена брони.
     const total = resource.priceMinorUnits
+    // Первый invoice может быть меньше total, если сумма слишком большая для Telegram.
     const firstAmount = Math.min(TELEGRAM_MAX_INVOICE_MINOR_UNITS, total)
+    // totalParts показывает, на сколько invoice-ов разбить оплату.
     const totalParts = Math.ceil(total / TELEGRAM_MAX_INVOICE_MINOR_UNITS)
     const invoiceId = randomUUID()
+    // До expiresAt слот считается held.
     const expiresAt = new Date(Date.now() + SLOT_HOLD_TTL_MS)
 
     try {
+      // В транзакции создаём hold, invoice и saga.
       await this.deps.prisma.$transaction(async (tx) => {
+        // Старые истёкшие holds по этому слоту сразу помечаем expired.
         await tx.slotHold.updateMany({
           data: { status: 'expired' },
           where: {
@@ -209,6 +257,7 @@ export class PaymentRouter {
           },
         })
 
+        // Hold временно резервирует слот до оплаты.
         const hold = await tx.slotHold.create({
           data: {
             expiresAt,
@@ -218,6 +267,7 @@ export class PaymentRouter {
           },
         })
 
+        // PendingInvoice хранит ожидаемый платёж Telegram.
         await tx.pendingInvoice.create({
           data: {
             id: invoiceId,
@@ -235,11 +285,13 @@ export class PaymentRouter {
           },
         })
 
+        // Связываем hold с invoiceId.
         await tx.slotHold.update({
           data: { invoiceId },
           where: { id: hold.id },
         })
 
+        // PaymentSaga отслеживает весь сценарий: invoice -> payment -> booking.
         await tx.paymentSaga.create({
           data: {
             chatId: BigInt(chatId),
@@ -255,6 +307,7 @@ export class PaymentRouter {
           },
         })
 
+        // Audit записываем в той же транзакции.
         await writeAuditLog(tx, {
           action: 'invoice.created',
           actorUserId: userId,
@@ -270,12 +323,14 @@ export class PaymentRouter {
         })
       })
     } catch (error) {
+      // Unique constraint обычно означает, что слот уже held/booked.
       if (isUniqueConstraintError(error)) {
         throw new ConflictError('slot is already held or booked')
       }
       throw error
     }
 
+    // Просим notification-service отправить invoice в Telegram.
     await this.deps.bus.publish(STREAMS.NOTIFICATION_SEND, {
       type: 'send_invoice',
       chatId,
@@ -288,6 +343,7 @@ export class PaymentRouter {
       amount: firstAmount,
     })
 
+    // Быстрый audit event.
     audit({
       ts: new Date().toISOString(),
       service: 'payment',
@@ -304,6 +360,7 @@ export class PaymentRouter {
    * Выполняет шаг handlePreCheckout внутри сервисного сценария.
    */
   private async handlePreCheckout(context: RequestContext): Promise<{ ok: boolean; errorMessage?: string }> {
+    // Telegram присылает pre_checkout_query перед финальным подтверждением оплаты.
     const body = context.parsedBody as { query?: PreCheckoutQuery }
     const query = body.query
 
@@ -311,16 +368,20 @@ export class PaymentRouter {
       return { ok: false, errorMessage: 'missing query' }
     }
 
+    // Ищем invoice по payload.
     const invoice = await this.deps.prisma.pendingInvoice.findUnique({ where: { id: query.invoice_payload } })
 
+    // Проверяем, что invoice принадлежит этому пользователю и ещё pending.
     if (!invoice || Number(invoice.telegramUserId) !== query.from.id || invoice.status !== 'pending') {
       return { ok: false, errorMessage: 'Invoice not found for your account.' }
     }
 
+    // Валюта и сумма должны совпасть с тем, что мы создали.
     if (query.currency !== this.deps.config.currency || query.total_amount !== invoice.amountMinorUnits) {
       return { ok: false, errorMessage: 'Payment amount mismatch.' }
     }
 
+    // Hold должен быть живым на момент pre-checkout.
     const hold = await this.deps.prisma.slotHold.findFirst({ where: { invoiceId: invoice.id } })
     if (!hold || hold.status !== 'held' || hold.expiresAt <= new Date()) {
       if (hold?.status === 'held') {
@@ -336,6 +397,7 @@ export class PaymentRouter {
    * Выполняет шаг handleSuccessfulPayment внутри сервисного сценария.
    */
   private async handleSuccessfulPayment(context: RequestContext): Promise<{ ok: boolean }> {
+    // Telegram присылает message.successful_payment после успешной оплаты.
     const body = context.parsedBody as { message?: SuccessfulPaymentMessage }
     const msg = body.message
 
@@ -343,16 +405,18 @@ export class PaymentRouter {
       return { ok: false }
     }
 
+    // payload — это invoiceId.
     const payload = msg.successful_payment.invoice_payload
     const invoice = await this.deps.prisma.pendingInvoice.findUnique({ where: { id: payload } })
 
+    // Если invoice не найден, проверяем saga: возможно событие пришло повторно.
     if (!invoice || !msg.from || Number(invoice.telegramUserId) !== msg.from.id) {
       const saga = await this.deps.prisma.paymentSaga.findUnique({ where: { invoiceId: payload } })
       if (saga && msg.from && Number(saga.telegramUserId) === msg.from.id && ['awaiting_booking', 'completed'].includes(saga.status)) {
         return { ok: true }
       }
 
-      // платёж подтверждён Telegram, но инвойс не найден — нужна ручная проверка
+      // Платёж подтверждён Telegram, но инвойс не найден — нужна ручная проверка.
       await this.deps.bus.publish(STREAMS.NOTIFICATION_SEND, {
         type: 'send_message',
         chatId: msg.chat.id,
@@ -361,13 +425,16 @@ export class PaymentRouter {
       return { ok: false }
     }
 
+    // Повторный webhook по уже обработанному invoice считаем успешным.
     if (invoice.status !== 'pending') {
       return { ok: invoice.status === 'completed' || invoice.status === 'paid_part' }
     }
 
+    // Сумма paid учитывает уже оплаченные части и текущую часть.
     const paid = Number(invoice.paidAmountMinorUnits) + Number(invoice.amountMinorUnits)
     const hold = await this.deps.prisma.slotHold.findFirst({ where: { invoiceId: invoice.id } })
 
+    // Если hold истёк после оплаты, переводим saga в failed и уведомляем пользователя.
     if (!hold || hold.status !== 'held' || hold.expiresAt <= new Date()) {
       await this.deps.prisma.$transaction(async (tx) => {
         if (hold?.status === 'held') {
@@ -402,10 +469,12 @@ export class PaymentRouter {
       return { ok: false }
     }
 
+    // Если сумма ещё не закрыта, выпускаем следующий invoice.
     if (paid < Number(invoice.totalAmountMinorUnits)) {
       return this.issueNextInvoicePart(msg.chat.id, invoice, paid)
     }
 
+    // Полная оплата завершена: публикуем событие для создания booking.
     await this.deps.bus.publish(STREAMS.PAYMENT_COMPLETED, {
       telegramUserId: Number(invoice.telegramUserId),
       chatId: msg.chat.id,
@@ -415,6 +484,7 @@ export class PaymentRouter {
       invoiceId: payload,
     })
 
+    // Обновляем invoice и saga в базе.
     audit({ ts: new Date().toISOString(), service: 'payment', action: 'payment.completed', userId: Number(invoice.telegramUserId), invoiceId: payload })
     await this.deps.prisma.$transaction(async (tx) => {
       await tx.paymentSaga.updateMany({
@@ -448,16 +518,21 @@ export class PaymentRouter {
     invoice: { id: string; partNumber: number; totalParts: number; totalAmountMinorUnits: number; [key: string]: unknown },
     paid: number,
   ): Promise<{ ok: boolean }> {
+    // Остаток суммы снова ограничиваем Telegram maximum.
     const nextAmount = Math.min(TELEGRAM_MAX_INVOICE_MINOR_UNITS, Number(invoice.totalAmountMinorUnits) - paid)
     const nextId = randomUUID()
+    // Следующая часть оплаты.
     const nextPartNumber = Number(invoice.partNumber) + 1
+    // Продлеваем hold, чтобы пользователь успел оплатить следующую часть.
     const nextExpiresAt = new Date(Date.now() + SLOT_HOLD_TTL_MS)
 
     await this.deps.prisma.$transaction(async (tx) => {
+      // Старый invoice помечаем как частично оплаченный.
       await tx.pendingInvoice.update({
         data: { paidAmountMinorUnits: paid, status: 'paid_part', supersededByInvoiceId: nextId },
         where: { id: invoice.id },
       })
+      // Создаём новый invoice на остаток.
       await tx.pendingInvoice.create({
         data: {
           amountMinorUnits: nextAmount,
@@ -474,14 +549,17 @@ export class PaymentRouter {
           totalParts: Number(invoice.totalParts),
         },
       })
+      // Hold теперь связан с новым invoice.
       await tx.slotHold.updateMany({
         data: { expiresAt: nextExpiresAt, invoiceId: nextId },
         where: { invoiceId: invoice.id },
       })
+      // Saga переходит в ожидание следующей части.
       await tx.paymentSaga.updateMany({
         data: { currentPart: nextPartNumber, invoiceId: nextId, paidAmount: paid, status: 'awaiting_next_part' },
         where: { invoiceId: invoice.id },
       })
+      // Audit показывает цепочку invoice parts.
       await writeAuditLog(tx, {
         action: 'payment.part_completed',
         actorUserId: Number(invoice.telegramUserId),
@@ -497,6 +575,7 @@ export class PaymentRouter {
       })
     })
 
+    // Отправляем следующий invoice пользователю.
     await this.deps.bus.publish(STREAMS.NOTIFICATION_SEND, {
       type: 'send_invoice',
       chatId,
@@ -519,11 +598,13 @@ export class PaymentRouter {
    * но состояние фиксируется, чтобы слот не оставался held.
    */
   private async compensateSaga(context: RequestContext): Promise<{ ok: boolean }> {
+    // invoiceId берём из URL /sagas/:invoiceId/compensate.
     const invoiceId = readIdFromPath(context.path, '/sagas/', '/compensate')
     const saga = await this.deps.prisma.paymentSaga.findUnique({ where: { invoiceId } })
     if (!saga) throw new NotFoundError('saga not found')
     if (saga.status !== 'failed') throw new ConflictError('only failed saga can be compensated')
 
+    // В транзакции переводим saga и связанные записи в recovery-состояние.
     await this.deps.prisma.$transaction(async (tx) => {
       await tx.paymentSaga.update({
         data: { status: 'compensating' },
@@ -553,6 +634,7 @@ export class PaymentRouter {
       })
     })
 
+    // Уведомляем пользователя, что вопрос ушёл на ручную проверку.
     await this.deps.bus.publish(STREAMS.NOTIFICATION_SEND, {
       type: 'send_message',
       chatId: Number(saga.chatId),
@@ -566,10 +648,12 @@ export class PaymentRouter {
    * Возвращает PaymentSaga для admin recovery.
    */
   private async getSaga(context: RequestContext): Promise<unknown> {
+    // invoiceId берём из URL /sagas/:invoiceId.
     const invoiceId = readIdFromPath(context.path, '/sagas/', '')
     const saga = await this.deps.prisma.paymentSaga.findUnique({ where: { invoiceId } })
     if (!saga) throw new NotFoundError('saga not found')
 
+    // BigInt поля превращаем в строки для JSON.
     return {
       ...saga,
       chatId: saga.chatId.toString(),
@@ -581,6 +665,7 @@ export class PaymentRouter {
    * Повторно публикует PAYMENT_COMPLETED для failed или awaiting_booking saga.
    */
   private async retrySagaBooking(context: RequestContext): Promise<{ ok: boolean }> {
+    // invoiceId берём из URL /sagas/:invoiceId/retry-booking.
     const invoiceId = readIdFromPath(context.path, '/sagas/', '/retry-booking')
     const saga = await this.deps.prisma.paymentSaga.findUnique({ where: { invoiceId } })
     if (!saga) throw new NotFoundError('saga not found')
@@ -588,6 +673,7 @@ export class PaymentRouter {
       throw new ConflictError('only failed or awaiting_booking saga can retry booking creation')
     }
 
+    // Сначала возвращаем saga в awaiting_booking.
     await this.deps.prisma.$transaction(async (tx) => {
       await tx.paymentSaga.update({
         data: { failureReason: null, status: 'awaiting_booking' },
@@ -608,6 +694,7 @@ export class PaymentRouter {
       })
     })
 
+    // Затем повторно публикуем PAYMENT_COMPLETED, чтобы consumer создал booking.
     await this.deps.bus.publish(STREAMS.PAYMENT_COMPLETED, {
       chatId: Number(saga.chatId),
       invoiceId,
@@ -624,11 +711,13 @@ export class PaymentRouter {
    * Завершает ручную компенсацию после внешнего refund/manual action.
    */
   private async markSagaCompensated(context: RequestContext): Promise<{ ok: boolean }> {
+    // invoiceId берём из URL /sagas/:invoiceId/mark-compensated.
     const invoiceId = readIdFromPath(context.path, '/sagas/', '/mark-compensated')
     const saga = await this.deps.prisma.paymentSaga.findUnique({ where: { invoiceId } })
     if (!saga) throw new NotFoundError('saga not found')
     if (saga.status !== 'compensating') throw new ConflictError('only compensating saga can be marked compensated')
 
+    // Отмечаем, что ручная компенсация завершена вне системы.
     await this.deps.prisma.$transaction(async (tx) => {
       await tx.paymentSaga.update({
         data: { status: 'compensated' },
@@ -656,11 +745,13 @@ export class PaymentRouter {
    * Преобразует доменные ошибки в HTTP-ответы и логи.
    */
   private handleError(res: ServerResponse, error: unknown): void {
+    // Доменные ошибки уже знают свой HTTP status code.
     if (error instanceof PaymentServiceError) {
       sendJson(res, { error: error.message }, error.statusCode)
       return
     }
 
+    // Неожиданные ошибки логируем подробно.
     this.deps.logger.error({
       error,
       message: 'Unhandled payment-service error',
@@ -675,6 +766,7 @@ export class PaymentRouter {
  * Выбирает доверенный user id из подписи или payload.
  */
 function resolveUserId(callerUserId: number | undefined, rawValue: unknown): number {
+  // Подписанный callerUserId важнее значения из body.
   const userId = callerUserId ?? Number(rawValue)
   if (!userId || !Number.isInteger(userId) || userId <= 0) {
     throw new ValidationError('telegramUserId is required and must be a positive integer')
@@ -683,7 +775,11 @@ function resolveUserId(callerUserId: number | undefined, rawValue: unknown): num
   return userId
 }
 
+/**
+ * Читает chatId из payload.
+ */
 function resolveChatId(rawValue: unknown): number {
+  // Telegram chat id должен быть целым числом.
   const chatId = Number(rawValue)
   if (!chatId || !Number.isInteger(chatId)) {
     throw new ValidationError('chatId is required and must be an integer')
@@ -692,15 +788,23 @@ function resolveChatId(rawValue: unknown): number {
   return chatId
 }
 
+/**
+ * Проверяет Prisma unique constraint error.
+ */
 function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 'P2002'
 }
 
+/**
+ * Достаёт id из пути с заданным prefix и suffix.
+ */
 function readIdFromPath(path: string, prefix: string, suffix: string): string {
+  // Если путь не похож на ожидаемый route, возвращаем 404.
   if (!path.startsWith(prefix) || !path.endsWith(suffix)) {
     throw new NotFoundError()
   }
 
+  // Вырезаем часть между prefix и suffix.
   const id = path.slice(prefix.length, path.length - suffix.length)
   if (id.trim() === '') {
     throw new ValidationError('id is required')
@@ -713,10 +817,12 @@ function readIdFromPath(path: string, prefix: string, suffix: string): string {
  * Читает тело HTTP-запроса и безопасно парсит JSON.
  */
 async function readRequestBody(req: IncomingMessage, method: string): Promise<{ parsedBody: unknown; rawBody: string }> {
+  // GET-запросы не используют body.
   if (method === 'GET') {
     return { parsedBody: {}, rawBody: '' }
   }
 
+  // readJsonBody возвращает parsed JSON и raw body для подписи.
   const result = await readJsonBody<unknown>(req)
   return { parsedBody: result.parsed, rawBody: result.raw }
 }

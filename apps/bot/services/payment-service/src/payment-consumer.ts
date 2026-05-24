@@ -7,6 +7,7 @@ import type { BookingServiceClient } from './booking-service-client.js'
 import type { BookingConfirmation } from './booking-service-client.js'
 import type { PaymentServiceLogger } from './logger.js'
 
+// Событие, которое payment-router публикует после полной оплаты.
 type PaymentCompletedEvent = {
   chatId: number
   invoiceId: string
@@ -16,6 +17,7 @@ type PaymentCompletedEvent = {
   totalAmountMinorUnits: number
 }
 
+// Зависимости consumer-а.
 type PaymentConsumerDependencies = {
   bookingClient: BookingServiceClient
   bus: RedisBus
@@ -24,8 +26,11 @@ type PaymentConsumerDependencies = {
   prisma: PrismaClient
 }
 
+// Consumer group для Redis stream.
 const CONSUMER_GROUP = 'payment-service'
+// Как часто измеряем lag.
 const LAG_COLLECTION_INTERVAL_MS = 30_000
+// Как часто возвращаемся к pending messages.
 const PENDING_RETRY_INTERVAL_MS = 60_000
 
 /**
@@ -38,6 +43,7 @@ const PENDING_RETRY_INTERVAL_MS = 60_000
  *   мог принять решение о retry.
  */
 export async function startPaymentConsumer(deps: PaymentConsumerDependencies): Promise<void> {
+  // Подписываемся на PAYMENT_COMPLETED.
   await deps.bus.consume<PaymentCompletedEvent>(
     STREAMS.PAYMENT_COMPLETED,
     CONSUMER_GROUP,
@@ -47,6 +53,7 @@ export async function startPaymentConsumer(deps: PaymentConsumerDependencies): P
     },
     {
       collectLagIntervalMs: LAG_COLLECTION_INTERVAL_MS,
+      // Lag помогает видеть, отстаёт ли consumer.
       onLag: (lag) => {
         deps.metrics?.setGauge('metrix_redis_stream_lag', lag, {
           group: CONSUMER_GROUP,
@@ -62,14 +69,17 @@ export async function startPaymentConsumer(deps: PaymentConsumerDependencies): P
  * Создаёт бронирование после подтверждения оплаты.
  */
 async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: PaymentConsumerDependencies): Promise<void> {
+  // booking нужен после успешного вызова booking-service.
   let booking: BookingConfirmation
   try {
+    // Создаём booking с idempotency key от invoiceId.
     booking = await deps.bookingClient.createBooking(
       event.telegramUserId,
       event.resourceId,
       event.slotId,
       `payment:${event.invoiceId}`,
     )
+    // Если booking создан, закрываем hold и saga.
     await deps.prisma.$transaction(async (tx) => {
       await tx.slotHold.updateMany({
         data: { status: 'paid' },
@@ -93,6 +103,7 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
       })
     })
   } catch (error) {
+    // Ошибка booking-service переводит saga в failed для ручного recovery.
     const failureReason = error instanceof Error ? error.message : 'booking create failed'
     await deps.prisma.$transaction(async (tx) => {
       await tx.paymentSaga.updateMany({
@@ -125,9 +136,11 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
       slotId: event.slotId,
       error,
     })
+    // Пробрасываем ошибку, чтобы Redis consumer мог retry.
     throw error
   }
 
+  // Собираем короткое сообщение подтверждения для пользователя.
   const confirmationText = [
     'Booking confirmed.',
     '',
@@ -138,6 +151,7 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
     .filter(Boolean)
     .join('\n')
 
+  // Просим notification-service отправить подтверждение.
   await deps.bus.publish(STREAMS.NOTIFICATION_SEND, {
     type: 'send_message',
     chatId: event.chatId,

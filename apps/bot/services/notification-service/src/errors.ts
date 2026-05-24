@@ -3,14 +3,18 @@
  */
 export class TelegramApiError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Сохраняет метод Telegram API, HTTP-код и тело ответа.
    */
   constructor(
+    // Метод Telegram, например sendMessage или sendDocument.
     public readonly method: string,
+    // HTTP status code ответа Telegram.
     public readonly statusCode: number,
+    // Тело ответа Telegram с деталями ошибки.
     public readonly body: string,
   ) {
     super(`Telegram ${method} failed with status ${statusCode}`)
+    // name помогает отличать эту ошибку в логах.
     this.name = new.target.name
   }
 }
@@ -22,10 +26,11 @@ export class TelegramApiError extends Error {
  */
 export class UnsafeFilePathError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Создаёт ошибку с опасным путём, чтобы его было видно в логах.
    */
   constructor(filePath: string) {
     super(`Rejected unsafe filePath: ${filePath}`)
+    // name помогает фильтровать ошибки path traversal.
     this.name = new.target.name
   }
 }

@@ -2,10 +2,9 @@ import type { AvailableSlot, Booking, BookingLocation, BookingResource } from '@
 import type { InlineKeyboardButton, InlineKeyboardMarkup } from './telegram-types.js'
 import type { BotLanguage } from './messages.js'
 
-// ─── вспомогательные функции для дат ────────────────────────────────────────
-
 /** Форматирует дату в строку YYYYMMDD без учёта timezone смещения. */
 function toDateStr(d: Date): string {
+  // Месяц в JS начинается с 0, поэтому добавляем 1.
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -14,6 +13,7 @@ function toDateStr(d: Date): string {
 
 /** Возвращает короткое название дня недели + число. */
 function dayLabel(d: Date, index: number, language: BotLanguage): string {
+  // Первые два дня называем словами, дальше показываем день недели и дату.
   if (language === 'en') {
     if (index === 0) return 'Today'
     if (index === 1) return 'Tomorrow'
@@ -29,6 +29,7 @@ function dayLabel(d: Date, index: number, language: BotLanguage): string {
 
 /** Разбивает массив на строки по N элементов. */
 function chunk<T>(arr: T[], size: number): T[][] {
+  // Telegram inline_keyboard — это массив строк кнопок.
   const result: T[][] = []
   for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size))
   return result
@@ -38,6 +39,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function languageKeyboard(): InlineKeyboardMarkup {
+  // Клавиатура первого запуска: пользователь выбирает язык.
   return {
     inline_keyboard: [
       [{ text: 'Continue in English', callback_data: 'language:en' }],
@@ -50,6 +52,7 @@ export function languageKeyboard(): InlineKeyboardMarkup {
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function mainMenuKeyboard(language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // Главное меню ведёт к основным сценариям бота.
   return {
     inline_keyboard: [
       [{ text: language === 'ru' ? 'Забронировать' : 'Book now', callback_data: 'menu:book' }],
@@ -64,6 +67,7 @@ export function mainMenuKeyboard(language: BotLanguage = 'en'): InlineKeyboardMa
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function locationKeyboard(locations: BookingLocation[], language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // Каждая локация становится отдельной кнопкой.
   return {
     inline_keyboard: [
       ...locations.map((l) => [{ text: `${l.name} · ${l.occupancy}`, callback_data: `location:${l.id}` }]),
@@ -76,6 +80,7 @@ export function locationKeyboard(locations: BookingLocation[], language: BotLang
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function resourceKeyboard(resources: BookingResource[], language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // Каждая комната/ресурс становится отдельной кнопкой.
   return {
     inline_keyboard: [
       ...resources.map((r) => [{ text: `${r.name} · ${r.status}`, callback_data: `resource:${r.locationId}:${r.id}` }]),
@@ -88,6 +93,7 @@ export function resourceKeyboard(resources: BookingResource[], language: BotLang
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function slotsKeyboard(resource: BookingResource, slots: AvailableSlot[], language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // Слот выбирается через callback slot:<resourceId>:<slotId>.
   return {
     inline_keyboard: [
       ...slots.map((s) => [{ text: `${s.startsAt} - ${s.endsAt}`, callback_data: `slot:${resource.id}:${s.id}` }]),
@@ -100,6 +106,7 @@ export function slotsKeyboard(resource: BookingResource, slots: AvailableSlot[],
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function confirmBookingKeyboard(resource: BookingResource, slotId: string, language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // confirm отправляет пользователя к оплате.
   return {
     inline_keyboard: [
       [{ text: language === 'ru' ? 'Оплатить и забронировать' : 'Pay 100% and book', callback_data: `confirm:${resource.id}:${slotId}` }],
@@ -110,11 +117,18 @@ export function confirmBookingKeyboard(resource: BookingResource, slotId: string
 
 /**
  * Формирует inline-клавиатуру Telegram для текущего сценария.
+ *
+ * Для каждого бронирования показывает две кнопки в одной строке:
+ * [🔄 Перенести: <name>] [❌ Отменить: <name>]
  */
 export function bookingsKeyboard(bookings: Booking[], language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // Для каждой брони даём два действия: перенести или отменить.
   return {
     inline_keyboard: [
-      ...bookings.map((b) => [{ text: `${language === 'ru' ? 'Отменить' : 'Cancel'}: ${b.resourceName}`, callback_data: `cancel:${b.id}` }]),
+      ...bookings.map((b) => [
+        { text: `🔄 ${language === 'ru' ? 'Перенести' : 'Reschedule'}: ${b.resourceName}`, callback_data: `reschedule:${b.id}` },
+        { text: `❌ ${language === 'ru' ? 'Отменить' : 'Cancel'}: ${b.resourceName}`, callback_data: `cancel:${b.id}` },
+      ]),
       [{ text: language === 'ru' ? 'Назад в меню' : 'Back to menu', callback_data: 'menu:start' }],
     ],
   }
@@ -124,6 +138,7 @@ export function bookingsKeyboard(bookings: Booking[], language: BotLanguage = 'e
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function confirmCancelKeyboard(bookingId: string, language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // Отмена требует второго подтверждения.
   return {
     inline_keyboard: [
       [{ text: language === 'ru' ? 'Отменить бронирование' : 'Cancel booking', callback_data: `cancel_confirm:${bookingId}` }],
@@ -136,6 +151,7 @@ export function confirmCancelKeyboard(bookingId: string, language: BotLanguage =
  * Клавиатура выбора даты — 7 дней начиная с сегодня, по 3 кнопки в строке.
  */
 export function datePickerKeyboard(locationId: string, resourceId: string, language: BotLanguage = 'ru'): InlineKeyboardMarkup {
+  // Показываем ближайшие 7 дней.
   const today = new Date()
   const buttons: InlineKeyboardButton[] = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today)
@@ -154,6 +170,7 @@ export function datePickerKeyboard(locationId: string, resourceId: string, langu
  * Клавиатура выбора часа начала — рабочие часы 08–20, по 4 кнопки в строке.
  */
 export function timePickerKeyboard(locationId: string, resourceId: string, dateStr: string, language: BotLanguage = 'ru'): InlineKeyboardMarkup {
+  // Рабочие часы для выбора начала брони.
   const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
   const buttons: InlineKeyboardButton[] = hours.map((h) => ({
     text: `${String(h).padStart(2, '0')}:00`,
@@ -171,6 +188,7 @@ export function timePickerKeyboard(locationId: string, resourceId: string, dateS
  * Клавиатура выбора продолжительности — 1, 2, 3, 4 часа в одной строке.
  */
 export function durationPickerKeyboard(hour: number, language: BotLanguage = 'ru'): InlineKeyboardMarkup {
+  // Длительность хранится в callback dur:<hours>.
   return {
     inline_keyboard: [
       [1, 2, 3, 4].map((h) => ({ text: language === 'ru' ? `${h}ч` : `${h}h`, callback_data: `dur:${h}` })),
@@ -183,6 +201,7 @@ export function durationPickerKeyboard(hour: number, language: BotLanguage = 'ru
  * Клавиатура подтверждения брони с произвольным временем (параметры в сессии).
  */
 export function confirmCustomBookingKeyboard(locationId: string, resourceId: string, language: BotLanguage = 'ru'): InlineKeyboardMarkup {
+  // Параметры кастомной брони лежат в Redis session, поэтому callback короткий.
   return {
     inline_keyboard: [
       [{ text: language === 'ru' ? 'Оплатить и забронировать' : 'Pay and book', callback_data: 'confirm_custom' }],
@@ -195,6 +214,7 @@ export function confirmCustomBookingKeyboard(locationId: string, resourceId: str
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function calendarAuthKeyboard(googleUrl: string, language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // URL-кнопка открывает Google OAuth consent.
   return {
     inline_keyboard: [
       [{ text: language === 'ru' ? 'Подключить Google Calendar' : 'Connect Google Calendar', url: googleUrl }],
@@ -207,6 +227,7 @@ export function calendarAuthKeyboard(googleUrl: string, language: BotLanguage = 
  * Формирует inline-клавиатуру Telegram для текущего сценария.
  */
 export function calendarStatusKeyboard(input: { connectedProviders: string[]; googleUrl?: string }, language: BotLanguage = 'en'): InlineKeyboardMarkup {
+  // Строки собираются динамически по подключённым провайдерам.
   const rows: InlineKeyboardMarkup['inline_keyboard'] = []
   if (input.googleUrl && !input.connectedProviders.includes('google')) {
     rows.push([{ text: language === 'ru' ? 'Подключить Google Calendar' : 'Connect Google Calendar', url: input.googleUrl }])

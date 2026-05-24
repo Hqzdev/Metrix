@@ -3,11 +3,16 @@ import { basename, resolve } from 'node:path'
 import { TelegramApiError, UnsafeFilePathError } from './errors.js'
 import type { NotificationServiceLogger } from './logger.js'
 
+// Максимальное время ожидания Telegram API.
 const REQUEST_TIMEOUT_MS = 10_000
 
+// Зависимости TelegramClient.
 type TelegramClientDependencies = {
+  // Base URL вида https://api.telegram.org/bot<TOKEN>.
   baseUrl: string
+  // Логгер notification-service.
   logger: NotificationServiceLogger
+  // Директория, из которой разрешено отправлять документы.
   reportsDir: string
 }
 
@@ -22,12 +27,12 @@ type TelegramClientDependencies = {
  */
 export class TelegramClient {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Сохраняет настройки Telegram API и безопасной директории файлов.
    */
   constructor(private readonly deps: TelegramClientDependencies) {}
 
   /**
-   * Отправляет данные пользователю или во внешний API.
+   * Отправляет текстовое сообщение пользователю.
    */
   async sendMessage(chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
     await this.call('sendMessage', { chat_id: chatId, text, reply_markup: replyMarkup })
@@ -40,6 +45,9 @@ export class TelegramClient {
     await this.call('editMessageText', { chat_id: chatId, message_id: messageId, text, reply_markup: replyMarkup })
   }
 
+  /**
+   * Отправляет Telegram invoice для оплаты.
+   */
   async sendInvoice(params: {
     chatId: number
     title: string
@@ -49,6 +57,7 @@ export class TelegramClient {
     currency: string
     amount: number
   }): Promise<void> {
+    // Telegram ждёт prices как массив позиций счёта.
     await this.call('sendInvoice', {
       chat_id: params.chatId,
       title: params.title,
@@ -67,24 +76,30 @@ export class TelegramClient {
    * path traversal при подделанном сообщении в очереди.
    */
   async sendDocument(chatId: number, filePath: string, caption?: string): Promise<void> {
+    // basename отбрасывает любые ../ и оставляет только имя файла.
     const safePath = resolve(this.deps.reportsDir, basename(filePath))
 
+    // Проверяем, что итоговый путь остался внутри reportsDir.
     if (!safePath.startsWith(`${this.deps.reportsDir}/`)) {
       throw new UnsafeFilePathError(filePath)
     }
 
+    // Читаем файл только после path traversal проверки.
     const fileBuffer = await readFile(safePath)
+    // Telegram sendDocument принимает multipart/form-data.
     const form = new FormData()
     form.append('chat_id', String(chatId))
     form.append('document', new Blob([fileBuffer]), basename(safePath))
     if (caption) form.append('caption', caption)
 
+    // Для файлов используем отдельный fetch, потому что body — FormData, а не JSON.
     const response = await fetch(`${this.deps.baseUrl}/sendDocument`, {
       method: 'POST',
       body: form,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
+    // Любую ошибку Telegram превращаем в TelegramApiError с body ответа.
     if (!response.ok) {
       const body = await response.text()
       throw new TelegramApiError('sendDocument', response.status, body)
@@ -95,6 +110,7 @@ export class TelegramClient {
    * Выполняет HTTP-вызов Telegram API и нормализует ошибки ответа.
    */
   private async call(method: string, payload: unknown): Promise<void> {
+    // Большинство Telegram методов здесь вызываются JSON POST-запросом.
     const response = await fetch(`${this.deps.baseUrl}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -102,6 +118,7 @@ export class TelegramClient {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
+    // Telegram часто кладёт полезную диагностику в body, поэтому сохраняем его.
     if (!response.ok) {
       const body = await response.text()
       throw new TelegramApiError(method, response.status, body)

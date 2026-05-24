@@ -1,25 +1,30 @@
 /**
- * Описывает BookingServiceError и связанную с ним сервисную ответственность.
+ * Базовая ошибка booking-service.
+ *
+ * В ней хранится HTTP status code, чтобы router мог вернуть правильный ответ
+ * без отдельной таблицы соответствий.
  */
 export class BookingServiceError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Создаёт ошибку с текстом и HTTP-кодом.
    */
   constructor(
     message: string,
+    // HTTP-статус, который нужно вернуть клиенту.
     public readonly statusCode: number,
   ) {
     super(message)
+    // name помогает быстро понять тип ошибки в логах.
     this.name = new.target.name
   }
 }
 
 /**
- * Описывает ValidationError и связанную с ним сервисную ответственность.
+ * Ошибка входных данных: тело запроса или параметры не прошли проверку.
  */
 export class ValidationError extends BookingServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 400 означает, что клиент прислал неверные данные.
    */
   constructor(message: string) {
     super(message, 400)
@@ -27,11 +32,11 @@ export class ValidationError extends BookingServiceError {
 }
 
 /**
- * Описывает AuthenticationError и связанную с ним сервисную ответственность.
+ * Ошибка service-to-service авторизации.
  */
 export class AuthenticationError extends BookingServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 401 означает, что подпись запроса не прошла проверку.
    */
   constructor(message: string) {
     super(message, 401)
@@ -39,11 +44,11 @@ export class AuthenticationError extends BookingServiceError {
 }
 
 /**
- * Описывает ForbiddenError и связанную с ним сервисную ответственность.
+ * Ошибка доступа: caller авторизован, но не имеет права на действие.
  */
 export class ForbiddenError extends BookingServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 403 используем, например, когда пользователь пытается отменить чужую бронь.
    */
   constructor() {
     super('forbidden', 403)
@@ -51,11 +56,11 @@ export class ForbiddenError extends BookingServiceError {
 }
 
 /**
- * Описывает NotFoundError и связанную с ним сервисную ответственность.
+ * Ошибка отсутствующего ресурса или маршрута.
  */
 export class NotFoundError extends BookingServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 404 означает, что нужная запись или endpoint не найдены.
    */
   constructor(message = 'not found') {
     super(message, 404)
@@ -63,11 +68,11 @@ export class NotFoundError extends BookingServiceError {
 }
 
 /**
- * Описывает ConflictError и связанную с ним сервисную ответственность.
+ * Ошибка конфликта состояния.
  */
 export class ConflictError extends BookingServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 409 подходит для занятого слота или недопустимого перехода статуса.
    */
   constructor(message: string) {
     super(message, 409)
@@ -75,11 +80,11 @@ export class ConflictError extends BookingServiceError {
 }
 
 /**
- * Описывает ReplayAttackError и связанную с ним сервисную ответственность.
+ * Ошибка повторного requestId.
  */
 export class ReplayAttackError extends BookingServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 409 показывает, что такой запрос уже недавно обрабатывался.
    */
   constructor() {
     super('replay detected', 409)

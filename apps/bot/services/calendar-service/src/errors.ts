@@ -1,25 +1,27 @@
 /**
- * Описывает CalendarServiceError и связанную с ним сервисную ответственность.
+ * Базовая ошибка calendar-service.
  */
 export class CalendarServiceError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Создаёт ошибку с HTTP-кодом для ответа клиенту.
    */
   constructor(
     message: string,
+    // HTTP status code для router-а.
     public readonly statusCode: number,
   ) {
     super(message)
+    // name помогает отличать ошибки в логах.
     this.name = new.target.name
   }
 }
 
 /**
- * Описывает ValidationError и связанную с ним сервисную ответственность.
+ * Ошибка входных данных.
  */
 export class ValidationError extends CalendarServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 400 означает неверный payload или query.
    */
   constructor(message: string) {
     super(message, 400)
@@ -27,11 +29,11 @@ export class ValidationError extends CalendarServiceError {
 }
 
 /**
- * Описывает AuthenticationError и связанную с ним сервисную ответственность.
+ * Ошибка service-to-service авторизации.
  */
 export class AuthenticationError extends CalendarServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 401 означает, что подпись запроса не прошла проверку.
    */
   constructor(message: string) {
     super(message, 401)
@@ -39,11 +41,11 @@ export class AuthenticationError extends CalendarServiceError {
 }
 
 /**
- * Описывает ReplayAttackError и связанную с ним сервисную ответственность.
+ * Ошибка повторного requestId.
  */
 export class ReplayAttackError extends CalendarServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 409 означает конфликт: такой запрос уже был принят.
    */
   constructor() {
     super('replay detected', 409)
@@ -51,11 +53,11 @@ export class ReplayAttackError extends CalendarServiceError {
 }
 
 /**
- * Описывает NotFoundError и связанную с ним сервисную ответственность.
+ * Ошибка отсутствующего подключения или route-а.
  */
 export class NotFoundError extends CalendarServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 404 означает, что нужный ресурс не найден.
    */
   constructor() {
     super('not found', 404)
@@ -63,11 +65,11 @@ export class NotFoundError extends CalendarServiceError {
 }
 
 /**
- * Описывает ProviderNotConfiguredError и связанную с ним сервисную ответственность.
+ * Ошибка, когда OAuth provider не настроен.
  */
 export class ProviderNotConfiguredError extends CalendarServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 400 возвращаем, потому что текущий запрос невозможно выполнить с этим provider.
    */
   constructor() {
     super('provider not configured', 400)
@@ -75,11 +77,11 @@ export class ProviderNotConfiguredError extends CalendarServiceError {
 }
 
 /**
- * Описывает OAuthStateError и связанную с ним сервисную ответственность.
+ * Ошибка подписи OAuth state.
  */
 export class OAuthStateError extends CalendarServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 400 означает, что callback state повреждён или подделан.
    */
   constructor() {
     super('invalid oauth state', 400)

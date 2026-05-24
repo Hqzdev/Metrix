@@ -1,34 +1,37 @@
 import { Redis } from 'ioredis'
 export { SlotLocker } from './slot-locker.js'
 
-// максимум сообщений за один XREADGROUP — ограничивает размер batch в памяти
+// Максимум сообщений за один XREADGROUP — ограничивает размер batch в памяти.
 const READ_BATCH_SIZE = 10
 
-// время ожидания новых сообщений в BLOCK — баланс между latency и CPU
+// Время ожидания новых сообщений в BLOCK — баланс между latency и CPU.
 const BLOCK_TIMEOUT_MS = 5_000
 
-// попытки доставки до отправки в dead-letter queue
+// Попытки доставки до отправки в dead-letter queue.
 const MAX_DELIVERY_ATTEMPTS = 5
 
-// время после которого pending-сообщение считается "зависшим" и может быть XCLAIM-нуто
+// Время, после которого pending-сообщение считается зависшим и может быть XCLAIM-нуто.
 const PENDING_CLAIM_IDLE_MS = 30_000
 
+// Минимальный интерфейс логгера для библиотеки.
 type BusLogger = {
   error: (entry: Record<string, unknown>) => void
   warn: (entry: Record<string, unknown>) => void
 }
 
+// Опции подключения Redis.
 type RedisBusOptions = {
   password?: string
 }
 
+// Опции consumer-а Redis Stream.
 type RedisConsumeOptions = {
   collectLagIntervalMs?: number
   onLag?: (lag: number) => void
   retryPendingIntervalMs?: number
 }
 
-// дефолтный логгер: структурированный JSON в stderr
+// Дефолтный логгер: структурированный JSON в stderr.
 const defaultLogger: BusLogger = {
   error: (entry) => console.error(JSON.stringify({ ...entry, level: 'error', timestamp: new Date().toISOString() })),
   warn: (entry) => console.warn(JSON.stringify({ ...entry, level: 'warn', timestamp: new Date().toISOString() })),
@@ -46,13 +49,16 @@ const defaultLogger: BusLogger = {
  *   в библиотечном коде.
  */
 export class RedisBus {
+  // pub используется для обычных Redis-команд и публикации.
   private readonly pub: Redis
+  // sub используется для XREADGROUP и consumer loop.
   private readonly sub: Redis
   private readonly logger: BusLogger
   private readonly intervals: NodeJS.Timeout[] = []
   private closed = false
 
   constructor(url: string, logger?: BusLogger, options: RedisBusOptions = {}) {
+    // lazyConnect даёт сервису явно контролировать момент подключения.
     const redisOptions = { lazyConnect: true, password: options.password }
 
     this.pub = new Redis(url, redisOptions)
@@ -61,6 +67,7 @@ export class RedisBus {
   }
 
   async connect(): Promise<void> {
+    // После connect можно запускать publish/consume.
     this.closed = false
     await this.pub.connect()
     await this.sub.connect()
@@ -81,6 +88,7 @@ export class RedisBus {
    * ID назначается Redis автоматически (*).
    */
   async publish<T>(stream: string, event: T): Promise<void> {
+    // Поле data содержит JSON-строку события.
     await this.pub.xadd(stream, '*', 'data', JSON.stringify(event))
   }
 
@@ -108,10 +116,12 @@ export class RedisBus {
     this.startLagCollection(stream, group, options)
 
     const loop = async (): Promise<void> => {
+      // closed останавливает рекурсивный polling loop.
       if (this.closed) return
 
       let results: Array<[string, Array<[string, string[]]>]> | null = null
       try {
+        // '>' означает читать только новые сообщения, не pending.
         results = (await this.sub.xreadgroup(
           'GROUP',
           group,
@@ -140,12 +150,15 @@ export class RedisBus {
       if (results) {
         for (const [, messages] of results) {
           for (const [id, fields] of messages) {
+            // Redis Stream fields — плоский массив key/value.
             const dataIndex = fields.indexOf('data')
             if (dataIndex === -1) continue
 
             try {
+              // Handler получает уже распарсенный event.
               const data = JSON.parse(fields[dataIndex + 1]) as T
               await handler(data)
+              // ACK удаляет сообщение из pending list группы.
               await this.sub.xack(stream, group, id)
             } catch (error) {
               // сообщение не ackается — остаётся в pending list для повторной доставки
@@ -163,6 +176,7 @@ export class RedisBus {
       }
 
       if (!this.closed) {
+        // setImmediate не даёт переполнить stack.
         setImmediate(() => void loop())
       }
     }
@@ -187,9 +201,10 @@ export class RedisBus {
     consumer: string,
     handler: (event: T) => Promise<void>,
   ): Promise<void> {
+    // DLQ stream строится из имени исходного stream.
     const dlqStream = `dlq:${stream}`
 
-    // читаем до READ_BATCH_SIZE pending-сообщений которые idle > PENDING_CLAIM_IDLE_MS
+    // Читаем до READ_BATCH_SIZE pending-сообщений, которые idle > PENDING_CLAIM_IDLE_MS.
     const pending = (await this.sub.xpending(
       stream, group,
       'IDLE', String(PENDING_CLAIM_IDLE_MS),
@@ -201,7 +216,7 @@ export class RedisBus {
 
     for (const [id, , , deliveryCount] of pending) {
       if (deliveryCount > MAX_DELIVERY_ATTEMPTS) {
-        // слишком много попыток — отправляем в DLQ
+        // Слишком много попыток — отправляем в DLQ.
         const claimed = (await this.sub.xclaim(stream, group, consumer, PENDING_CLAIM_IDLE_MS, id)) as Array<[string, string[]]> | null
         if (!claimed || claimed.length === 0) continue
 
@@ -218,7 +233,7 @@ export class RedisBus {
         continue
       }
 
-      // XCLAIM — перехватываем сообщение для повторной обработки
+      // XCLAIM — перехватываем сообщение для повторной обработки.
       const claimed = (await this.sub.xclaim(stream, group, consumer, PENDING_CLAIM_IDLE_MS, id)) as Array<[string, string[]]> | null
       if (!claimed || claimed.length === 0) continue
 
@@ -227,6 +242,7 @@ export class RedisBus {
       if (dataIndex === -1) continue
 
       try {
+        // Повторно обрабатываем то же событие.
         const data = JSON.parse(fields[dataIndex + 1]) as T
         await handler(data)
         await this.sub.xack(stream, group, id)
@@ -248,6 +264,7 @@ export class RedisBus {
    */
   async getConsumerLag(stream: string, group: string): Promise<number> {
     try {
+      // XINFO GROUPS показывает lag и pending count consumer group.
       const info = (await this.pub.xinfo('GROUPS', stream)) as Array<unknown[]> | null
       if (!info) return 0
 
@@ -261,12 +278,13 @@ export class RedisBus {
         if (pelIdx !== -1) return Number(entry[pelIdx + 1])
       }
     } catch {
-      // stream может ещё не существовать
+      // Stream может ещё не существовать.
     }
     return 0
   }
 
   async ping(): Promise<void> {
+    // Используется readiness checks.
     await this.pub.ping()
   }
 
@@ -276,11 +294,13 @@ export class RedisBus {
    * Реализовано через SET NX EX — атомарная операция, безопасна при параллельных запросах.
    */
   async checkReplay(requestId: string, ttlSeconds = 60): Promise<boolean> {
+    // SET NX EX атомарно создаёт временный ключ.
     const result = await this.pub.set(`replay:${requestId}`, '1', 'EX', ttlSeconds, 'NX')
     return result === 'OK'
   }
 
   async disconnect(): Promise<void> {
+    // Закрываем циклы и Redis-соединения.
     this.closed = true
     for (const interval of this.intervals) {
       clearInterval(interval)
@@ -298,13 +318,14 @@ export class RedisBus {
    */
   private async ensureConsumerGroup(stream: string, group: string): Promise<void> {
     try {
+      // MKSTREAM создаёт stream, если его ещё нет.
       await this.sub.xgroup('CREATE', stream, group, '$', 'MKSTREAM')
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       if (!message.includes('BUSYGROUP')) {
         throw err
       }
-      // group already exists — ожидаемо при повторном старте, не ошибка
+      // Group already exists — ожидаемо при повторном старте, не ошибка.
     }
   }
 
@@ -315,8 +336,10 @@ export class RedisBus {
     handler: (event: T) => Promise<void>,
     intervalMs: number | undefined,
   ): void {
+    // Если interval не задан, retry pending выключен.
     if (!intervalMs || intervalMs <= 0) return
 
+    // running защищает от наложения двух retry проходов.
     let running = false
     const interval = setInterval(() => {
       if (running || this.closed) return
@@ -335,11 +358,13 @@ export class RedisBus {
         })
     }, intervalMs)
 
+    // unref не удерживает процесс только ради interval.
     interval.unref()
     this.intervals.push(interval)
   }
 
   private startLagCollection(stream: string, group: string, options: RedisConsumeOptions): void {
+    // Lag collection включается только если есть interval и callback.
     if (!options.collectLagIntervalMs || options.collectLagIntervalMs <= 0 || !options.onLag) return
 
     const onLag = options.onLag
@@ -363,5 +388,6 @@ export class RedisBus {
 }
 
 async function wait(ms: number): Promise<void> {
+  // Небольшая пауза после Redis read errors.
   await new Promise<void>((resolve) => setTimeout(resolve, ms))
 }

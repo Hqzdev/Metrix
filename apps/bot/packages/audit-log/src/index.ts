@@ -1,3 +1,4 @@
+// Минимальная часть PrismaClient, которая нужна для записи auditLog.
 type AuditPrismaClient = {
   auditLog: {
     create(input: {
@@ -16,6 +17,7 @@ type AuditPrismaClient = {
   }
 }
 
+// Входные данные audit-события.
 export type AuditLogInput = {
   action: string
   actorUserId?: number
@@ -35,6 +37,7 @@ export type AuditLogInput = {
  * Сервис сам решает, является ли ошибка audit log блокирующей.
  */
 export async function writeAuditLog(prisma: AuditPrismaClient, input: AuditLogInput): Promise<void> {
+  // Преобразуем обычный number user id в BigInt для Prisma schema.
   await prisma.auditLog.create({
     data: {
       action: input.action,
@@ -50,15 +53,25 @@ export async function writeAuditLog(prisma: AuditPrismaClient, input: AuditLogIn
   })
 }
 
+/**
+ * Приводит payload к JSON-safe объекту.
+ */
 function toJsonObject(value: Record<string, unknown>): Record<string, any> {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJsonValue(item)]))
 }
 
+/**
+ * Приводит одно значение к виду, который можно сохранить в JSON колонку.
+ */
 function toJsonValue(value: unknown): any {
+  // BigInt напрямую не сериализуется в JSON.
   if (typeof value === 'bigint') return value.toString()
+  // Date сохраняем как ISO-строку.
   if (value instanceof Date) return value.toISOString()
+  // Массивы обрабатываем рекурсивно.
   if (Array.isArray(value)) return value.map(toJsonValue)
   if (value && typeof value === 'object') {
+    // Вложенные объекты тоже приводим рекурсивно.
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJsonValue(item)]))
   }
 

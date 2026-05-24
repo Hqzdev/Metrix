@@ -1,8 +1,11 @@
 import type { Redis } from 'ioredis'
 
+// Redis key с последним сохранённым polling offset.
 const OFFSET_KEY = 'telegram:updates:offset'
+// Сколько храним отметку, что update уже обработан.
 const PROCESSED_UPDATE_TTL_SEC = 7 * 24 * 60 * 60
 
+// Lua-скрипт сохраняет offset только если новый offset больше текущего.
 const SAVE_OFFSET_SCRIPT = `
   local current = redis.call("get", KEYS[1])
   if current == false or tonumber(current) < tonumber(ARGV[1]) then
@@ -12,6 +15,7 @@ const SAVE_OFFSET_SCRIPT = `
   return 0
 `
 
+// Интерфейс хранилища Telegram updates.
 export type TelegramUpdateStore = {
   claimUpdate(updateId: number): Promise<boolean>
   readOffset(): Promise<number | undefined>
@@ -26,7 +30,7 @@ export type TelegramUpdateStore = {
  */
 export class RedisTelegramUpdateStore implements TelegramUpdateStore {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Сохраняет Redis client.
    */
   constructor(private readonly redis: Redis) {}
 
@@ -37,6 +41,7 @@ export class RedisTelegramUpdateStore implements TelegramUpdateStore {
    * или этот же процесс до рестарта.
    */
   async claimUpdate(updateId: number): Promise<boolean> {
+    // NX означает "создать ключ только если его ещё нет".
     const result = await this.redis.set(processedUpdateKey(updateId), '1', 'EX', PROCESSED_UPDATE_TTL_SEC, 'NX')
     return result === 'OK'
   }
@@ -63,5 +68,6 @@ export class RedisTelegramUpdateStore implements TelegramUpdateStore {
 }
 
 function processedUpdateKey(updateId: number): string {
+  // По одному ключу на каждый Telegram update_id.
   return `telegram:updates:processed:${updateId}`
 }

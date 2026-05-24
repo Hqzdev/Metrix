@@ -1,24 +1,31 @@
-"use client";
+import { CountUpNumber } from "@/components/count-up-number";
 
-import Image from "next/image";
+const stats = [
+  { value: "500+", label: "Bookings per month" },
+  { value: "12", label: "Locations in Moscow" },
+  { value: "30 sec", label: "Avg booking time" },
+  { value: "99.9%", label: "Uptime" },
+];
 
 export function TestimonialsSection() {
   return (
-    <section id="about" className="bg-background">
-      <div className="relative min-h-[820px] w-full md:aspect-[16/9] md:min-h-0">
-        <Image
-          src="/images/testimonial-house.png"
-          alt="Coworking team collaborating in a premium office environment"
-          fill
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-        
-        <div className="absolute inset-0 flex items-end justify-center px-5 pb-12 md:px-12 md:pb-24 lg:px-20 lg:pb-32">
-          <p className="mx-auto max-w-[22rem] text-center text-[1.55rem] leading-relaxed text-white sm:max-w-2xl sm:text-2xl sm:leading-relaxed md:max-w-4xl md:text-3xl md:leading-relaxed lg:max-w-5xl lg:text-[2.5rem] lg:leading-relaxed">
-            Metrix gives teams a place that feels ready before they arrive: desks that can be booked in seconds,
-            rooms that stay available when the meeting matters, and a workspace brand people are proud to bring clients into.
-          </p>
+    <section className="bg-zinc-900 py-20 md:py-24">
+      <div className="mx-auto max-w-7xl px-6 md:px-12 lg:px-20">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+          {stats.map((s, i) => (
+            <div
+              key={s.label}
+              data-reveal
+              data-delay={String(i * 80)}
+              className="flex flex-col items-center gap-2 text-center"
+            >
+              <CountUpNumber
+                value={s.value}
+                className="text-5xl font-bold tracking-tight text-white md:text-6xl"
+              />
+              <span className="text-sm text-zinc-400">{s.label}</span>
+            </div>
+          ))}
         </div>
       </div>
     </section>

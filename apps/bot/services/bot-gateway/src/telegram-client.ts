@@ -1,23 +1,26 @@
 import type { InlineKeyboardMarkup, TelegramApiResponse, TelegramUpdate } from './telegram-types.js'
 
+// Опции отправки сообщения в Telegram.
 type SendOptions = { reply_markup?: InlineKeyboardMarkup; parse_mode?: string }
+// Опции редактирования сообщения.
 type EditOptions = { reply_markup?: InlineKeyboardMarkup; parse_mode?: string }
 
 /**
  * Оборачивает методы Telegram Bot API, используемые сервисом.
  */
 export class TelegramClient {
+  // Base URL Telegram Bot API с токеном бота.
   private readonly base: string
 
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Собирает base URL для Telegram Bot API.
    */
   constructor(token: string) {
     this.base = `https://api.telegram.org/bot${token}`
   }
 
   /**
-   * Получает данные из downstream-сервиса или хранилища.
+   * Получает updates в polling mode.
    */
   async getUpdates(offset?: number): Promise<TelegramUpdate[]> {
     return this.call<TelegramUpdate[]>('getUpdates', {
@@ -28,6 +31,7 @@ export class TelegramClient {
   }
 
   async sendMessage(chatId: number, text: string, options: SendOptions = {}): Promise<{ message_id: number }> {
+    // sendMessage возвращает message_id, который можно потом редактировать.
     return this.call<{ message_id: number }>('sendMessage', { chat_id: chatId, text, ...options })
   }
 
@@ -35,6 +39,7 @@ export class TelegramClient {
     try {
       await this.call('editMessageText', { chat_id: chatId, message_id: messageId, text, ...options })
     } catch (error) {
+      // Telegram ругается, если текст и клавиатура не изменились; для UX это не ошибка.
       if (isMessageNotModifiedError(error)) return
       throw error
     }
@@ -48,6 +53,7 @@ export class TelegramClient {
   }
 
   async answerPreCheckoutQuery(id: string, input: { ok: true } | { ok: false; errorMessage: string }): Promise<void> {
+    // Telegram требует ответить на pre_checkout_query перед списанием.
     await this.call('answerPreCheckoutQuery', {
       pre_checkout_query_id: id,
       ok: input.ok,
@@ -64,6 +70,7 @@ export class TelegramClient {
     currency: string
     prices: Array<{ label: string; amount: number }>
   }): Promise<void> {
+    // sendInvoice сейчас оставлен как прямой helper, хотя основной путь идёт через notification-service.
     await this.call('sendInvoice', {
       chat_id: input.chatId,
       title: input.title,
@@ -76,7 +83,7 @@ export class TelegramClient {
   }
 
   /**
-   * Выполняет шаг setMyCommands внутри сервисного сценария.
+   * Регистрирует команды, которые Telegram показывает пользователю в меню.
    */
   async setMyCommands(): Promise<void> {
     await this.call('setMyCommands', {
@@ -105,8 +112,10 @@ export class TelegramClient {
   }
 
   private async call<T = unknown>(method: string, payload: unknown): Promise<T> {
+    // Отдельный AbortController нужен для таймаута Telegram API.
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 30_000)
+    // Telegram Bot API вызываем JSON POST-запросом.
     const res = await fetch(`${this.base}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -114,12 +123,17 @@ export class TelegramClient {
       signal: ctrl.signal,
     }).finally(() => clearTimeout(t))
 
+    // Telegram возвращает объект вида { ok, result, description }.
     const body = (await res.json()) as TelegramApiResponse<T>
+    // Ошибка может быть как HTTP-level, так и Telegram-level ok:false.
     if (!res.ok || !body.ok) throw new Error(body.description ?? `Telegram ${method} failed`)
     return body.result as T
   }
 }
 
+/**
+ * Проверяет ошибку Telegram "message is not modified".
+ */
 function isMessageNotModifiedError(error: unknown): boolean {
   return error instanceof Error && error.message.includes('message is not modified')
 }

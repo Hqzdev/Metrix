@@ -1,11 +1,19 @@
+// Уровни логов calendar-service.
 type LogLevel = 'info' | 'warn' | 'error'
 
+// Структура одной JSON-записи.
 type LogEntry = {
+  // Машиночитаемое действие.
   action?: string
+  // Ошибка, если лог связан с исключением.
   error?: unknown
+  // Человекочитаемый текст.
   message: string
+  // requestId связывает логи одного запроса.
   requestId?: string
+  // Имя сервиса для фильтрации логов.
   service: 'calendar-service'
+  // Дополнительный контекст.
   [key: string]: unknown
 }
 
@@ -41,26 +49,31 @@ export class CalendarServiceLogger {
    * Сериализует запись лога и отправляет её в stdout/stderr.
    */
   private write(level: LogLevel, entry: LogEntry): void {
+    // Собираем итоговый payload лога.
     const payload = {
       ...entry,
+      // Error превращаем в обычный объект.
       error: entry.error instanceof Error ? serializeError(entry.error) : entry.error,
       level,
       timestamp: new Date().toISOString(),
     }
 
+    // Один лог — одна JSON-строка.
     const line = JSON.stringify(payload)
 
     if (level === 'error') {
+      // Ошибки пишем в stderr.
       console.error(line)
       return
     }
 
+    // Остальные события пишем в stdout.
     console.log(line)
   }
 }
 
 /**
- * Преобразует внутреннюю модель в публичный контракт ответа.
+ * Преобразует Error в JSON-safe объект.
  */
 function serializeError(error: Error): { message: string; name: string; stack?: string } {
   return {

@@ -1,25 +1,27 @@
 /**
- * Описывает PaymentServiceError и связанную с ним сервисную ответственность.
+ * Базовая ошибка payment-service.
  */
 export class PaymentServiceError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Создаёт ошибку с HTTP status code.
    */
   constructor(
     message: string,
+    // HTTP-код, который router вернёт клиенту.
     public readonly statusCode: number,
   ) {
     super(message)
+    // name помогает отличать ошибки в логах.
     this.name = new.target.name
   }
 }
 
 /**
- * Описывает ValidationError и связанную с ним сервисную ответственность.
+ * Ошибка входных данных.
  */
 export class ValidationError extends PaymentServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 400 означает неправильный payload.
    */
   constructor(message: string) {
     super(message, 400)
@@ -27,11 +29,11 @@ export class ValidationError extends PaymentServiceError {
 }
 
 /**
- * Описывает AuthenticationError и связанную с ним сервисную ответственность.
+ * Ошибка service-to-service авторизации.
  */
 export class AuthenticationError extends PaymentServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 401 означает неверную подпись запроса.
    */
   constructor(message: string) {
     super(message, 401)
@@ -39,11 +41,11 @@ export class AuthenticationError extends PaymentServiceError {
 }
 
 /**
- * Описывает ReplayAttackError и связанную с ним сервисную ответственность.
+ * Ошибка повторного requestId.
  */
 export class ReplayAttackError extends PaymentServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 409 означает, что запрос уже недавно принимался.
    */
   constructor() {
     super('replay detected', 409)
@@ -51,11 +53,11 @@ export class ReplayAttackError extends PaymentServiceError {
 }
 
 /**
- * Описывает ConflictError и связанную с ним сервисную ответственность.
+ * Конфликт состояния, например слот уже held/booked.
  */
 export class ConflictError extends PaymentServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 409 просит caller перечитать состояние и попробовать другой сценарий.
    */
   constructor(message: string) {
     super(message, 409)
@@ -63,11 +65,11 @@ export class ConflictError extends PaymentServiceError {
 }
 
 /**
- * Описывает NotFoundError и связанную с ним сервисную ответственность.
+ * Ресурс или route не найден.
  */
 export class NotFoundError extends PaymentServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 404 означает отсутствие invoice/resource/saga.
    */
   constructor(message = 'not found') {
     super(message, 404)
@@ -75,11 +77,11 @@ export class NotFoundError extends PaymentServiceError {
 }
 
 /**
- * Описывает DownstreamServiceError и связанную с ним сервисную ответственность.
+ * Ошибка зависимого сервиса.
  */
 export class DownstreamServiceError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Создаёт ошибку без HTTP-кода, потому что она обычно ловится consumer-ом.
    */
   constructor(message: string) {
     super(message)

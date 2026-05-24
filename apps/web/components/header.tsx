@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Menu01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const headerShadow =
   "rgba(14, 63, 126, 0.04) 0px 0px 0px 1px, rgba(42, 51, 69, 0.04) 0px 1px 1px -0.5px, rgba(42, 51, 70, 0.04) 0px 3px 3px -1.5px, rgba(42, 51, 70, 0.04) 0px 6px 6px -3px, rgba(14, 63, 126, 0.04) 0px 12px 12px -6px, rgba(14, 63, 126, 0.04) 0px 24px 24px -12px";
@@ -12,81 +14,91 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header 
-      className="fixed left-1/2 top-3 z-50 w-[calc(100%-1rem)] -translate-x-1/2 md:top-4 md:w-[94%] md:max-w-5xl"
-    >
+    <header className="fixed left-1/2 top-3 z-50 w-[calc(100%-1rem)] -translate-x-1/2 md:top-4 md:w-[94%] md:max-w-5xl">
       <div
-        className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-full bg-background/80 px-3 py-2 pl-5 backdrop-blur-md transition-colors duration-300 md:gap-8 md:pl-6"
+        className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-full bg-white/80 px-3 py-2 pl-4 backdrop-blur-md transition-colors duration-300 md:gap-8 md:pl-5 dark:bg-zinc-900/80"
         style={{ boxShadow: headerShadow }}
       >
-        <Link href="#hero" className="flex items-center gap-3 text-lg font-medium tracking-tight transition-colors duration-300 text-foreground">
-          <span className="relative h-8 w-8 overflow-hidden rounded-full border border-border bg-background">
+        {/* Logo + status badge */}
+        <Link href="#hero" className="flex items-center gap-2.5 shrink-0">
+          <div className="relative h-7 w-7 shrink-0">
             <Image
-              src="/images/icon.png"
-              alt="Metrix logo"
-              fill
-              className="object-cover"
+              src="/logo-light.png"
+              alt="Metrix"
+              width={28}
+              height={28}
+              className="rounded-lg dark:hidden"
               priority
             />
+            <Image
+              src="/logo-dark.png"
+              alt="Metrix"
+              width={28}
+              height={28}
+              className="hidden rounded-lg dark:block"
+              priority
+            />
+          </div>
+          <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">Metrix</span>
+          <span className="hidden items-center gap-1.5 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 pulse-dot" />
+            99.9% uptime
           </span>
-          <span>Metrix</span>
         </Link>
 
-        <nav className="hidden items-center justify-center gap-12 md:flex">
-          <Link
-            href="/booking"
-            className="text-sm transition-colors text-muted-foreground hover:text-foreground"
-          >
-            Booking
-          </Link>
-          <Link
-            href="#technology"
-            className="text-sm transition-colors text-muted-foreground hover:text-foreground"
-          >
-            Workspace
-          </Link>
-          <Link
-            href="#gallery"
-            className="text-sm transition-colors text-muted-foreground hover:text-foreground"
-          >
-            Locations
-          </Link>
-          <Link
-            href="#accessories"
-            className="text-sm transition-colors text-muted-foreground hover:text-foreground"
-          >
-            Memberships
-          </Link>
-          <Link
-            href="#about"
-            className="text-sm transition-colors text-muted-foreground hover:text-foreground"
-          >
-            Experience
-          </Link>
+        {/* Desktop nav */}
+        <nav className="hidden items-center justify-center gap-8 md:flex">
+          {["Product", "Pricing", "Changelog", "Docs"].map((item) => (
+            <Link
+              key={item}
+              href={`#${item.toLowerCase()}`}
+              className="text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            >
+              {item}
+            </Link>
+          ))}
         </nav>
 
-        <div className="hidden items-center justify-end md:flex">
+        {/* Desktop CTAs */}
+        <div className="hidden items-center gap-2 md:flex">
+          <ThemeToggle />
           <Link
-            href="/contact"
-            className="px-4 py-2 text-sm font-medium transition-all rounded-full bg-foreground text-background hover:opacity-80"
+            href="/login"
+            className="text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400"
           >
-            Book a tour
+            Sign in
+          </Link>
+          <Link
+            href="/booking"
+            className="rounded-full bg-[#6366F1] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#4338CA]"
+          >
+            Start for free
           </Link>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="flex h-10 w-10 items-center justify-center justify-self-end rounded-full transition-colors text-foreground md:hidden"
-          aria-label="Toggle menu"
-          aria-expanded={isMenuOpen}
-        >
-          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        {/* Mobile: theme toggle + menu toggle */}
+        <div className="flex items-center gap-1 justify-self-end md:hidden">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+            aria-label="Toggle menu"
+            aria-expanded={isMenuOpen}
+          >
+            <HugeiconsIcon
+              icon={isMenuOpen ? Cancel01Icon : Menu01Icon}
+              size={20}
+              strokeWidth={1.75}
+              color="currentColor"
+            />
+          </button>
+        </div>
       </div>
 
+      {/* Mobile menu */}
       <div
-        className={`absolute left-0 right-0 top-[calc(100%+0.5rem)] grid overflow-hidden rounded-[28px] bg-background/80 backdrop-blur-md transition-[grid-template-rows,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] md:hidden ${
+        className={`absolute left-0 right-0 top-[calc(100%+0.5rem)] grid overflow-hidden rounded-[28px] bg-white/90 backdrop-blur-md transition-[grid-template-rows,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] md:hidden dark:bg-zinc-900/90 ${
           isMenuOpen
             ? "pointer-events-auto grid-rows-[1fr] translate-y-0 opacity-100"
             : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"
@@ -95,49 +107,33 @@ export function Header() {
         aria-hidden={!isMenuOpen}
       >
         <div className="min-h-0 overflow-hidden">
-          <nav className="flex h-[calc(100dvh-5.5rem)] w-full flex-col px-6 py-8">
-            <Link
-              href="/booking"
-              className="border-b border-border/60 py-5 text-2xl font-medium text-foreground"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Booking
-            </Link>
-            <Link
-              href="#technology"
-              className="border-b border-border/60 py-5 text-2xl font-medium text-foreground"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Workspace
-            </Link>
-            <Link
-              href="#gallery"
-              className="border-b border-border/60 py-5 text-2xl font-medium text-foreground"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Locations
-            </Link>
-            <Link
-              href="#accessories"
-              className="border-b border-border/60 py-5 text-2xl font-medium text-foreground"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Memberships
-            </Link>
-            <Link
-              href="#about"
-              className="border-b border-border/60 py-5 text-2xl font-medium text-foreground"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Experience
-            </Link>
-            <Link
-              href="/contact"
-              className="mt-auto rounded-full bg-foreground px-5 py-4 text-center text-sm font-medium text-background"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Book a tour
-            </Link>
+          <nav className="flex w-full flex-col px-6 py-6 gap-1">
+            {["Product", "Pricing", "Changelog", "Docs"].map((item) => (
+              <Link
+                key={item}
+                href={`#${item.toLowerCase()}`}
+                className="border-b border-zinc-100 py-4 text-xl font-medium text-zinc-800 dark:border-zinc-800 dark:text-zinc-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {item}
+              </Link>
+            ))}
+            <div className="mt-6 flex flex-col gap-3">
+              <Link
+                href="/login"
+                className="rounded-full border border-zinc-200 px-5 py-3 text-center text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/booking"
+                className="rounded-full bg-[#6366F1] px-5 py-3 text-center text-sm font-semibold text-white"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Start for free
+              </Link>
+            </div>
           </nav>
         </div>
       </div>

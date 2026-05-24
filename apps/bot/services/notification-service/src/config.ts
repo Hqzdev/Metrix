@@ -1,11 +1,16 @@
+// Redis по умолчанию для локального запуска.
 const DEFAULT_REDIS_URL = 'redis://localhost:6379'
 
-// единственная директория, из которой разрешено отправлять файлы пользователям
+// Единственная директория, из которой разрешено отправлять файлы пользователям.
 export const REPORTS_DIR = '/reports'
 
+// Runtime-настройки notification-service.
 export type NotificationServiceConfig = {
+  // Redis stream с событиями уведомлений.
   redisUrl: string
+  // Токен Telegram бота.
   telegramBotToken: string
+  // Готовый base URL Telegram Bot API с токеном.
   telegramBaseUrl: string
 }
 
@@ -16,6 +21,7 @@ export type NotificationServiceConfig = {
  * отправлять сообщения и его запуск бессмысленен.
  */
 export function readNotificationServiceConfig(env: NodeJS.ProcessEnv): NotificationServiceConfig {
+  // Без токена сервис не сможет отправлять сообщения.
   const telegramBotToken = requireEnv(env, 'TELEGRAM_BOT_TOKEN')
 
   return {
@@ -29,6 +35,7 @@ export function readNotificationServiceConfig(env: NodeJS.ProcessEnv): Notificat
  * Возвращает обязательную переменную окружения или падает при пустом значении.
  */
 function requireEnv(env: NodeJS.ProcessEnv, name: string): string {
+  // Значение из пробелов считаем отсутствующим.
   const value = env[name]
   if (value === undefined || value.trim() === '') {
     throw new Error(`${name} is required`)

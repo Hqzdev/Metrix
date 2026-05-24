@@ -1,10 +1,17 @@
+// Уровни логов, которые использует notification-service.
 type LogLevel = 'info' | 'warn' | 'error'
 
+// Одна JSON-запись лога.
 type LogEntry = {
+  // Машиночитаемое действие, например telegram.sendMessage.failed.
   action?: string
+  // Ошибка, если логируем исключение.
   error?: unknown
+  // Человекочитаемый текст.
   message: string
+  // Имя сервиса фиксировано для фильтрации.
   service: 'notification-service'
+  // Дополнительный контекст: statusCode, telegramBody и так далее.
   [key: string]: unknown
 }
 
@@ -37,26 +44,31 @@ export class NotificationServiceLogger {
    * Сериализует запись лога и отправляет её в stdout/stderr.
    */
   private write(level: LogLevel, entry: LogEntry): void {
+    // Собираем payload и добавляем технические поля.
     const payload = {
       ...entry,
+      // Error превращаем в обычный объект.
       error: entry.error instanceof Error ? serializeError(entry.error) : entry.error,
       level,
       timestamp: new Date().toISOString(),
     }
 
+    // Один лог — одна JSON-строка.
     const line = JSON.stringify(payload)
 
     if (level === 'error') {
+      // Ошибки пишем в stderr.
       console.error(line)
       return
     }
 
+    // Остальные события пишем в stdout.
     console.log(line)
   }
 }
 
 /**
- * Преобразует внутреннюю модель в публичный контракт ответа.
+ * Преобразует Error в JSON-safe объект.
  */
 function serializeError(error: Error): { message: string; name: string; stack?: string } {
   return {

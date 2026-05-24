@@ -1,137 +1,86 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { TelegramIcon } from "@hugeicons/core-free-icons";
 
-const footerLinks = {
-  explore: [
-    { label: "Booking", href: "/booking" },
-    { label: "Workspace", href: "#technology" },
-    { label: "Locations", href: "/locations" },
-    { label: "Memberships", href: "/memberships" },
-    { label: "FAQ", href: "/faq" },
-  ],
-  about: [
-    { label: "About", href: "/about" },
-    { label: "Contact", href: "/contact" },
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
-  ],
-  service: [
-    { label: "Book a tour", href: "/contact" },
-    { label: "Day Pass", href: "/memberships" },
-    { label: "Private Offices", href: "/memberships" },
-    { label: "Meeting Rooms", href: "/locations" },
-  ],
-};
+const navLinks = [
+  { label: "Product", href: "#product" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "Changelog", href: "/changelog" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Status", href: "/status" },
+];
 
 export function FooterSection() {
   return (
-    <footer className="bg-background">
-      {/* Main Footer Content */}
-      <div className="border-t border-border px-6 py-16 md:px-12 md:py-20 lg:px-20">
-        <div className="grid grid-cols-2 gap-12 md:grid-cols-4 lg:grid-cols-5">
+    <footer className="bg-[#FAFAFA] dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800">
+      {/* CTA strip */}
+      <div className="border-b border-zinc-200 dark:border-zinc-800 py-16 text-center">
+        <h2 className="text-3xl font-bold tracking-[-0.03em] text-zinc-900 dark:text-white md:text-4xl">
+          Ready to book your desk?
+        </h2>
+        <p className="mt-3 text-zinc-500 dark:text-zinc-400">Start for free. No credit card required.</p>
+        <Link
+          href="/booking"
+          className="mt-6 inline-block rounded-full bg-[#6366F1] px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-[#4338CA]"
+        >
+          Start for free
+        </Link>
+      </div>
+
+      {/* Main footer */}
+      <div className="mx-auto max-w-7xl px-6 py-12 md:px-12 lg:px-20">
+        <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
           {/* Brand */}
-          <div className="col-span-2 md:col-span-1 lg:col-span-2">
-            <Link href="#hero" className="flex items-center gap-3 text-lg font-medium text-foreground">
-              <span className="relative h-9 w-9 overflow-hidden rounded-full border border-border bg-background">
-                <Image
-                  src="/images/icon.png"
-                  alt="Metrix logo"
-                  fill
-                  className="object-cover"
-                />
-              </span>
-              <span>Metrix</span>
-            </Link>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              Premium coworking desk rental, private offices, and meeting rooms designed for focused work and flexible teams.
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div className="relative h-7 w-7 shrink-0">
+              <Image
+                src="/logo-light.png"
+                alt="Metrix"
+                width={28}
+                height={28}
+                className="rounded-lg dark:hidden"
+              />
+              <Image
+                src="/logo-dark.png"
+                alt="Metrix"
+                width={28}
+                height={28}
+                className="hidden rounded-lg dark:block"
+              />
+            </div>
+            <span className="text-base font-bold text-zinc-900 dark:text-white">Metrix</span>
           </div>
 
-          {/* Explore */}
-          <div>
-            <h4 className="mb-4 text-sm font-medium text-foreground">Explore</h4>
-            <ul className="space-y-3">
-              {footerLinks.explore.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* About */}
-          <div>
-            <h4 className="mb-4 text-sm font-medium text-foreground">About</h4>
-            <ul className="space-y-3">
-              {footerLinks.about.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Service */}
-          <div>
-            <h4 className="mb-4 text-sm font-medium text-foreground">Service</h4>
-            <ul className="space-y-3">
-              {footerLinks.service.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Nav links */}
+          <nav className="flex flex-wrap gap-x-6 gap-y-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className="text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
 
-      {/* Bottom Bar */}
-      <div className="border-t border-border px-6 py-6 md:px-12 lg:px-20">
-        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <p className="text-xs text-muted-foreground">
-            2026 Metrix. All rights reserved.
+      {/* Bottom bar */}
+      <div className="border-t border-zinc-200 dark:border-zinc-800 px-6 py-5 md:px-12 lg:px-20">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 md:flex-row">
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+            © 2026 Metrix. Made for freelancers and teams.
           </p>
-
-          
-
-          {/* Social Links */}
-          <div className="flex items-center gap-4">
-            <Link
-              href="#"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Instagram
-            </Link>
-            <Link
-              href="#"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              LinkedIn
-            </Link>
-            <Link
-              href="#"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              X
-            </Link>
-          </div>
+          <Link
+            href="https://t.me/metrix_bot"
+            className="flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-indigo-600 dark:text-zinc-500"
+          >
+            <HugeiconsIcon icon={TelegramIcon} size={18} strokeWidth={1.75} />
+            Open in Telegram
+          </Link>
         </div>
       </div>
     </footer>

@@ -28,11 +28,13 @@ export function startReportWorker(
   bus: RedisBus,
   logger: WorkerLogger,
 ): Worker<ReportJobData> {
+  // Гарантируем, что директория для отчётов существует.
   mkdirSync(REPORTS_DIR, { recursive: true })
 
   const worker = new Worker<ReportJobData>(
     QUEUE_NAMES.REPORTS,
     async (job) => {
+      // Данные отчёта пришли из BullMQ job.
       const { reportId, type, chatId, dateFrom, dateTo } = job.data
 
       logger.info({
@@ -42,21 +44,24 @@ export function startReportWorker(
         type,
       })
 
-      // помечаем как processing
+      // Помечаем как processing, чтобы UI видел, что работа началась.
       await prisma.report.update({
         where: { id: reportId },
         data: { status: 'processing', updatedAt: new Date() },
       })
 
       try {
+        // Пока отчёт текстовый, но путь уже похож на будущий PDF/export файл.
         const filePath = join(REPORTS_DIR, `report-${reportId}.txt`)
         await generateReport({ type, filePath, prisma, dateFrom, dateTo })
 
+        // После успешной генерации сохраняем путь к файлу.
         await prisma.report.update({
           where: { id: reportId },
           data: { status: 'done', filePath, updatedAt: new Date() },
         })
 
+        // Просим notification-service отправить файл пользователю.
         await bus.publish(STREAMS.NOTIFICATION_SEND, {
           type: 'send_document',
           chatId,
@@ -64,6 +69,7 @@ export function startReportWorker(
           caption: `📊 Отчёт готов: ${type} ${dateFrom ?? ''} – ${dateTo ?? ''}`.trim(),
         })
 
+        // Отдельное событие может использовать UI или аналитика.
         await bus.publish(STREAMS.REPORT_READY, { reportId, chatId, filePath })
 
         logger.info({
@@ -73,6 +79,7 @@ export function startReportWorker(
           filePath,
         })
       } catch (err) {
+        // Ошибку сохраняем в report, чтобы её было видно в админке.
         const message = err instanceof Error ? err.message : String(err)
         await prisma.report.update({
           where: { id: reportId },
@@ -84,6 +91,7 @@ export function startReportWorker(
     { connection, concurrency: 2 },
   )
 
+  // Логируем падения report jobs.
   worker.on('failed', (job, err) => {
     logger.error({
       message: 'Report job failed',
@@ -113,16 +121,19 @@ async function generateReport(opts: {
 }): Promise<void> {
   const { type, filePath, prisma, dateFrom, dateTo } = opts
 
+  // Если задан период, фильтруем бронирования по startsAtIso.
   const where = dateFrom && dateTo
     ? { startsAtIso: { gte: new Date(dateFrom), lte: new Date(dateTo) } }
     : {}
 
+  // Ограничиваем отчёт 500 последними бронями, чтобы файл не вырос бесконечно.
   const bookings = await prisma.booking.findMany({
     where,
     orderBy: { createdAt: 'desc' },
     take: 500,
   })
 
+  // Собираем простой текстовый документ.
   const lines: string[] = [
     `METRIX REPORT — ${type.toUpperCase()}`,
     `Generated: ${new Date().toISOString()}`,
@@ -141,6 +152,7 @@ async function generateReport(opts: {
   ]
 
   await new Promise<void>((resolve, reject) => {
+    // Пишем файл stream-ом.
     const stream = createWriteStream(filePath)
     stream.write(lines.join('\n'), (err) => {
       if (err) reject(err)

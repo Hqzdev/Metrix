@@ -1,5 +1,4 @@
-// ─── domain types ─────────────────────────────────────────────────────────────
-
+// Локация, которую пользователь выбирает перед бронированием.
 export type BookingLocation = {
   id: string
   name: string
@@ -9,6 +8,7 @@ export type BookingLocation = {
   members: string
 }
 
+// Ресурс внутри локации: комната, стол или офис.
 export type BookingResource = {
   id: string
   locationId: string
@@ -21,6 +21,7 @@ export type BookingResource = {
   status: string
 }
 
+// Один доступный временной слот.
 export type AvailableSlot = {
   id: string
   startsAt: string
@@ -29,6 +30,7 @@ export type AvailableSlot = {
   endsAtIso: string
 }
 
+// Бронирование в формате, безопасном для JSON.
 export type Booking = {
   id: string
   locationId: string
@@ -43,11 +45,12 @@ export type Booking = {
   startsAtIso: string
   endsAt: string
   endsAtIso: string
-  status: 'active' | 'cancelled' | 'rescheduled'
+  status: 'active' | 'cancelled' | 'completed' | 'rescheduled'
   calendarEventGoogle?: string
   calendarEventMicrosoft?: string
 }
 
+// Подключение внешнего календаря пользователя или ресурса.
 export type CalendarConnection = {
   id: string
   provider: 'google' | 'microsoft'
@@ -60,6 +63,7 @@ export type CalendarConnection = {
   expiresAt?: string
 }
 
+// Pending invoice для оплаты бронирования.
 export type PendingInvoice = {
   id: string
   amountMinorUnits: number
@@ -75,6 +79,7 @@ export type PendingInvoice = {
   totalParts: number
 }
 
+// Report запись для фоновой генерации отчёта.
 export type Report = {
   id: string
   type: string
@@ -83,8 +88,6 @@ export type Report = {
   error?: string
 }
 
-// ─── slot helpers ─────────────────────────────────────────────────────────────
-
 /**
  * Строит slotId для кастомного слота (произвольное время).
  *
@@ -92,10 +95,9 @@ export type Report = {
  * Используется ботом при формировании брони с выбором даты/времени вручную.
  */
 export function buildCustomSlotId(resourceId: string, dateStr: string, hour: number, duration: number): string {
+  // Формат должен совпадать с parser-ом в booking-service.
   return `${resourceId}-${dateStr}-${hour}-${duration}`
 }
-
-// ─── redis stream names ────────────────────────────────────────────────────────
 
 /**
  * Имена Redis Streams для межсервисного обмена событиями.
@@ -106,21 +108,28 @@ export function buildCustomSlotId(resourceId: string, dateStr: string, hour: num
 export const STREAMS = {
   BOOKING_CREATED: 'stream:booking.created',
   BOOKING_CANCELLED: 'stream:booking.cancelled',
+  BOOKING_COMPLETED: 'stream:booking.completed',
   PAYMENT_COMPLETED: 'stream:payment.completed',
   NOTIFICATION_SEND: 'stream:notification.send',
   REPORT_READY: 'stream:report.ready',
 } as const
 
-// ─── redis event payloads ──────────────────────────────────────────────────────
-
+// Событие создания бронирования.
 export type BookingCreatedEvent = {
   booking: Booking
 }
 
+// Событие отмены бронирования.
 export type BookingCancelledEvent = {
   booking: Booking
 }
 
+// Событие завершения бронирования.
+export type BookingCompletedEvent = {
+  booking: Booking
+}
+
+// Событие полной оплаты invoice.
 export type PaymentCompletedEvent = {
   telegramUserId: number
   chatId: number
@@ -130,6 +139,7 @@ export type PaymentCompletedEvent = {
   invoiceId: string
 }
 
+// События, которые notification-service превращает в Telegram API calls.
 export type NotificationSendEvent =
   | {
       type: 'send_message'
@@ -162,25 +172,27 @@ export type NotificationSendEvent =
       caption?: string
     }
 
+// Событие готового отчёта.
 export type ReportReadyEvent = {
   reportId: string
   chatId: number
   filePath: string
 }
 
-// ─── http api types ────────────────────────────────────────────────────────────
-
+// Payload создания booking.
 export type CreateBookingInput = {
   telegramUserId: number
   resourceId: string
   slotId: string
 }
 
+// Поля, которые можно обновлять у локации.
 export type UpdateLocationInput = {
   occupancy?: string
   members?: string
 }
 
+// Поля, которые можно обновлять у ресурса.
 export type UpdateResourceInput = {
   priceLabel?: string
   priceMinorUnits?: number
@@ -188,11 +200,13 @@ export type UpdateResourceInput = {
   status?: string
 }
 
+// Payload ручной блокировки слотов.
 export type BlockSlotsInput = {
   resourceId: string
   slotIds: string[]
 }
 
+// Payload запроса OAuth URL календаря.
 export type CalendarAuthUrlInput = {
   provider: 'google' | 'microsoft'
   telegramUserId: number
@@ -200,6 +214,7 @@ export type CalendarAuthUrlInput = {
   resourceId?: string
 }
 
+// Payload подключения календаря после OAuth.
 export type ConnectCalendarInput = {
   code: string
   provider: 'google' | 'microsoft'
@@ -208,11 +223,13 @@ export type ConnectCalendarInput = {
   resourceId?: string
 }
 
+// Payload отключения календаря.
 export type DisconnectCalendarInput = {
   provider: 'google' | 'microsoft'
   telegramUserId: number
 }
 
+// Payload создания invoice.
 export type CreateInvoiceInput = {
   chatId: number
   messageId: number
@@ -223,11 +240,13 @@ export type CreateInvoiceInput = {
   providerToken: string
 }
 
+// Summary analytics за период.
 export type AnalyticsSummary = {
   period: { dateFrom: string; dateTo: string }
   totalBookings: number
   activeBookings: number
   cancelledBookings: number
+  completedBookings: number
   rescheduledBookings: number
   totalOccupiedMinutes: number
   averageBookingMinutes: number

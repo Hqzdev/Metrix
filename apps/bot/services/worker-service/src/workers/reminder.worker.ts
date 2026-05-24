@@ -1,11 +1,13 @@
 import { Worker } from 'bullmq'
 import type { Redis } from 'ioredis'
+import type { PrismaClient } from '@prisma/client'
 import type { RedisBus } from '@metrix/redis-bus'
 import { STREAMS } from '@metrix/contracts'
 import { QUEUE_NAMES, type ReminderJobData } from '../queues.js'
 import type { WorkerLogger } from '../logger.js'
 
-// за сколько минут до начала отправляем напоминание
+// За сколько минут до начала отправляем напоминание.
+// Должно совпадать со значением в booking-service/src/reminder-scheduler.ts.
 const REMINDER_LEAD_TIME_MINUTES = 15
 
 /**
@@ -18,17 +20,20 @@ const REMINDER_LEAD_TIME_MINUTES = 15
  * Fault tolerance:
  * - BullMQ хранит jobs в Redis — не теряются при рестарте
  * - при падении handler job возвращается в очередь (стандартное поведение BullMQ)
- * - отменённые бронирования: job проверяет статус перед отправкой через DB
+ * - перед отправкой проверяем статус через Prisma: если бронь отменена/перенесена —
+ *   не отправляем (на случай гонки между cancelReminder и выполнением job)
  */
 export function startReminderWorker(
   connection: Redis,
+  prisma: PrismaClient,
   bus: RedisBus,
   logger: WorkerLogger,
 ): Worker<ReminderJobData> {
   const worker = new Worker<ReminderJobData>(
     QUEUE_NAMES.REMINDERS,
     async (job) => {
-      const { bookingId, telegramUserId, chatId, resourceName, locationName, startsAt } = job.data
+      // Достаём данные, которые booking-service положил в delayed job.
+      const { bookingId, telegramUserId, chatId, resourceName, locationName, startsAt, language } = job.data
 
       logger.info({
         message: 'Processing reminder job',
@@ -38,12 +43,34 @@ export function startReminderWorker(
         telegramUserId,
       })
 
-      const text =
-        `🔔 *Напоминание о бронировании*\n\n` +
-        `📍 ${locationName} — ${resourceName}\n` +
-        `🕐 Начало через ${REMINDER_LEAD_TIME_MINUTES} минут: *${startsAt}*\n\n` +
-        `Booking ID: \`${bookingId}\``
+      // Проверяем статус брони — на случай гонки с cancelReminder.
+      const booking = await prisma.booking.findUnique({
+        select: { status: true },
+        where: { id: bookingId },
+      })
 
+      // Если бронь отменена или не найдена, напоминание уже не нужно.
+      if (!booking || booking.status !== 'active') {
+        logger.info({
+          message: 'Skipping reminder — booking is not active',
+          service: 'worker-service',
+          jobId: job.id,
+          bookingId,
+          status: booking?.status ?? 'not found',
+        })
+        return
+      }
+
+      // Текст сообщения зависит от языка пользователя.
+      const text = language === 'ru'
+        ? `🔔 Напоминание о бронировании\n\n` +
+          `📍 ${locationName} — ${resourceName}\n` +
+          `🕐 Начало через ${REMINDER_LEAD_TIME_MINUTES} минут: ${startsAt}`
+        : `🔔 Booking reminder\n\n` +
+          `📍 ${locationName} — ${resourceName}\n` +
+          `🕐 Starts in ${REMINDER_LEAD_TIME_MINUTES} minutes: ${startsAt}`
+
+      // Реальную отправку делает notification-service.
       await bus.publish(STREAMS.NOTIFICATION_SEND, {
         type: 'send_message',
         chatId,
@@ -55,6 +82,7 @@ export function startReminderWorker(
         service: 'worker-service',
         jobId: job.id,
         bookingId,
+        language,
       })
     },
     {
@@ -63,6 +91,7 @@ export function startReminderWorker(
     },
   )
 
+  // Логируем падения jobs, чтобы видеть проблемы Telegram/Redis/DB.
   worker.on('failed', (job, err) => {
     logger.error({
       message: 'Reminder job failed',
@@ -74,16 +103,4 @@ export function startReminderWorker(
   })
 
   return worker
-}
-
-/**
- * Вычисляет delay в мс для delayed job напоминания.
- * Job должен выполниться за REMINDER_LEAD_TIME_MINUTES до старта.
- */
-export function calcReminderDelayMs(startsAtIso: string): number {
-  const startsAt = new Date(startsAtIso).getTime()
-  const fireAt = startsAt - REMINDER_LEAD_TIME_MINUTES * 60 * 1_000
-  const delay = fireAt - Date.now()
-  // если время уже прошло (бронирование в прошлом) — ставим 0, job выполнится сразу
-  return Math.max(0, delay)
 }

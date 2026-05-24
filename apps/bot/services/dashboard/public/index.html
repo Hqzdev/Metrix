@@ -65,6 +65,7 @@
   <div class="log-box" id="logBox"></div>
 
   <script>
+    // Список сервисов должен совпадать с backend SERVICES в index.js.
     const SERVICES = [
       'postgres',
       'redis',
@@ -78,30 +79,40 @@
       'worker-service',
     ];
 
+    // Текущая вкладка логов.
     let currentService = SERVICES[0];
+    // EventSource текущего SSE-потока логов.
     let currentEs = null;
 
+    // Загружает health всех сервисов.
     async function fetchHealth() {
       try {
+        // Backend сам ходит в Docker и /ready endpoint-ы.
         const res = await fetch('/api/health');
         const data = await res.json();
         renderHealth(data);
+        // Показываем время последнего обновления.
         document.getElementById('lastCheck').textContent =
           'Обновлено: ' + new Date().toLocaleTimeString('ru');
       } catch {
+        // Если dashboard backend недоступен, показать это прямо в grid.
         document.getElementById('grid').textContent = 'Ошибка соединения с dashboard сервером';
       }
     }
 
+    // Рисует карточки состояния сервисов.
     function renderHealth(services) {
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
 
       services.forEach((svc) => {
+        // Каждая карточка — один сервис.
         const card = document.createElement('div');
         card.className = 'card';
         const cls = svc.status === 'ok' ? 'ok' : svc.status === 'unknown' ? 'unknown' : 'error';
+        // Иконка текстовая, чтобы не зависеть от внешних assets.
         const icon = svc.status === 'ok' ? '● online' : svc.status === 'unknown' ? '◌ unknown' : '● offline';
+        // detail может быть объектом readiness или строкой Docker status.
         const detail = typeof svc.detail === 'object' ? JSON.stringify(svc.detail) : String(svc.detail || '');
         card.innerHTML = `
           <div class="name">${escapeHtml(svc.name)}</div>
@@ -113,9 +124,11 @@
       });
     }
 
+    // Рисует вкладки логов для всех сервисов.
     function renderTabs() {
       const container = document.getElementById('tabs');
       SERVICES.forEach((name) => {
+        // div используется как простая кнопка вкладки.
         const btn = document.createElement('div');
         btn.className = 'tab' + (name === currentService ? ' active' : '');
         btn.textContent = name;
@@ -124,28 +137,36 @@
       });
     }
 
+    // Переключает выбранный сервис логов.
     function switchService(name) {
       currentService = name;
+      // Обновляем active-класс на вкладках.
       document.querySelectorAll('.tab').forEach((tab) => {
         tab.classList.toggle('active', tab.textContent === name);
       });
       startLogStream(name);
     }
 
+    // Открывает SSE-поток логов выбранного сервиса.
     function startLogStream(service) {
+      // Закрываем старый поток перед открытием нового.
       if (currentEs) currentEs.close();
       const box = document.getElementById('logBox');
       box.innerHTML = '';
 
+      // Backend отдаёт docker logs как Server-Sent Events.
       currentEs = new EventSource(`/api/logs/${service}`);
       currentEs.onmessage = (event) => {
+        // Каждое event.data — JSON-строка одной строки лога.
         const raw = JSON.parse(event.data);
         const line = document.createElement('div');
         line.className = 'log-line';
 
+        // Простая подсветка ошибок и warning-ов по тексту строки.
         if (/error|Error|ERROR/.test(raw)) line.classList.add('err');
         else if (/warn|WARN/.test(raw)) line.classList.add('warn');
 
+        // Если строка начинается с ISO timestamp, отделяем время визуально.
         const match = raw.match(/^(\S+T\S+Z)\s(.*)$/s);
         if (match) {
           const ts = document.createElement('span');
@@ -157,10 +178,12 @@
           line.textContent = raw;
         }
 
+        // Автоскролл к последней строке.
         box.appendChild(line);
         box.scrollTop = box.scrollHeight;
       };
       currentEs.onerror = () => {
+        // SSE сам будет пытаться переподключиться, а мы показываем сообщение.
         const line = document.createElement('div');
         line.className = 'log-line err';
         line.textContent = '[поток логов прерван или сервис недоступен]';
@@ -168,6 +191,7 @@
       };
     }
 
+    // Превращает seconds uptime в короткую строку.
     function formatUptime(seconds) {
       if (seconds === null || seconds === undefined) return 'n/a';
       const days = Math.floor(seconds / 86400);
@@ -178,6 +202,7 @@
       return `${minutes}m`;
     }
 
+    // Экранирует HTML, чтобы имена сервисов и детали не стали markup.
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (char) => ({
         '&': '&amp;',
@@ -188,9 +213,12 @@
       })[char]);
     }
 
+    // Первичная отрисовка страницы.
     renderTabs();
     fetchHealth();
+    // Health обновляем каждые 10 секунд.
     setInterval(fetchHealth, 10000);
+    // Логи открываем сразу для первого сервиса.
     startLogStream(currentService);
   </script>
 </body>

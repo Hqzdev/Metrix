@@ -1,25 +1,30 @@
 /**
- * Описывает AnalyticsServiceError и связанную с ним сервисную ответственность.
+ * Базовая ошибка analytics-service.
+ *
+ * Хранит HTTP status code рядом с сообщением, чтобы router мог быстро
+ * превратить ошибку в HTTP-ответ.
  */
 export class AnalyticsServiceError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Создаёт ошибку с текстом и HTTP-кодом.
    */
   constructor(
     message: string,
+    // HTTP-код, который нужно вернуть клиенту.
     public readonly statusCode: number,
   ) {
     super(message)
+    // name помогает понять конкретный тип ошибки в логах.
     this.name = new.target.name
   }
 }
 
 /**
- * Описывает ValidationError и связанную с ним сервисную ответственность.
+ * Ошибка входных данных.
  */
 export class ValidationError extends AnalyticsServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 400 означает, что клиент прислал неправильный payload.
    */
   constructor(message: string) {
     super(message, 400)
@@ -27,11 +32,11 @@ export class ValidationError extends AnalyticsServiceError {
 }
 
 /**
- * Описывает AuthenticationError и связанную с ним сервисную ответственность.
+ * Ошибка service-to-service авторизации.
  */
 export class AuthenticationError extends AnalyticsServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 401 означает, что подпись запроса не прошла проверку.
    */
   constructor(message: string) {
     super(message, 401)
@@ -39,11 +44,11 @@ export class AuthenticationError extends AnalyticsServiceError {
 }
 
 /**
- * Описывает ReplayAttackError и связанную с ним сервисную ответственность.
+ * Ошибка повторного requestId.
  */
 export class ReplayAttackError extends AnalyticsServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 409 показывает, что запрос уже недавно принимался.
    */
   constructor() {
     super('replay detected', 409)
@@ -51,11 +56,11 @@ export class ReplayAttackError extends AnalyticsServiceError {
 }
 
 /**
- * Описывает NotFoundError и связанную с ним сервисную ответственность.
+ * Ошибка отсутствующего route-а или report-а.
  */
 export class NotFoundError extends AnalyticsServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 404 означает, что нужный ресурс не найден.
    */
   constructor() {
     super('not found', 404)
@@ -63,11 +68,11 @@ export class NotFoundError extends AnalyticsServiceError {
 }
 
 /**
- * Описывает DownstreamServiceError и связанную с ним сервисную ответственность.
+ * Ошибка downstream-сервиса, например booking-service.
  */
 export class DownstreamServiceError extends AnalyticsServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 502 показывает, что analytics-service жив, но зависимый сервис ответил плохо.
    */
   constructor(message: string) {
     super(message, 502)

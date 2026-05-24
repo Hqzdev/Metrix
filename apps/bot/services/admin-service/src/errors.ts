@@ -1,25 +1,30 @@
 /**
- * Описывает AdminServiceError и связанную с ним сервисную ответственность.
+ * Базовая ошибка admin-service.
+ *
+ * Внутри неё сразу хранится HTTP status code, чтобы обработчик ошибок
+ * мог быстро превратить исключение в понятный HTTP-ответ.
  */
 export class AdminServiceError extends Error {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * Создаёт ошибку с текстом для клиента и HTTP-кодом ответа.
    */
   constructor(
     message: string,
+    // statusCode показывает, какой HTTP-статус нужно вернуть клиенту.
     public readonly statusCode: number,
   ) {
     super(message)
+    // name нужен, чтобы в логах было видно точный класс ошибки.
     this.name = new.target.name
   }
 }
 
 /**
- * Описывает ValidationError и связанную с ним сервисную ответственность.
+ * Ошибка валидации: клиент прислал неправильные данные.
  */
 export class ValidationError extends AdminServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 400 означает, что запрос был понятен, но данные в нём неверные.
    */
   constructor(message: string) {
     super(message, 400)
@@ -27,11 +32,11 @@ export class ValidationError extends AdminServiceError {
 }
 
 /**
- * Описывает AuthenticationError и связанную с ним сервисную ответственность.
+ * Ошибка авторизации: запрос не прошёл service-to-service проверку.
  */
 export class AuthenticationError extends AdminServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 401 означает, что вызывающий сервис не доказал свою личность.
    */
   constructor(message: string) {
     super(message, 401)
@@ -39,11 +44,11 @@ export class AuthenticationError extends AdminServiceError {
 }
 
 /**
- * Описывает ReplayAttackError и связанную с ним сервисную ответственность.
+ * Ошибка replay attack: тот же requestId уже использовали недавно.
  */
 export class ReplayAttackError extends AdminServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 409 показывает конфликт: такой запрос уже был обработан или принят.
    */
   constructor() {
     super('replay detected', 409)
@@ -51,11 +56,11 @@ export class ReplayAttackError extends AdminServiceError {
 }
 
 /**
- * Описывает NotFoundError и связанную с ним сервисную ответственность.
+ * Ошибка отсутствующего endpoint-а или ресурса.
  */
 export class NotFoundError extends AdminServiceError {
   /**
-   * Сохраняет зависимости класса для последующих обработчиков.
+   * 404 возвращаем, когда route или нужная запись не найдены.
    */
   constructor() {
     super('not found', 404)

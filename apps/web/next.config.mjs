@@ -1,3 +1,9 @@
+import { dirname } from "node:path"
+import { fileURLToPath } from "node:url"
+
+const appDir = dirname(fileURLToPath(import.meta.url))
+const repoRoot = dirname(dirname(appDir))
+
 const securityHeaders = [
   {
     key: "X-DNS-Prefetch-Control",
@@ -41,9 +47,8 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  outputFileTracingRoot: new URL("../..", import.meta.url).pathname,
-  typescript: {
-    ignoreBuildErrors: true,
+  turbopack: {
+    root: repoRoot,
   },
   images: {
     unoptimized: true,
