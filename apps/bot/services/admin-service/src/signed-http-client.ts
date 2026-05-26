@@ -18,7 +18,7 @@ export type SignedHttpClient = {
    * Бросает DownstreamError, если сервис вернул нештатный статус.
    */
   patchJson(url: string, body: unknown): Promise<unknown>
-  /**
+  /** 
    * Делает POST-запрос с JSON-телом и возвращает тело плюс реальный HTTP-код.
    * Бросает DownstreamError, если сервис вернул нештатный статус.
    */
