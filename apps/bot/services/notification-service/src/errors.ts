@@ -17,7 +17,7 @@ export class TelegramApiError extends Error {
     // name помогает отличать эту ошибку в логах.
     this.name = new.target.name
   }
-}
+} 
 
 /**
  * Попытка отправить файл за пределами разрешённой директории.

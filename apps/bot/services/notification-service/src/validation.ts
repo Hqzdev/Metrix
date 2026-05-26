@@ -26,7 +26,7 @@ export function parseNotificationSendEvent(input: unknown): NotificationSendEven
       replyMarkup: event.replyMarkup,
     }
   }
-
+ 
   if (type === 'send_invoice') {
     return {
       type,

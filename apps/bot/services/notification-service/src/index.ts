@@ -23,7 +23,7 @@ installGracefulShutdown({
   resources: [
     async () => {
       await bus.disconnect()
-    },
+    }, 
   ],
   service: 'notification-service',
 })

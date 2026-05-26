@@ -19,7 +19,7 @@ export type NotificationServiceConfig = {
  *
  * TELEGRAM_BOT_TOKEN проверяется сразу — без него сервис не может
  * отправлять сообщения и его запуск бессмысленен.
- */
+ */ 
 export function readNotificationServiceConfig(env: NodeJS.ProcessEnv): NotificationServiceConfig {
   // Без токена сервис не сможет отправлять сообщения.
   const telegramBotToken = requireEnv(env, 'TELEGRAM_BOT_TOKEN')

@@ -158,3 +158,4 @@ function isInsideDirectory(root: string, candidate: string): boolean {
   const relativePath = relative(root, candidate)
   return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath)
 }
+ 
