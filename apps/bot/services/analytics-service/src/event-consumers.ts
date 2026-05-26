@@ -15,7 +15,7 @@ type AnalyticsEventConsumerOptions = {
   metrics?: MetricsRegistry
 }
 
-/**
+/** 
  * Регистрирует Redis stream consumers для событий, влияющих на аналитику.
  *
  * Сейчас обработчики только логируют факт события. Это явная точка расширения
