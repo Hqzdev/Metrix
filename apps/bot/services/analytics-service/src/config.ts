@@ -18,7 +18,7 @@ export type AnalyticsServiceConfig = {
   // Сервисы, которым разрешено вызывать analytics-service.
   trustedCallers: TrustedCaller[]
 }
-
+ 
 /**
  * Читает и валидирует конфигурацию analytics-service при старте.
  *
