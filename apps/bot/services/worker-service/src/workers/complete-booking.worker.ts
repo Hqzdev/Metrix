@@ -22,7 +22,7 @@ import { parseCompletionJobData } from '../validation.js'
 export function startCompletionWorker(
   connection: Redis,
   prisma: PrismaClient,
-  bus: RedisBus,
+  bus: RedisBus, 
   logger: WorkerLogger,
 ): Worker<CompletionJobData> {
   const worker = new Worker<CompletionJobData>(

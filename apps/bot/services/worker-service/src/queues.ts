@@ -30,7 +30,7 @@ export type ReminderJobData = {
   chatId: number
   language: 'en' | 'ru'  // Язык пользователя для локализации текста.
   // Название ресурса в тексте напоминания.
-  resourceName: string
+  resourceName: string 
   // Название локации в тексте напоминания.
   locationName: string
   startsAt: string       // Human-readable, например "14:00".

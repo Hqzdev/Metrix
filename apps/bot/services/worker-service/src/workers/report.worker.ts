@@ -24,7 +24,7 @@ import { parseReportJobData } from '../validation.js'
 export function startReportWorker(
   connection: Redis,
   prisma: PrismaClient,
-  bus: RedisBus,
+  bus: RedisBus, 
   logger: WorkerLogger,
   reportsDir: string,
 ): Worker<ReportJobData> {

@@ -31,7 +31,7 @@ export function parseCompletionJobData(input: unknown): CompletionJobData {
   return {
     bookingId: requireString(data.bookingId, 'bookingId'),
     telegramUserId: requirePositiveInteger(data.telegramUserId, 'telegramUserId'),
-  }
+  } 
 }
 
 /**

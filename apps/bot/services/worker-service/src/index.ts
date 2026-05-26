@@ -25,7 +25,7 @@ const redisConnection = new Redis(config.redisUrl, {
 // RedisBus нужен workers для публикации уведомлений и событий.
 const bus = new RedisBus(config.redisUrl, undefined, { password: config.redisPassword })
 await bus.connect()
-
+ 
 // Reminder worker отправляет напоминания перед началом брони.
 const reminderWorker = startReminderWorker(redisConnection, prisma, bus, logger)
 // Completion worker автоматически закрывает бронь после окончания.

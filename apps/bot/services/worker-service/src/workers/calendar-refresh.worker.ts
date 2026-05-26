@@ -23,7 +23,7 @@ const SERVICE_NAME = 'worker-service'
  * Решение: при первом подключении calendar-service ставит delayed job на refreshAt.
  * Worker обновляет токен в фоне и ставит следующий job на новое время истечения.
  * Booking flow никогда не ждёт token refresh.
- */
+ */ 
 export function startCalendarRefreshWorker(
   connection: Redis,
   prisma: PrismaClient,

@@ -23,7 +23,7 @@ const REMINDER_LEAD_TIME_MINUTES = 15
  * - при падении handler job возвращается в очередь (стандартное поведение BullMQ)
  * - перед отправкой проверяем статус через Prisma: если бронь отменена/перенесена —
  *   не отправляем (на случай гонки между cancelReminder и выполнением job)
- */
+ */ 
 export function startReminderWorker(
   connection: Redis,
   prisma: PrismaClient,

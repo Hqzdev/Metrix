@@ -25,7 +25,7 @@ export function readWorkerServiceConfig(env: NodeJS.ProcessEnv): WorkerServiceCo
     redisPassword: readOptionalEnv(env, 'REDIS_PASSWORD'),
     redisUrl: env.REDIS_URL ?? DEFAULT_REDIS_URL,
     reportsDir: env.REPORTS_DIR ?? DEFAULT_REPORTS_DIR,
-  }
+  } 
 }
 
 /**
