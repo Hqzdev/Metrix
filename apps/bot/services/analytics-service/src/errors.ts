@@ -18,7 +18,7 @@ export class AnalyticsServiceError extends Error {
     this.name = new.target.name
   }
 }
-
+ 
 /**
  * Ошибка входных данных.
  */
