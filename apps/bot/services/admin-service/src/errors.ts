@@ -7,7 +7,7 @@
 export class AdminServiceError extends Error {
   /**
    * Создаёт ошибку с текстом для клиента и HTTP-кодом ответа.
-   */
+   */ 
   constructor(
     message: string,
     // statusCode показывает, какой HTTP-статус нужно вернуть клиенту.
