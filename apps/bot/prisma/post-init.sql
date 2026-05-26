@@ -3,3 +3,4 @@
 CREATE UNIQUE INDEX IF NOT EXISTS booking_active_slot_unique
   ON booking."Booking" ("resourceId", "slotId")
   WHERE status = 'active';
+ 

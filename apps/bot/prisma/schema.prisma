@@ -8,7 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
   schemas  = ["booking", "calendar", "payment", "analytics", "audit", "security"]
 }
-
+ 
 // ─── booking schema ───────────────────────────────────────────────────────────
 
 model Location {

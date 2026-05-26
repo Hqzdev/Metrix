@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS booking."TelegramUserPreference" (
 
   CONSTRAINT "TelegramUserPreference_pkey" PRIMARY KEY ("telegramUserId"),
   CONSTRAINT "TelegramUserPreference_language_check" CHECK ("language" IN ('en', 'ru'))
-);
+); 

@@ -9,7 +9,7 @@
 -- 1. Idempotency key на бронировании
 ALTER TABLE booking."Booking"
   ADD COLUMN IF NOT EXISTS "idempotencyKey" TEXT;
-
+ 
 CREATE UNIQUE INDEX IF NOT EXISTS "Booking_idempotencyKey_key"
   ON booking."Booking" ("idempotencyKey")
   WHERE "idempotencyKey" IS NOT NULL;
