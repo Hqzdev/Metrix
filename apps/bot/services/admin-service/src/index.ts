@@ -17,7 +17,7 @@ const prisma = new PrismaClient()
 const redis = new Redis(config.redisUrl, { lazyConnect: true, password: process.env.REDIS_PASSWORD })
 // Метрики собираются под именем сервиса, чтобы их было легко отличать в мониторинге.
 const metrics = new MetricsRegistry('admin-service')
-
+ 
 // Подключаемся к Redis до старта HTTP-сервера, чтобы не принимать запросы в полурабочем состоянии.
 await redis.connect()
 
