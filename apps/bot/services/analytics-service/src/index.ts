@@ -22,7 +22,7 @@ const metrics = new MetricsRegistry('analytics-service')
 await bus.connect()
 // Подписываемся на события бронирований, которые могут влиять на аналитику.
 await registerAnalyticsEventConsumers(bus, logger, { metrics })
-
+ 
 // Router принимает HTTP-запросы, а BookingClient ходит за фактами бронирований.
 const router = new AnalyticsRouter({
   bookingClient: new BookingClient(config.bookingServiceUrl, config.signingSecret),
