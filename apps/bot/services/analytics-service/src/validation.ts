@@ -26,7 +26,7 @@ export function parseCreateReportInput(input: unknown): CreateReportInput {
   if (typeof body.type !== 'string' || body.type.trim() === '') {
     throw new ValidationError('type required')
   }
-
+ 
   return {
     requestedBy: parseOptionalUserId(body.requestedBy),
     type: body.type,
