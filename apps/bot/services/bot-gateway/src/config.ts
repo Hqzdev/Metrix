@@ -67,6 +67,9 @@ export function readBotGatewayConfig(env: NodeJS.ProcessEnv): BotGatewayConfig {
   }
 }
 
+/**
+ * Читает режим получения Telegram updates.
+ */
 function readTelegramMode(rawMode: string | undefined): TelegramMode {
   // По умолчанию используем polling: он проще для локальной разработки.
   if (rawMode === undefined || rawMode === '') return 'polling'

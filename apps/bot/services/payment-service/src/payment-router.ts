@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import { audit, extractUserId, readJsonBody, verifyServiceRequest } from '@metrix/auth'
-import { writeAuditLog } from '@metrix/audit-log'
+import { writeAuditLog, type AuditLogInput } from '@metrix/audit-log'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { PrismaClient } from '@prisma/client'
 import type { RedisBus } from '@metrix/redis-bus'
 import { STREAMS } from '@metrix/contracts'
-import type { PaymentServiceConfig } from './config.js'
-import { AuthenticationError, ConflictError, NotFoundError, PaymentServiceError, ReplayAttackError, ValidationError } from './errors.js'
+import { isLikelyYooKassaApiKey, type PaymentServiceConfig } from './config.js'
+import { AuthenticationError, ConflictError, DownstreamServiceError, NotFoundError, PaymentConfigurationError, PaymentServiceError, ReplayAttackError } from './errors.js'
 import { sendJson } from './http-response.js'
 import type { PaymentServiceLogger } from './logger.js'
 import type { BookingServiceClient } from './booking-service-client.js'
+import { parseCreateInvoiceInput, parsePreCheckoutQuery, parseSuccessfulPaymentMessage, readIdFromPath } from './validation.js'
 
 // Telegram Stars ограничивает сумму одного инвойса значением 9 999 999 минимальных единиц.
 // Суммы выше разбиваются на последовательные инвойсы.
@@ -45,22 +46,6 @@ type RequestContext = {
   path: string
   // requestId для audit/replay.
   requestId: string
-}
-
-// Telegram pre_checkout_query в упрощённом виде.
-type PreCheckoutQuery = {
-  id: string
-  from: { id: number }
-  currency: string
-  total_amount: number
-  invoice_payload: string
-}
-
-// Telegram message с successful_payment.
-type SuccessfulPaymentMessage = {
-  chat: { id: number }
-  from?: { id: number }
-  successful_payment: { invoice_payload: string; total_amount: number }
 }
 
 /**
@@ -205,30 +190,19 @@ export class PaymentRouter {
    * Создаёт доменную сущность или запрос к downstream-сервису.
    */
   private async createInvoice(context: RequestContext): Promise<{ ok: boolean; invoiceId: string }> {
+    // Provider token проверяем до создания hold/saga, чтобы не оставить неоплачиваемый invoice.
+    this.assertProviderTokenConfigured()
     // invoice создаётся для конкретного пользователя, чата, ресурса и слота.
-    const body = context.parsedBody as { chatId?: unknown; telegramUserId?: unknown; resourceId?: unknown; slotId?: unknown }
-
-    // userId берём из подписи или body fallback.
-    const userId = resolveUserId(context.callerUserId, body.telegramUserId)
-    // chatId нужен Telegram для отправки invoice.
-    const chatId = resolveChatId(body.chatId)
-
-    if (typeof body.resourceId !== 'string' || !body.resourceId) {
-      throw new ValidationError('resourceId is required')
-    }
-
-    if (typeof body.slotId !== 'string' || !body.slotId) {
-      throw new ValidationError('slotId is required')
-    }
+    const input = parseCreateInvoiceInput(context.parsedBody, context.callerUserId)
 
     // Сначала проверяем ресурс в booking-service.
-    const resource = await this.deps.bookingClient.getResource(body.resourceId)
+    const resource = await this.deps.bookingClient.getResource(input.resourceId)
     if (!resource) {
       throw new NotFoundError('resource not found')
     }
 
     // Затем проверяем, что слот ещё доступен.
-    const slotAvailable = await this.deps.bookingClient.isSlotAvailable(body.resourceId, body.slotId)
+    const slotAvailable = await this.deps.bookingClient.isSlotAvailable(input.resourceId, input.slotId)
     if (!slotAvailable) {
       throw new ConflictError('slot is already booked')
     }
@@ -250,8 +224,8 @@ export class PaymentRouter {
         await tx.slotHold.updateMany({
           data: { status: 'expired' },
           where: {
-            resourceId: body.resourceId as string,
-            slotId: body.slotId as string,
+            resourceId: input.resourceId,
+            slotId: input.slotId,
             status: 'held',
             expiresAt: { lt: new Date() },
           },
@@ -261,9 +235,9 @@ export class PaymentRouter {
         const hold = await tx.slotHold.create({
           data: {
             expiresAt,
-            resourceId: body.resourceId as string,
-            slotId: body.slotId as string,
-            telegramUserId: BigInt(userId),
+            resourceId: input.resourceId,
+            slotId: input.slotId,
+            telegramUserId: BigInt(input.telegramUserId),
           },
         })
 
@@ -276,10 +250,10 @@ export class PaymentRouter {
             locationId: resource.locationId,
             paidAmountMinorUnits: 0,
             partNumber: 1,
-            resourceId: body.resourceId as string,
-            slotId: body.slotId as string,
+            resourceId: input.resourceId,
+            slotId: input.slotId,
             status: 'pending',
-            telegramUserId: BigInt(userId),
+            telegramUserId: BigInt(input.telegramUserId),
             totalAmountMinorUnits: total,
             totalParts,
           },
@@ -294,33 +268,19 @@ export class PaymentRouter {
         // PaymentSaga отслеживает весь сценарий: invoice -> payment -> booking.
         await tx.paymentSaga.create({
           data: {
-            chatId: BigInt(chatId),
+            chatId: BigInt(input.chatId),
             currentPart: 1,
             invoiceId,
             paidAmount: 0,
-            resourceId: body.resourceId as string,
-            slotId: body.slotId as string,
+            resourceId: input.resourceId,
+            slotId: input.slotId,
             status: 'pending',
-            telegramUserId: BigInt(userId),
+            telegramUserId: BigInt(input.telegramUserId),
             totalAmount: total,
             totalParts,
           },
         })
 
-        // Audit записываем в той же транзакции.
-        await writeAuditLog(tx, {
-          action: 'invoice.created',
-          actorUserId: userId,
-          entityId: invoiceId,
-          entityType: 'invoice',
-          payload: {
-            resourceId: body.resourceId,
-            slotId: body.slotId,
-            totalAmountMinorUnits: total,
-          },
-          requestId: context.requestId,
-          service: 'payment',
-        })
       })
     } catch (error) {
       // Unique constraint обычно означает, что слот уже held/booked.
@@ -330,10 +290,25 @@ export class PaymentRouter {
       throw error
     }
 
+    // Persistent audit не должен откатывать платёжную транзакцию при сбое audit table.
+    await this.writeAudit({
+      action: 'invoice.created',
+      actorUserId: input.telegramUserId,
+      entityId: invoiceId,
+      entityType: 'invoice',
+      payload: {
+        resourceId: input.resourceId,
+        slotId: input.slotId,
+        totalAmountMinorUnits: total,
+      },
+      requestId: context.requestId,
+      service: 'payment',
+    })
+
     // Просим notification-service отправить invoice в Telegram.
     await this.deps.bus.publish(STREAMS.NOTIFICATION_SEND, {
       type: 'send_invoice',
-      chatId,
+      chatId: input.chatId,
       invoiceId,
       title: `Booking: ${resource.name}`,
       description: `${resource.name} — ${resource.priceLabel}`,
@@ -348,9 +323,9 @@ export class PaymentRouter {
       ts: new Date().toISOString(),
       service: 'payment',
       action: 'invoice.created',
-      userId,
+      userId: input.telegramUserId,
       invoiceId,
-      resourceId: body.resourceId,
+      resourceId: input.resourceId,
       requestId: context.requestId,
     })
     return { ok: true, invoiceId }
@@ -361,8 +336,7 @@ export class PaymentRouter {
    */
   private async handlePreCheckout(context: RequestContext): Promise<{ ok: boolean; errorMessage?: string }> {
     // Telegram присылает pre_checkout_query перед финальным подтверждением оплаты.
-    const body = context.parsedBody as { query?: PreCheckoutQuery }
-    const query = body.query
+    const query = parsePreCheckoutQuery(context.parsedBody)
 
     if (!query) {
       return { ok: false, errorMessage: 'missing query' }
@@ -398,8 +372,7 @@ export class PaymentRouter {
    */
   private async handleSuccessfulPayment(context: RequestContext): Promise<{ ok: boolean }> {
     // Telegram присылает message.successful_payment после успешной оплаты.
-    const body = context.parsedBody as { message?: SuccessfulPaymentMessage }
-    const msg = body.message
+    const msg = parseSuccessfulPaymentMessage(context.parsedBody)
 
     if (!msg) {
       return { ok: false }
@@ -448,18 +421,18 @@ export class PaymentRouter {
           data: { failureReason: 'payment received after hold expired', status: 'failed' },
           where: { invoiceId: invoice.id },
         })
-        await writeAuditLog(tx, {
-          action: 'payment.hold_expired',
-          actorUserId: Number(invoice.telegramUserId),
-          entityId: invoice.id,
-          entityType: 'invoice',
-          payload: {
-            resourceId: invoice.resourceId,
-            slotId: invoice.slotId,
-          },
-          requestId: context.requestId,
-          service: 'payment',
-        })
+      })
+      await this.writeAudit({
+        action: 'payment.hold_expired',
+        actorUserId: Number(invoice.telegramUserId),
+        entityId: invoice.id,
+        entityType: 'invoice',
+        payload: {
+          resourceId: invoice.resourceId,
+          slotId: invoice.slotId,
+        },
+        requestId: context.requestId,
+        service: 'payment',
       })
       await this.deps.bus.publish(STREAMS.NOTIFICATION_SEND, {
         type: 'send_message',
@@ -495,19 +468,19 @@ export class PaymentRouter {
         data: { completedAt: new Date(), paidAmountMinorUnits: paid, status: 'completed' },
         where: { id: payload },
       })
-      await writeAuditLog(tx, {
-        action: 'payment.completed',
-        actorUserId: Number(invoice.telegramUserId),
-        entityId: payload,
-        entityType: 'invoice',
-        payload: {
-          resourceId: invoice.resourceId,
-          slotId: invoice.slotId,
-          totalAmountMinorUnits: Number(invoice.totalAmountMinorUnits),
-        },
-        requestId: context.requestId,
-        service: 'payment',
-      })
+    })
+    await this.writeAudit({
+      action: 'payment.completed',
+      actorUserId: Number(invoice.telegramUserId),
+      entityId: payload,
+      entityType: 'invoice',
+      payload: {
+        resourceId: invoice.resourceId,
+        slotId: invoice.slotId,
+        totalAmountMinorUnits: Number(invoice.totalAmountMinorUnits),
+      },
+      requestId: context.requestId,
+      service: 'payment',
     })
 
     return { ok: true }
@@ -559,20 +532,20 @@ export class PaymentRouter {
         data: { currentPart: nextPartNumber, invoiceId: nextId, paidAmount: paid, status: 'awaiting_next_part' },
         where: { invoiceId: invoice.id },
       })
-      // Audit показывает цепочку invoice parts.
-      await writeAuditLog(tx, {
-        action: 'payment.part_completed',
-        actorUserId: Number(invoice.telegramUserId),
-        entityId: invoice.id,
-        entityType: 'invoice',
-        payload: {
-          nextInvoiceId: nextId,
-          paidAmountMinorUnits: paid,
-          partNumber: invoice.partNumber,
-          totalParts: invoice.totalParts,
-        },
-        service: 'payment',
-      })
+    })
+    // Audit показывает цепочку invoice parts.
+    await this.writeAudit({
+      action: 'payment.part_completed',
+      actorUserId: Number(invoice.telegramUserId),
+      entityId: invoice.id,
+      entityType: 'invoice',
+      payload: {
+        nextInvoiceId: nextId,
+        paidAmountMinorUnits: paid,
+        partNumber: invoice.partNumber,
+        totalParts: invoice.totalParts,
+      },
+      service: 'payment',
     })
 
     // Отправляем следующий invoice пользователю.
@@ -618,20 +591,20 @@ export class PaymentRouter {
         data: { status: 'failed' },
         where: { id: invoiceId },
       })
-      await writeAuditLog(tx, {
-        action: 'payment.compensation_started',
-        actorUserId: Number(saga.telegramUserId),
-        callerService: context.callerName,
-        entityId: invoiceId,
-        entityType: 'payment_saga',
-        payload: {
-          failureReason: saga.failureReason,
-          resourceId: saga.resourceId,
-          slotId: saga.slotId,
-        },
-        requestId: context.requestId,
-        service: 'payment',
-      })
+    })
+    await this.writeAudit({
+      action: 'payment.compensation_started',
+      actorUserId: Number(saga.telegramUserId),
+      callerService: context.callerName,
+      entityId: invoiceId,
+      entityType: 'payment_saga',
+      payload: {
+        failureReason: saga.failureReason,
+        resourceId: saga.resourceId,
+        slotId: saga.slotId,
+      },
+      requestId: context.requestId,
+      service: 'payment',
     })
 
     // Уведомляем пользователя, что вопрос ушёл на ручную проверку.
@@ -679,19 +652,19 @@ export class PaymentRouter {
         data: { failureReason: null, status: 'awaiting_booking' },
         where: { invoiceId },
       })
-      await writeAuditLog(tx, {
-        action: 'payment.booking_retry_requested',
-        actorUserId: Number(saga.telegramUserId),
-        callerService: context.callerName,
-        entityId: invoiceId,
-        entityType: 'payment_saga',
-        payload: {
-          resourceId: saga.resourceId,
-          slotId: saga.slotId,
-        },
-        requestId: context.requestId,
-        service: 'payment',
-      })
+    })
+    await this.writeAudit({
+      action: 'payment.booking_retry_requested',
+      actorUserId: Number(saga.telegramUserId),
+      callerService: context.callerName,
+      entityId: invoiceId,
+      entityType: 'payment_saga',
+      payload: {
+        resourceId: saga.resourceId,
+        slotId: saga.slotId,
+      },
+      requestId: context.requestId,
+      service: 'payment',
     })
 
     // Затем повторно публикуем PAYMENT_COMPLETED, чтобы consumer создал booking.
@@ -723,28 +696,66 @@ export class PaymentRouter {
         data: { status: 'compensated' },
         where: { invoiceId },
       })
-      await writeAuditLog(tx, {
-        action: 'payment.compensated',
-        actorUserId: Number(saga.telegramUserId),
-        callerService: context.callerName,
-        entityId: invoiceId,
-        entityType: 'payment_saga',
-        payload: {
-          resourceId: saga.resourceId,
-          slotId: saga.slotId,
-        },
-        requestId: context.requestId,
-        service: 'payment',
-      })
+    })
+    await this.writeAudit({
+      action: 'payment.compensated',
+      actorUserId: Number(saga.telegramUserId),
+      callerService: context.callerName,
+      entityId: invoiceId,
+      entityType: 'payment_saga',
+      payload: {
+        resourceId: saga.resourceId,
+        slotId: saga.slotId,
+      },
+      requestId: context.requestId,
+      service: 'payment',
     })
 
     return { ok: true }
   }
 
   /**
+   * Проверяет, что Telegram provider token пригоден до создания invoice.
+   */
+  private assertProviderTokenConfigured(): void {
+    if (!this.deps.config.providerToken) {
+      throw new PaymentConfigurationError('Telegram payment provider token is not configured')
+    }
+
+    if (isLikelyYooKassaApiKey(this.deps.config.providerToken)) {
+      throw new PaymentConfigurationError('Telegram payment provider token has invalid shape')
+    }
+  }
+
+  /**
+   * Пишет persistent audit log без отката бизнес-транзакции при ошибке audit subsystem.
+   */
+  private async writeAudit(input: AuditLogInput): Promise<void> {
+    try {
+      await writeAuditLog(this.deps.prisma, input)
+    } catch (error) {
+      this.deps.logger.error({
+        action: 'audit.write.failed',
+        entityId: input.entityId,
+        entityType: input.entityType,
+        error,
+        message: 'Failed to write payment audit log',
+        requestId: input.requestId,
+        service: 'payment-service',
+      })
+    }
+  }
+
+  /**
    * Преобразует доменные ошибки в HTTP-ответы и логи.
    */
   private handleError(res: ServerResponse, error: unknown): void {
+    // DownstreamServiceError несёт реальный статус и тело ответа booking-service.
+    if (error instanceof DownstreamServiceError) {
+      sendJson(res, error.responseBody, error.statusCode)
+      return
+    }
+
     // Доменные ошибки уже знают свой HTTP status code.
     if (error instanceof PaymentServiceError) {
       sendJson(res, { error: error.message }, error.statusCode)
@@ -763,54 +774,10 @@ export class PaymentRouter {
 }
 
 /**
- * Выбирает доверенный user id из подписи или payload.
- */
-function resolveUserId(callerUserId: number | undefined, rawValue: unknown): number {
-  // Подписанный callerUserId важнее значения из body.
-  const userId = callerUserId ?? Number(rawValue)
-  if (!userId || !Number.isInteger(userId) || userId <= 0) {
-    throw new ValidationError('telegramUserId is required and must be a positive integer')
-  }
-
-  return userId
-}
-
-/**
- * Читает chatId из payload.
- */
-function resolveChatId(rawValue: unknown): number {
-  // Telegram chat id должен быть целым числом.
-  const chatId = Number(rawValue)
-  if (!chatId || !Number.isInteger(chatId)) {
-    throw new ValidationError('chatId is required and must be an integer')
-  }
-
-  return chatId
-}
-
-/**
  * Проверяет Prisma unique constraint error.
  */
 function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 'P2002'
-}
-
-/**
- * Достаёт id из пути с заданным prefix и suffix.
- */
-function readIdFromPath(path: string, prefix: string, suffix: string): string {
-  // Если путь не похож на ожидаемый route, возвращаем 404.
-  if (!path.startsWith(prefix) || !path.endsWith(suffix)) {
-    throw new NotFoundError()
-  }
-
-  // Вырезаем часть между prefix и suffix.
-  const id = path.slice(prefix.length, path.length - suffix.length)
-  if (id.trim() === '') {
-    throw new ValidationError('id is required')
-  }
-
-  return id
 }
 
 /**

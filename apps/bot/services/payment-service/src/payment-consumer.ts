@@ -1,21 +1,13 @@
-import type { RedisBus } from '@metrix/redis-bus'
-import { STREAMS } from '@metrix/contracts'
-import { writeAuditLog } from '@metrix/audit-log'
+import { STREAMS, type PaymentCompletedEvent } from '@metrix/contracts'
+import { writeAuditLog, type AuditLogInput } from '@metrix/audit-log'
 import type { MetricsRegistry } from '@metrix/observability'
 import type { PrismaClient } from '@prisma/client'
+import type { RedisBus } from '@metrix/redis-bus'
 import type { BookingServiceClient } from './booking-service-client.js'
 import type { BookingConfirmation } from './booking-service-client.js'
 import type { PaymentServiceLogger } from './logger.js'
-
-// Событие, которое payment-router публикует после полной оплаты.
-type PaymentCompletedEvent = {
-  chatId: number
-  invoiceId: string
-  resourceId: string
-  slotId: string
-  telegramUserId: number
-  totalAmountMinorUnits: number
-}
+import { ValidationError } from './errors.js'
+import { parsePaymentCompletedEvent } from './validation.js'
 
 // Зависимости consumer-а.
 type PaymentConsumerDependencies = {
@@ -44,11 +36,14 @@ const PENDING_RETRY_INTERVAL_MS = 60_000
  */
 export async function startPaymentConsumer(deps: PaymentConsumerDependencies): Promise<void> {
   // Подписываемся на PAYMENT_COMPLETED.
-  await deps.bus.consume<PaymentCompletedEvent>(
+  await deps.bus.consume<unknown>(
     STREAMS.PAYMENT_COMPLETED,
     CONSUMER_GROUP,
     'payment-worker',
-    async (event) => {
+    async (rawEvent) => {
+      const event = parseRawPaymentCompletedEvent(rawEvent, deps.logger)
+      if (!event) return
+
       await handlePaymentCompleted(event, deps)
     },
     {
@@ -63,6 +58,30 @@ export async function startPaymentConsumer(deps: PaymentConsumerDependencies): P
       retryPendingIntervalMs: PENDING_RETRY_INTERVAL_MS,
     },
   )
+}
+
+/**
+ * Валидирует raw Redis payload и логирует poison event без бесконечного retry.
+ */
+function parseRawPaymentCompletedEvent(
+  rawEvent: unknown,
+  logger: PaymentServiceLogger,
+): PaymentCompletedEvent | undefined {
+  try {
+    return parsePaymentCompletedEvent(rawEvent)
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      logger.error({
+        action: 'payment.completed_event.rejected',
+        error,
+        message: error.message,
+        service: 'payment-service',
+      })
+      return undefined
+    }
+
+    throw error
+  }
 }
 
 /**
@@ -89,18 +108,18 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
         data: { bookingId: booking.id, status: 'completed' },
         where: { invoiceId: event.invoiceId },
       })
-      await writeAuditLog(tx, {
-        action: 'payment.booking_created',
-        actorUserId: event.telegramUserId,
-        entityId: event.invoiceId,
-        entityType: 'payment_saga',
-        payload: {
-          bookingId: booking.id,
-          resourceId: event.resourceId,
-          slotId: event.slotId,
-        },
-        service: 'payment',
-      })
+    })
+    await writeAudit(deps.prisma, deps.logger, {
+      action: 'payment.booking_created',
+      actorUserId: event.telegramUserId,
+      entityId: event.invoiceId,
+      entityType: 'payment_saga',
+      payload: {
+        bookingId: booking.id,
+        resourceId: event.resourceId,
+        slotId: event.slotId,
+      },
+      service: 'payment',
     })
   } catch (error) {
     // Ошибка booking-service переводит saga в failed для ручного recovery.
@@ -113,18 +132,18 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
         },
         where: { invoiceId: event.invoiceId },
       })
-      await writeAuditLog(tx, {
-        action: 'payment.booking_failed',
-        actorUserId: event.telegramUserId,
-        entityId: event.invoiceId,
-        entityType: 'payment_saga',
-        payload: {
-          failureReason,
-          resourceId: event.resourceId,
-          slotId: event.slotId,
-        },
-        service: 'payment',
-      })
+    })
+    await writeAudit(deps.prisma, deps.logger, {
+      action: 'payment.booking_failed',
+      actorUserId: event.telegramUserId,
+      entityId: event.invoiceId,
+      entityType: 'payment_saga',
+      payload: {
+        failureReason,
+        resourceId: event.resourceId,
+        slotId: event.slotId,
+      },
+      service: 'payment',
     })
     deps.logger.error({
       message: 'Failed to create booking after payment',
@@ -157,4 +176,22 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
     chatId: event.chatId,
     text: confirmationText,
   })
+}
+
+/**
+ * Пишет persistent audit log без отката транзакции payment consumer-а.
+ */
+async function writeAudit(prisma: PrismaClient, logger: PaymentServiceLogger, input: AuditLogInput): Promise<void> {
+  try {
+    await writeAuditLog(prisma, input)
+  } catch (error) {
+    logger.error({
+      action: 'audit.write.failed',
+      entityId: input.entityId,
+      entityType: input.entityType,
+      error,
+      message: 'Failed to write payment consumer audit log',
+      service: 'payment-service',
+    })
+  }
 }

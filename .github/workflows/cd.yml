@@ -1,0 +1,326 @@
+name: CD
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Triggered only after CI passes on main.
+# Workflow:
+#   build-push  →  deploy-staging  →  smoke-staging  →  [manual approval]
+#                                                     →  deploy-production
+#                                                     →  smoke-production
+#
+# Rollback is a manually dispatched workflow_dispatch job that redeploys the
+# previous image tag stored in the GitHub deployment environment.
+#
+# Required GitHub secrets:
+#   SSH_HOST_STAGING      — IP / hostname of staging server
+#   SSH_HOST_PRODUCTION   — IP / hostname of production server
+#   SSH_USER              — SSH user on both servers
+#   SSH_PRIVATE_KEY       — Private key (no passphrase)
+#   SSH_KNOWN_HOSTS       — Output of `ssh-keyscan <host>` for both servers
+#   POSTGRES_PASSWORD     — injected via Docker env on deploy
+#   REDIS_PASSWORD        — injected via Docker env on deploy
+#   JWT_SECRET            — injected via Docker env on deploy
+#   SERVICE_HMAC_SECRET   — injected via Docker env on deploy
+#
+# Required GitHub variables:
+#   DEPLOY_PATH           — absolute path to repo on remote, e.g. /srv/metrix
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+  # Allow manual rollback or re-deploy.
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+      image_tag:
+        description: 'Image tag to deploy (default: latest sha on main)'
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/metrix
+
+jobs:
+  # ── Guard: only proceed when CI workflow succeeded ─────────────────────────
+  guard:
+    name: Check CI result
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Compute image tag
+        id: tag
+        run: |
+          if [[ -n "${{ inputs.image_tag }}" ]]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Build and push all service images to GHCR ─────────────────────────────
+  build-push:
+    name: Build & push ${{ matrix.service }}
+    needs: guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - admin-service
+          - analytics-service
+          - booking-service
+          - bot-gateway
+          - calendar-service
+          - notification-service
+          - payment-service
+          - worker-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/bot
+          file: apps/bot/Dockerfile.service
+          build-args: SERVICE_NAME=${{ matrix.service }}
+          push: true
+          # Tag with both the commit SHA (immutable) and the environment tag.
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ needs.guard.outputs.image_tag }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Deploy to staging ─────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to staging
+    needs: [guard, build-push]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.metrixplatform.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy to staging server
+        env:
+          IMAGE_TAG: ${{ needs.guard.outputs.image_tag }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=yes \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_STAGING }} \
+              bash -s << 'ENDSSH'
+            set -euo pipefail
+            cd "$DEPLOY_PATH/apps/bot"
+
+            # Pull new images.
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            IMAGE_PREFIX="${{ env.IMAGE_PREFIX }}"
+            TAG="${{ env.IMAGE_TAG }}"
+
+            for svc in admin-service analytics-service booking-service bot-gateway \
+                       calendar-service notification-service payment-service worker-service; do
+              docker pull "${IMAGE_PREFIX}/${svc}:${TAG}"
+            done
+
+            # Write current tag for rollback reference.
+            echo "${TAG}" > .last-deployed-tag
+
+            # Rolling restart: update each service image reference and redeploy.
+            export IMAGE_TAG="${TAG}"
+            docker compose up -d --no-build \
+              admin-service analytics-service booking-service bot-gateway \
+              calendar-service notification-service payment-service worker-service
+
+            # Wait for all containers to be healthy (max 120 s).
+            deadline=$(($(date +%s) + 120))
+            while [[ $(date +%s) -lt $deadline ]]; do
+              unhealthy=$(docker compose ps --format json \
+                | jq -r 'select(.Health != "healthy" and .Health != "") | .Name')
+              [[ -z "$unhealthy" ]] && echo "All services healthy" && break
+              echo "Waiting for: $unhealthy"
+              sleep 5
+            done
+          ENDSSH
+
+  # ── Smoke test staging ────────────────────────────────────────────────────
+  smoke-staging:
+    name: Smoke test staging
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run smoke tests against staging
+        env:
+          BOOKING_SERVICE_URL: https://staging.metrixplatform.com/booking
+          INTEGRATION_TEST: 'true'
+        run: npm run test:integration -- --test-name-pattern="smoke"
+
+  # ── Manual approval gate before production ───────────────────────────────
+  # GitHub Environments with required reviewers provides the approval UI.
+  # Set up: Settings → Environments → production → Required reviewers.
+
+  # ── Deploy to production ──────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to production
+    needs: [guard, smoke-staging]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://metrixplatform.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy to production server
+        env:
+          IMAGE_TAG: ${{ needs.guard.outputs.image_tag }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=yes \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_PRODUCTION }} \
+              bash -s << 'ENDSSH'
+            set -euo pipefail
+            cd "$DEPLOY_PATH/apps/bot"
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            IMAGE_PREFIX="${{ env.IMAGE_PREFIX }}"
+            TAG="${{ env.IMAGE_TAG }}"
+
+            # Save previous tag before overwriting — used by rollback.
+            [[ -f .last-deployed-tag ]] && cp .last-deployed-tag .previous-deployed-tag
+
+            for svc in admin-service analytics-service booking-service bot-gateway \
+                       calendar-service notification-service payment-service worker-service; do
+              docker pull "${IMAGE_PREFIX}/${svc}:${TAG}"
+            done
+
+            echo "${TAG}" > .last-deployed-tag
+
+            export IMAGE_TAG="${TAG}"
+            docker compose up -d --no-build \
+              admin-service analytics-service booking-service bot-gateway \
+              calendar-service notification-service payment-service worker-service
+
+            deadline=$(($(date +%s) + 120))
+            while [[ $(date +%s) -lt $deadline ]]; do
+              unhealthy=$(docker compose ps --format json \
+                | jq -r 'select(.Health != "healthy" and .Health != "") | .Name')
+              [[ -z "$unhealthy" ]] && echo "All services healthy" && break
+              echo "Waiting for: $unhealthy"
+              sleep 5
+            done
+          ENDSSH
+
+  # ── Smoke test production ─────────────────────────────────────────────────
+  smoke-production:
+    name: Smoke test production
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run smoke tests against production
+        env:
+          BOOKING_SERVICE_URL: https://metrixplatform.com/booking
+          INTEGRATION_TEST: 'true'
+        run: npm run test:integration -- --test-name-pattern="smoke"
+
+  # ── Auto-rollback if production smoke tests fail ──────────────────────────
+  rollback-production:
+    name: Rollback production
+    needs: smoke-production
+    runs-on: ubuntu-latest
+    if: failure()
+    environment:
+      name: production
+    steps:
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Rollback to previous image tag
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=yes \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_PRODUCTION }} \
+              bash -s << 'ENDSSH'
+            set -euo pipefail
+            cd "$DEPLOY_PATH/apps/bot"
+
+            if [[ ! -f .previous-deployed-tag ]]; then
+              echo "No previous tag file found — cannot auto-rollback" >&2
+              exit 1
+            fi
+
+            PREV_TAG=$(cat .previous-deployed-tag)
+            echo "Rolling back to ${PREV_TAG}"
+
+            export IMAGE_TAG="${PREV_TAG}"
+            docker compose up -d --no-build \
+              admin-service analytics-service booking-service bot-gateway \
+              calendar-service notification-service payment-service worker-service
+
+            echo "Rollback complete. Previous tag: ${PREV_TAG}"
+          ENDSSH

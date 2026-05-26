@@ -25,6 +25,48 @@
     .error { color: #f87171; }
     .unknown { color: #facc15; }
 
+    /* ── Метрики ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .metric-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .metric-card .svc-name { font-size: 0.8rem; color: #888; margin-bottom: 10px; }
+    .metric-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 0.78rem;
+    }
+    .metric-label { color: #666; width: 70px; flex-shrink: 0; }
+    .metric-value { color: #e0e0e0; width: 64px; text-align: right; flex-shrink: 0; }
+    /* Полоска визуализирует значение относительно условного максимума. */
+    .metric-bar-track {
+      flex: 1;
+      height: 4px;
+      background: #2a2a2a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .metric-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .bar-rps    { background: #60a5fa; }
+    .bar-lat    { background: #a78bfa; }
+    .bar-err-ok { background: #4ade80; }
+    .bar-err-hi { background: #f87171; }
+    .metric-empty { font-size: 0.75rem; color: #444; font-style: italic; }
+
+    /* ── Логи ── */
     .log-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
     .tab {
       padding: 4px 12px;
@@ -60,6 +102,10 @@
   <div class="grid" id="grid">Loading...</div>
   <p class="refresh-note" id="lastCheck"></p>
 
+  <h2>Метрики (последняя минута)</h2>
+  <div class="metrics-grid" id="metricsGrid">Loading...</div>
+  <p class="refresh-note" id="metricsNote"></p>
+
   <h2>Logs</h2>
   <div class="log-tabs" id="tabs"></div>
   <div class="log-box" id="logBox"></div>
@@ -75,60 +121,161 @@
       'payment-service',
       'analytics-service',
       'admin-service',
+      'security-service',
       'notification-service',
       'worker-service',
+      'traefik',
+      'minio',
+      'prometheus',
+      'grafana',
+      'glitchtip',
     ];
+
+    // Сервисы, у которых есть HTTP /metrics — только они появятся в метриках.
+    const METRIC_SERVICES = [
+      'bot-gateway',
+      'booking-service',
+      'calendar-service',
+      'payment-service',
+      'analytics-service',
+      'admin-service',
+      'security-service',
+    ];
+
+    // Условные максимумы для визуальных полосок.
+    // Полоска = min(value / MAX, 1) * 100%.
+    const MAX_RPS = 50;        // req/s — выше этого полоска заполнена на 100%
+    const MAX_LATENCY_MS = 2000; // мс
+    const MAX_ERROR_PCT = 5;   // % — выше этого полоска красная и полная
 
     // Текущая вкладка логов.
     let currentService = SERVICES[0];
     // EventSource текущего SSE-потока логов.
     let currentEs = null;
 
-    // Загружает health всех сервисов.
+    /**
+     * Загружает health всех сервисов и обновляет отметку последней проверки.
+     */
     async function fetchHealth() {
       try {
         // Backend сам ходит в Docker и /ready endpoint-ы.
-        const res = await fetch('/api/health');
-        const data = await res.json();
+        const data = await requestJson('/api/health');
         renderHealth(data);
-        // Показываем время последнего обновления.
         document.getElementById('lastCheck').textContent =
           'Обновлено: ' + new Date().toLocaleTimeString('ru');
       } catch {
-        // Если dashboard backend недоступен, показать это прямо в grid.
         document.getElementById('grid').textContent = 'Ошибка соединения с dashboard сервером';
       }
     }
 
-    // Рисует карточки состояния сервисов.
+    /**
+     * Загружает метрики из Prometheus через backend.
+     */
+    async function fetchMetrics() {
+      try {
+        const data = await requestJson('/api/metrics');
+        renderMetrics(data);
+        document.getElementById('metricsNote').textContent =
+          'Обновлено: ' + new Date().toLocaleTimeString('ru');
+      } catch {
+        document.getElementById('metricsGrid').textContent = 'Prometheus недоступен';
+      }
+    }
+
+    /**
+     * Рисует карточки состояния сервисов.
+     */
     function renderHealth(services) {
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
 
       services.forEach((svc) => {
-        // Каждая карточка — один сервис.
         const card = document.createElement('div');
         card.className = 'card';
         const cls = svc.status === 'ok' ? 'ok' : svc.status === 'unknown' ? 'unknown' : 'error';
-        // Иконка текстовая, чтобы не зависеть от внешних assets.
         const icon = svc.status === 'ok' ? '● online' : svc.status === 'unknown' ? '◌ unknown' : '● offline';
-        // detail может быть объектом readiness или строкой Docker status.
         const detail = typeof svc.detail === 'object' ? JSON.stringify(svc.detail) : String(svc.detail || '');
-        card.innerHTML = `
-          <div class="name">${escapeHtml(svc.name)}</div>
-          <div class="status ${cls}">${icon}</div>
-          <div class="detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</div>
-          <div class="uptime">uptime: ${formatUptime(svc.uptimeSeconds)}</div>
-        `;
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = svc.name;
+
+        const status = document.createElement('div');
+        status.className = `status ${cls}`;
+        status.textContent = icon;
+
+        const detailEl = document.createElement('div');
+        detailEl.className = 'detail';
+        detailEl.title = detail;
+        detailEl.textContent = detail;
+
+        const uptime = document.createElement('div');
+        uptime.className = 'uptime';
+        uptime.textContent = `uptime: ${formatUptime(svc.uptimeSeconds)}`;
+
+        card.append(name, status, detailEl, uptime);
         grid.appendChild(card);
       });
     }
 
-    // Рисует вкладки логов для всех сервисов.
+    /**
+     * Рисует карточки с метриками для сервисов у которых есть данные от Prometheus.
+     */
+    function renderMetrics(data) {
+      const grid = document.getElementById('metricsGrid');
+      grid.innerHTML = '';
+
+      // Показываем только сервисы с HTTP метриками, в фиксированном порядке.
+      for (const svcName of METRIC_SERVICES) {
+        const m = data[svcName];
+        const card = document.createElement('div');
+        card.className = 'metric-card';
+
+        if (!m) {
+          // Данных нет — Prometheus ещё не собрал или сервис не запущен.
+          const name = document.createElement('div');
+          name.className = 'svc-name';
+          name.textContent = svcName;
+
+          const empty = document.createElement('div');
+          empty.className = 'metric-empty';
+          empty.textContent = 'нет данных от Prometheus';
+
+          card.append(name, empty);
+        } else {
+          const rps = m.rps ?? 0;
+          const lat = m.latencyP95Ms ?? 0;
+          const err = m.errorRatePct ?? 0;
+
+          // Ширина полоски — процент от условного максимума, не превышает 100%.
+          const rpsWidth  = Math.min(rps / MAX_RPS * 100, 100).toFixed(1);
+          const latWidth  = Math.min(lat / MAX_LATENCY_MS * 100, 100).toFixed(1);
+          const errWidth  = Math.min(err / MAX_ERROR_PCT * 100, 100).toFixed(1);
+          // Полоска error rate меняет цвет: зелёная если < 1%, красная если выше.
+          const errBarCls = err >= 1 ? 'bar-err-hi' : 'bar-err-ok';
+
+          const name = document.createElement('div');
+          name.className = 'svc-name';
+          name.textContent = svcName;
+
+          card.append(
+            name,
+            createMetricRow('RPS', rps.toFixed(2), 'bar-rps', rpsWidth),
+            createMetricRow('p95 latency', `${lat.toFixed(0)} мс`, 'bar-lat', latWidth),
+            createMetricRow('error rate', `${err.toFixed(2)}%`, errBarCls, errWidth),
+          );
+        }
+
+        grid.appendChild(card);
+      }
+    }
+
+    /**
+     * Рисует вкладки логов для всех сервисов.
+     */
     function renderTabs() {
       const container = document.getElementById('tabs');
       SERVICES.forEach((name) => {
-        // div используется как простая кнопка вкладки.
         const btn = document.createElement('div');
         btn.className = 'tab' + (name === currentService ? ' active' : '');
         btn.textContent = name;
@@ -137,36 +284,34 @@
       });
     }
 
-    // Переключает выбранный сервис логов.
+    /**
+     * Переключает выбранный сервис логов.
+     */
     function switchService(name) {
       currentService = name;
-      // Обновляем active-класс на вкладках.
       document.querySelectorAll('.tab').forEach((tab) => {
         tab.classList.toggle('active', tab.textContent === name);
       });
       startLogStream(name);
     }
 
-    // Открывает SSE-поток логов выбранного сервиса.
+    /**
+     * Открывает SSE-поток логов выбранного сервиса.
+     */
     function startLogStream(service) {
-      // Закрываем старый поток перед открытием нового.
       if (currentEs) currentEs.close();
       const box = document.getElementById('logBox');
       box.innerHTML = '';
 
-      // Backend отдаёт docker logs как Server-Sent Events.
-      currentEs = new EventSource(`/api/logs/${service}`);
+      currentEs = new EventSource(`/api/logs/${encodeURIComponent(service)}`);
       currentEs.onmessage = (event) => {
-        // Каждое event.data — JSON-строка одной строки лога.
         const raw = JSON.parse(event.data);
         const line = document.createElement('div');
         line.className = 'log-line';
 
-        // Простая подсветка ошибок и warning-ов по тексту строки.
         if (/error|Error|ERROR/.test(raw)) line.classList.add('err');
         else if (/warn|WARN/.test(raw)) line.classList.add('warn');
 
-        // Если строка начинается с ISO timestamp, отделяем время визуально.
         const match = raw.match(/^(\S+T\S+Z)\s(.*)$/s);
         if (match) {
           const ts = document.createElement('span');
@@ -178,12 +323,10 @@
           line.textContent = raw;
         }
 
-        // Автоскролл к последней строке.
         box.appendChild(line);
         box.scrollTop = box.scrollHeight;
       };
       currentEs.onerror = () => {
-        // SSE сам будет пытаться переподключиться, а мы показываем сообщение.
         const line = document.createElement('div');
         line.className = 'log-line err';
         line.textContent = '[поток логов прерван или сервис недоступен]';
@@ -191,7 +334,9 @@
       };
     }
 
-    // Превращает seconds uptime в короткую строку.
+    /**
+     * Превращает seconds uptime в короткую строку.
+     */
     function formatUptime(seconds) {
       if (seconds === null || seconds === undefined) return 'n/a';
       const days = Math.floor(seconds / 86400);
@@ -202,22 +347,53 @@
       return `${minutes}m`;
     }
 
-    // Экранирует HTML, чтобы имена сервисов и детали не стали markup.
-    function escapeHtml(value) {
-      return String(value).replace(/[&<>"']/g, (char) => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      })[char]);
+    /**
+     * Загружает JSON и превращает неуспешный HTTP status в ошибку для UI fallback.
+     */
+    async function requestJson(url) {
+      const response = await fetch(url);
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || `HTTP ${response.status}`);
+      }
+
+      return body;
+    }
+
+    /**
+     * Создаёт строку метрики с подписью, значением и визуальной полоской.
+     */
+    function createMetricRow(labelText, valueText, barClassName, widthPercent) {
+      const row = document.createElement('div');
+      row.className = 'metric-row';
+
+      const label = document.createElement('span');
+      label.className = 'metric-label';
+      label.textContent = labelText;
+
+      const value = document.createElement('span');
+      value.className = 'metric-value';
+      value.textContent = valueText;
+
+      const track = document.createElement('div');
+      track.className = 'metric-bar-track';
+
+      const fill = document.createElement('div');
+      fill.className = `metric-bar-fill ${barClassName}`;
+      fill.style.width = `${widthPercent}%`;
+
+      track.appendChild(fill);
+      row.append(label, value, track);
+      return row;
     }
 
     // Первичная отрисовка страницы.
     renderTabs();
     fetchHealth();
-    // Health обновляем каждые 10 секунд.
-    setInterval(fetchHealth, 10000);
+    fetchMetrics();
+    // Health обновляем каждые 10 секунд, метрики каждые 15 секунд.
+    setInterval(fetchHealth, 10_000);
+    setInterval(fetchMetrics, 15_000);
     // Логи открываем сразу для первого сервиса.
     startLogStream(currentService);
   </script>

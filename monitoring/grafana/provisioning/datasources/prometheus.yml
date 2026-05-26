@@ -1,0 +1,20 @@
+# Автоматически подключает Prometheus как источник данных при старте Grafana.
+# Grafana читает этот файл при инициализации — ручная настройка через UI не нужна.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # uid фиксирован, чтобы dashboard JSON ссылался на источник стабильно.
+    uid: metrix-prometheus
+    access: proxy
+    # Имя контейнера в docker-сети.
+    url: http://prometheus:9090
+    # isDefault: true означает, что Grafana будет использовать его без явного выбора в запросах.
+    isDefault: true
+    editable: false
+    jsonData:
+      # Интервал опроса должен совпадать с prometheus.yml scrape_interval.
+      timeInterval: 15s
+      # httpMethod POST быстрее для сложных PromQL запросов.
+      httpMethod: POST

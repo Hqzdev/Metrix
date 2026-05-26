@@ -3,14 +3,13 @@ import { PrismaClient } from '@prisma/client'
 import { RedisBus } from '@metrix/redis-bus'
 import { MetricsRegistry, createObservedHandler, installGracefulShutdown, sendMetrics, sendReadiness } from '@metrix/observability'
 import { isLikelyYooKassaApiKey, readPaymentServiceConfig } from './config.js'
-import { PaymentServiceLogger } from './logger.js'
+import { logger } from './logger.js'
 import { BookingServiceClient } from './booking-service-client.js'
 import { PaymentRouter } from './payment-router.js'
 import { startPaymentConsumer } from './payment-consumer.js'
 import { startExpiredHoldCleaner } from './expired-hold-cleaner.js'
 
 // Логгер создаём первым, чтобы видеть предупреждения конфигурации.
-const logger = new PaymentServiceLogger()
 // Конфиг содержит Redis, валюту, provider token и service-to-service secrets.
 const config = readPaymentServiceConfig(process.env)
 

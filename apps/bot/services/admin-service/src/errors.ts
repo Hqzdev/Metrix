@@ -66,3 +66,24 @@ export class NotFoundError extends AdminServiceError {
     super('not found', 404)
   }
 }
+
+/**
+ * Ошибка downstream-сервиса: запрос дошёл, но вернул нештатный HTTP-код.
+ *
+ * Используется в signed-http-client, чтобы пробросить реальный статус
+ * вместо маскировки под 200 или 500. Это позволяет admin-router вернуть
+ * клиенту тот же код, что вернул booking-service или payment-service.
+ */
+export class DownstreamError extends AdminServiceError {
+  /**
+   * Сохраняет тело ответа downstream, чтобы обработчик ошибок мог
+   * передать его клиенту как есть, не теряя контекст ошибки.
+   */
+  constructor(
+    statusCode: number,
+    // responseBody — распарсенный JSON-ответ downstream-сервиса.
+    public readonly responseBody: unknown,
+  ) {
+    super('downstream service error', statusCode)
+  }
+}

@@ -1,0 +1,19 @@
+# Указывает Grafana, где искать JSON-файлы дашбордов при старте.
+# Grafana подхватывает все .json файлы из указанной директории автоматически.
+apiVersion: 1
+
+providers:
+  - name: Metrix Dashboards
+    # orgId 1 — организация по умолчанию в Grafana.
+    orgId: 1
+    type: file
+    # disableDeletion: true не даёт Grafana удалять дашборды через UI.
+    disableDeletion: true
+    # updateIntervalSeconds: Grafana перечитывает папку и обновляет дашборды.
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      # Путь внутри контейнера Grafana (монтируется через docker volume).
+      path: /var/lib/grafana/dashboards
+      # foldersFromFilesStructure: true создаёт папки в Grafana по подпапкам.
+      foldersFromFilesStructure: false

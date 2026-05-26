@@ -63,6 +63,43 @@ export function parseUpdateResourceInput(input: unknown): UpdateResourceInput {
   return requireAtLeastOneField(safeBody)
 }
 
+// Валидированный payload для ручного replay DLQ-сообщения.
+export type ReplayDlqInput = {
+  // Имя Redis stream-а DLQ, откуда берём сообщение.
+  dlqStream: string
+  // Id конкретного сообщения в DLQ stream-е.
+  messageId: string
+  // Явно указанный целевой stream; если не задан, используется originalStream из сообщения.
+  targetStream?: string
+}
+
+/**
+ * Валидирует тело запроса POST /dlq/replay.
+ *
+ * dlqStream и messageId обязательны — без них невозможно найти нужное сообщение.
+ * targetStream опционален: если не указан, replay идёт в originalStream из сообщения.
+ *
+ * Следует тому же паттерну, что parseUpdateLocationInput и parseUpdateResourceInput:
+ * сначала требуем объект, затем валидируем каждое поле отдельно.
+ */
+export function parseReplayDlqInput(input: unknown): ReplayDlqInput {
+  // Сначала убеждаемся, что тело является объектом, а не примитивом или массивом.
+  const body = requireObject(input)
+
+  // dlqStream обязателен: именно из этого stream-а мы читаем сообщение.
+  const dlqStream = requireString(body.dlqStream, 'dlqStream')
+
+  // messageId обязателен: без него нельзя найти конкретное сообщение в stream-е.
+  const messageId = requireString(body.messageId, 'messageId')
+
+  // targetStream опционален: позволяет перенаправить replay в другой stream.
+  // Если поле есть, оно должно быть непустой строкой.
+  const targetStream =
+    body.targetStream !== undefined ? requireString(body.targetStream, 'targetStream') : undefined
+
+  return { dlqStream, messageId, targetStream }
+}
+
 /**
  * Извлекает непустой id из route path prefix.
  */

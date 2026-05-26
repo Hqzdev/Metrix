@@ -1,17 +1,85 @@
+# ── Vector pipeline: Docker → parse → Loki ────────────────────────────────────
+#
+# Flow:
+#   docker logs (stdout/stderr)
+#     → parse_json       — распаковываем JSON строку в поля
+#     → add_service_meta — страховка: гарантируем наличие service/level/env
+#     → loki             — отправляем в Loki с labels {service, level, env}
+#     → stdout           — дублируем в консоль для локальной разработки
+#
+# Loki labels должны быть низкокардинальными (небольшой набор значений).
+# Поля с высокой кардинальностью (userId, requestId, traceId) — в metadata,
+# а не в labels. Это стандартное правило Loki для производительности.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Source ─────────────────────────────────────────────────────────────────────
+
 [sources.docker]
 type = "docker_logs"
+# Читаем логи всех контейнеров в docker-сети.
+# Для production можно ограничить через include_labels.
+
+# ── Transforms ────────────────────────────────────────────────────────────────
 
 [transforms.parse_json]
 type = "remap"
 inputs = ["docker"]
 source = '''
+# Пытаемся распарсить .message как JSON.
+# Если сервис пишет валидный JSON (все сервисы после @metrix/logger так делают),
+# все поля поднимаются на верхний уровень события.
 parsed, err = parse_json(.message)
 if err == null {
   . = merge(., parsed)
 }
+
+# Гарантируем timestamp в ISO формате.
+# Vector использует .timestamp для сортировки в Loki.
+if !exists(.timestamp) {
+  .timestamp = now()
+}
 '''
 
+[transforms.add_service_meta]
+type = "remap"
+inputs = ["parse_json"]
+source = '''
+# Fallback-значения для полей которые используются как Loki labels.
+# Если сервис ещё не перешёл на @metrix/logger, эти поля будут заполнены.
+if !exists(.service) || .service == "" {
+  .service = .container_name ?? "unknown"
+}
+
+if !exists(.level) || .level == "" {
+  # stderr → error, stdout без level → info
+  .level = if .stream == "stderr" { "error" } else { "info" }
+}
+
+if !exists(.env) || .env == "" {
+  .env = get_env_var("NODE_ENV") ?? "development"
+}
+'''
+
+# ── Sinks ──────────────────────────────────────────────────────────────────────
+
+[sinks.loki]
+type = "loki"
+inputs = ["add_service_meta"]
+# Loki внутри docker-сети.
+endpoint = "http://loki:3100"
+
+# Encoding: отправляем полную JSON строку как тело лог-записи.
+encoding.codec = "json"
+
+# Labels — низкокардинальные поля для быстрой фильтрации в Grafana.
+# Запрос: {service="booking-service", level="error"} покажет все ошибки одного сервиса.
+[sinks.loki.labels]
+service = "{{ service }}"
+level   = "{{ level }}"
+env     = "{{ env }}"
+
+# Дублируем в stdout для локальной разработки (docker compose logs -f).
 [sinks.stdout]
 type = "console"
-inputs = ["parse_json"]
+inputs = ["add_service_meta"]
 encoding.codec = "json"

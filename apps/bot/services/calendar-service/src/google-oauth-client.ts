@@ -1,3 +1,5 @@
+import { ProviderError } from './errors.js'
+
 // Endpoint обмена authorization code или refresh token на access token.
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 // Endpoint отзыва токена при отключении календаря.
@@ -104,7 +106,8 @@ export class GoogleOAuthClient {
 
     // Любой неуспешный ответ означает, что токены использовать нельзя.
     if (!response.ok) {
-      throw new Error(`Google token exchange failed with status ${response.status}`)
+      const responseBody = await readResponseBody(response)
+      throw new ProviderError(response.status, responseBody)
     }
 
     // Парсим JSON-ответ Google.
@@ -113,7 +116,7 @@ export class GoogleOAuthClient {
     // refresh_token выдаётся только при первом consent или при prompt=consent.
     // Если его нет — сохранять нечего, подключение не создаётся.
     if (!token.refresh_token) {
-      throw new Error('Google did not return a refresh_token — re-authorization required with prompt=consent')
+      throw new ProviderError(502, { error: 'Google did not return a refresh_token — re-authorization required with prompt=consent' })
     }
 
     return token as GoogleTokenResponse & { refresh_token: string }
@@ -145,7 +148,8 @@ export class GoogleOAuthClient {
 
     // Если Google не обновил token, caller должен увидеть ошибку.
     if (!response.ok) {
-      throw new Error(`Google token refresh failed with status ${response.status}`)
+      const responseBody = await readResponseBody(response)
+      throw new ProviderError(response.status, responseBody)
     }
 
     return response.json() as Promise<GoogleRefreshResponse>
@@ -175,7 +179,8 @@ export class GoogleOAuthClient {
     // 200 — токен отозван
     // 400 — токен уже истёк или не существует — не ошибка с точки зрения disconnect
     if (!response.ok && response.status !== 400) {
-      throw new Error(`Google token revocation failed with status ${response.status}`)
+      const responseBody = await readResponseBody(response)
+      throw new ProviderError(response.status, responseBody)
     }
   }
 
@@ -186,5 +191,17 @@ export class GoogleOAuthClient {
     if (!ALLOWED_EXTERNAL_HOSTS.has(hostname)) {
       throw new Error(`SSRF guard: disallowed host ${hostname}`)
     }
+  }
+}
+
+/**
+ * Читает тело ответа Google без потери диагностики.
+ */
+async function readResponseBody(response: Response): Promise<unknown> {
+  try {
+    // Google OAuth API обычно возвращает JSON с error/error_description.
+    return await response.clone().json()
+  } catch {
+    return { error: await response.text() }
   }
 }

@@ -3,12 +3,12 @@ import type { PrismaClient } from '@prisma/client'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { RedisBus } from '@metrix/redis-bus'
 import type { AnalyticsServiceConfig } from './config.js'
-import { AnalyticsServiceError, AuthenticationError, NotFoundError, ReplayAttackError } from './errors.js'
+import { AnalyticsServiceError, AuthenticationError, DownstreamServiceError, NotFoundError, ReplayAttackError } from './errors.js'
 import { sendJson } from './http-response.js'
 import type { AnalyticsServiceLogger } from './logger.js'
 import type { BookingClient } from './booking-client.js'
 import { calculateStats, calculateSummary } from './analytics-calculations.js'
-import { parseCreateReportInput, readIdFromPath } from './report-validation.js'
+import { parseCreateReportInput, readIdFromPath } from './validation.js'
 
 // Все зависимости router-а приходят снаружи.
 type AnalyticsRouterDependencies = {
@@ -26,6 +26,8 @@ type AnalyticsRouterDependencies = {
 
 // Контекст одного HTTP-запроса после разбора и авторизации.
 type RequestContext = {
+  // Имя сервиса, который вызвал analytics-service.
+  callerName: string
   // HTTP-метод.
   method: string
   // Распарсенное JSON-тело.
@@ -76,7 +78,7 @@ export class AnalyticsRouter {
 
     // Health endpoint открыт для инфраструктуры без подписи.
     if (method === 'GET' && path === '/health') {
-      return { method, parsedBody: {}, path, requestId: 'health-check' }
+      return { callerName: 'health-check', method, parsedBody: {}, path, requestId: 'health-check' }
     }
 
     // rawBody нужен для проверки подписи, parsedBody — для бизнес-логики.
@@ -95,6 +97,7 @@ export class AnalyticsRouter {
     }
 
     return {
+      callerName: auth.callerName,
       method,
       parsedBody,
       path,
@@ -184,6 +187,12 @@ export class AnalyticsRouter {
    * Преобразует доменные ошибки в HTTP-ответы и логи.
    */
   private handleError(res: ServerResponse, error: unknown): void {
+    // DownstreamServiceError несёт реальный статус и тело от booking-service.
+    if (error instanceof DownstreamServiceError) {
+      sendJson(res, error.responseBody, error.statusCode)
+      return
+    }
+
     // Ожидаемые ошибки уже содержат HTTP status code.
     if (error instanceof AnalyticsServiceError) {
       sendJson(res, { error: error.message }, error.statusCode)

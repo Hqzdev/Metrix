@@ -28,6 +28,9 @@ Production readiness — это не только "код запускается
 - DLQ.
 - AuditLog.
 - Health/readiness/metrics.
+- Structured JSON logs.
+- Loki/Vector log pipeline.
+- OpenTelemetry trace correlation fields in logs.
 - Docker healthchecks.
 - OpenAPI.
 - Git hooks.
@@ -43,6 +46,7 @@ Production readiness — это не только "код запускается
 - npm run typecheck.
 - npm run build.
 - npm run openapi:validate.
+- logger unit tests.
 - docker compose config.
 - docker compose up.
 - /ready.

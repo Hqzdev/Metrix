@@ -5,6 +5,7 @@ import type { RedisBus } from '@metrix/redis-bus'
 import { STREAMS } from '@metrix/contracts'
 import { QUEUE_NAMES, type CompletionJobData } from '../queues.js'
 import type { WorkerLogger } from '../logger.js'
+import { parseCompletionJobData } from '../validation.js'
 
 /**
  * Worker для автоматического завершения бронирований по истечении времени.
@@ -28,7 +29,7 @@ export function startCompletionWorker(
     QUEUE_NAMES.COMPLETIONS,
     async (job) => {
       // bookingId приходит из delayed job, созданной booking-service.
-      const { bookingId, telegramUserId } = job.data
+      const { bookingId, telegramUserId } = parseCompletionJobData(job.data)
 
       logger.info({
         message: 'Processing booking completion job',

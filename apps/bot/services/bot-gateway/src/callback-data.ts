@@ -120,11 +120,17 @@ export function parseCallbackData(data: string): ParsedCallbackData | null {
   return null
 }
 
+/**
+ * Проверяет, что callback содержит известное действие главного меню.
+ */
 function isMenuAction(value: string | undefined): value is MenuAction {
   // Явный список не даёт принять произвольное menu-действие.
   return value === 'start' || value === 'help' || value === 'book' || value === 'slots' || value === 'bookings' || value === 'stats'
 }
 
+/**
+ * Проверяет, что id из callback_data состоит только из безопасных символов.
+ */
 function isSafeToken(value: string | undefined): value is string {
   // Safe token нужен для id из callback_data.
   return typeof value === 'string' && value.length > 0 && SAFE_TOKEN.test(value)

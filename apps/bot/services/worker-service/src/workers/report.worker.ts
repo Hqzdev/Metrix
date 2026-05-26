@@ -7,8 +7,7 @@ import type { RedisBus } from '@metrix/redis-bus'
 import { STREAMS } from '@metrix/contracts'
 import { QUEUE_NAMES, type ReportJobData } from '../queues.js'
 import type { WorkerLogger } from '../logger.js'
-
-const REPORTS_DIR = process.env.REPORTS_DIR ?? '/tmp/reports'
+import { parseReportJobData } from '../validation.js'
 
 /**
  * Worker для генерации PDF-отчётов.
@@ -27,15 +26,16 @@ export function startReportWorker(
   prisma: PrismaClient,
   bus: RedisBus,
   logger: WorkerLogger,
+  reportsDir: string,
 ): Worker<ReportJobData> {
   // Гарантируем, что директория для отчётов существует.
-  mkdirSync(REPORTS_DIR, { recursive: true })
+  mkdirSync(reportsDir, { recursive: true })
 
   const worker = new Worker<ReportJobData>(
     QUEUE_NAMES.REPORTS,
     async (job) => {
       // Данные отчёта пришли из BullMQ job.
-      const { reportId, type, chatId, dateFrom, dateTo } = job.data
+      const { reportId, type, chatId, dateFrom, dateTo } = parseReportJobData(job.data)
 
       logger.info({
         message: 'Generating report',
@@ -52,7 +52,7 @@ export function startReportWorker(
 
       try {
         // Пока отчёт текстовый, но путь уже похож на будущий PDF/export файл.
-        const filePath = join(REPORTS_DIR, `report-${reportId}.txt`)
+        const filePath = join(reportsDir, `report-${reportId}.txt`)
         await generateReport({ type, filePath, prisma, dateFrom, dateTo })
 
         // После успешной генерации сохраняем путь к файлу.

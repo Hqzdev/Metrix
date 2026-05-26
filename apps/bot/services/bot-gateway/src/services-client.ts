@@ -9,7 +9,13 @@ import type {
   UpdateResourceInput,
 } from '@metrix/contracts'
 import { buildAuthHeaders, signUserId } from '@metrix/auth'
+import { ServiceHttpError } from './errors.js'
 import type { BotLanguage } from './messages.js'
+
+// Максимальное время ожидания ответа внутреннего сервиса.
+const REQUEST_TIMEOUT_MS = 5_000
+// Имя caller-а, которое попадает в service-to-service подпись.
+const SERVICE_NAME = 'bot-gateway'
 
 type Urls = {
   // Booking-service отвечает за локации, ресурсы, слоты и бронирования.
@@ -22,18 +28,6 @@ type Urls = {
   analytics: string
   // Admin-service проксирует административные чтения.
   admin: string
-}
-
-// Ошибка HTTP-вызова во внутренний сервис.
-export class ServiceHttpError extends Error {
-  constructor(
-    message: string,
-    // HTTP status downstream-сервиса.
-    public readonly statusCode: number,
-  ) {
-    super(message)
-    this.name = 'ServiceHttpError'
-  }
 }
 
 /**
@@ -91,17 +85,26 @@ export class ServicesClient {
     return this.get(`${this.urls.booking}/slots?resourceId=${resourceId}&date=${dateStr}`)
   }
 
+  /**
+   * Возвращает сохранённый язык Telegram-пользователя.
+   */
   async getUserLanguage(telegramUserId: number): Promise<BotLanguage | null> {
     // Preferences endpoint требует подписанный user id.
     const response = await this.get<{ language: BotLanguage | null }>(`${this.urls.booking}/users/me/preferences`, telegramUserId)
     return response.language
   }
 
+  /**
+   * Сохраняет язык Telegram-пользователя в booking-service.
+   */
   async setUserLanguage(telegramUserId: number, language: BotLanguage): Promise<void> {
     // Сохраняем выбранный язык пользователя в booking-service.
     await this.patch(`${this.urls.booking}/users/me/preferences`, { language }, telegramUserId)
   }
 
+  /**
+   * Создаёт бронирование через legacy booking endpoint.
+   */
   async createBooking(input: { resourceId: string; slotId: string }, userId: number): Promise<Booking> {
     // Legacy method: сейчас основной путь оплаты идёт через createInvoice.
     return this.post(`${this.urls.booking}/bookings`, input, userId)
@@ -149,6 +152,9 @@ export class ServicesClient {
     return this.patch(`${this.urls.booking}/resources/${resourceId}`, update)
   }
 
+  /**
+   * Запрашивает Google OAuth URL для подключения календаря.
+   */
   async getCalendarAuthUrl(input: { provider: string; telegramUserId: number; scope: string }): Promise<{ url: string } | null> {
     try {
       // Возвращает URL Google OAuth consent.
@@ -173,6 +179,9 @@ export class ServicesClient {
     await this.del(`${this.urls.calendar}/connections`, { provider, telegramUserId }, telegramUserId)
   }
 
+  /**
+   * Создаёт invoice через payment-service.
+   */
   async createInvoice(input: { chatId: number; messageId: number; telegramUserId: number; resourceId: string; slotId: string }): Promise<void> {
     // Payment-service сам отправит invoice через notification-service.
     await this.post(`${this.urls.payment}/invoices`, input, input.telegramUserId)
@@ -240,43 +249,77 @@ export class ServicesClient {
     }
   }
 
+  /**
+   * Выполняет подписанный GET-запрос во внутренний сервис.
+   */
   private async get<T>(url: string, userId?: number): Promise<T> {
-    // Для подписи важны path и query, но не origin.
-    const parsed = new URL(url)
-    const authHeaders = buildAuthHeaders('GET', parsed.pathname + parsed.search, '', 'bot-gateway', this.signingSecret)
-    const res = await fetch(url, { headers: { ...authHeaders, ...this.userHeaders(userId) }, signal: AbortSignal.timeout(5_000) })
-    // Неуспешные ответы превращаем в ServiceHttpError для верхнего уровня.
-    if (!res.ok) throw new ServiceHttpError(`GET ${url} failed: ${res.status}`, res.status)
-    return res.json() as Promise<T>
+    return this.request<T>({ method: 'GET', url, userId })
   }
 
+  /**
+   * Выполняет подписанный POST-запрос во внутренний сервис.
+   */
   private async post<T>(url: string, body: unknown, userId?: number): Promise<T> {
-    // Body должен совпадать с тем, что подписываем.
-    const parsed = new URL(url)
-    const bodyStr = JSON.stringify(body)
-    const authHeaders = buildAuthHeaders('POST', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
-    const res = await fetch(url, { method: 'POST', headers: { ...authHeaders, ...this.userHeaders(userId) }, body: bodyStr, signal: AbortSignal.timeout(5_000) })
-    if (!res.ok) throw new ServiceHttpError(`POST ${url} failed: ${res.status}`, res.status)
-    return res.json() as Promise<T>
+    return this.request<T>({ body, method: 'POST', url, userId })
   }
 
+  /**
+   * Выполняет подписанный PATCH-запрос во внутренний сервис.
+   */
   private async patch<T>(url: string, body: unknown, userId?: number): Promise<T> {
-    // PATCH используется для отмены/переноса и обновления сущностей.
-    const parsed = new URL(url)
-    const bodyStr = JSON.stringify(body)
-    const authHeaders = buildAuthHeaders('PATCH', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
-    const res = await fetch(url, { method: 'PATCH', headers: { ...authHeaders, ...this.userHeaders(userId) }, body: bodyStr, signal: AbortSignal.timeout(5_000) })
-    if (!res.ok) throw new ServiceHttpError(`PATCH ${url} failed: ${res.status}`, res.status)
-    return res.json() as Promise<T>
+    return this.request<T>({ body, method: 'PATCH', url, userId })
   }
 
+  /**
+   * Выполняет подписанный DELETE-запрос во внутренний сервис.
+   */
   private async del<T>(url: string, body: unknown, userId?: number): Promise<T> {
-    // DELETE тоже подписывается вместе с JSON body.
-    const parsed = new URL(url)
-    const bodyStr = JSON.stringify(body)
-    const authHeaders = buildAuthHeaders('DELETE', parsed.pathname, bodyStr, 'bot-gateway', this.signingSecret)
-    const res = await fetch(url, { method: 'DELETE', headers: { ...authHeaders, ...this.userHeaders(userId) }, body: bodyStr, signal: AbortSignal.timeout(5_000) })
-    if (!res.ok) throw new ServiceHttpError(`DELETE ${url} failed: ${res.status}`, res.status)
+    return this.request<T>({ body, method: 'DELETE', url, userId })
+  }
+
+  /**
+   * Выполняет общий подписанный HTTP-запрос и нормализует ошибки downstream-а.
+   */
+  private async request<T>(input: RequestInput): Promise<T> {
+    // Для подписи важны path и query, но не origin.
+    const parsed = new URL(input.url)
+    const signedPath = parsed.pathname + parsed.search
+    // Body должен совпадать с тем, что подписываем.
+    const body = input.body === undefined ? '' : JSON.stringify(input.body)
+    const authHeaders = buildAuthHeaders(input.method, signedPath, body, SERVICE_NAME, this.signingSecret)
+    const res = await fetch(input.url, {
+      body: body === '' ? undefined : body,
+      headers: { ...authHeaders, ...this.userHeaders(input.userId) },
+      method: input.method,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+
+    // Неуспешные ответы превращаем в ServiceHttpError с телом downstream-а.
+    if (!res.ok) {
+      const responseBody = await readResponseBody(res)
+      throw new ServiceHttpError(`${input.method} ${input.url} failed: ${res.status}`, res.status, responseBody)
+    }
+
     return res.json() as Promise<T>
+  }
+}
+
+// Внутреннее описание подписанного HTTP-запроса.
+type RequestInput = {
+  body?: unknown
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  url: string
+  userId?: number
+}
+
+/**
+ * Читает тело ответа downstream-сервиса без потери диагностики.
+ */
+async function readResponseBody(response: Response): Promise<unknown> {
+  try {
+    // Внутренние сервисы обычно возвращают JSON даже для ошибок.
+    return await response.clone().json()
+  } catch {
+    return { error: await response.text() }
   }
 }

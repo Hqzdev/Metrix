@@ -131,11 +131,17 @@ export class RedisUserSessionStore implements UserSessionStore {
   }
 }
 
+/**
+ * Строит Redis-ключ intent-а переноса бронирования.
+ */
 function rescheduleKey(telegramUserId: number): string {
   // Отдельный ключ для intent переноса бронирования.
   return `telegram:reschedule-from:${telegramUserId}`
 }
 
+/**
+ * Строит Redis-ключ FSM-сессии Telegram-пользователя.
+ */
 function sessionKey(telegramUserId: number): string {
   // Основная session пользователя.
   return `telegram:session:${telegramUserId}`

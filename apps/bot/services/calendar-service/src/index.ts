@@ -5,10 +5,9 @@ import { Redis } from 'ioredis'
 import { CalendarRouter } from './calendar-router.js'
 import { readCalendarServiceConfig } from './config.js'
 import { GoogleOAuthClient } from './google-oauth-client.js'
-import { CalendarServiceLogger } from './logger.js'
+import { logger } from './logger.js'
 
 // Логгер создаём первым, чтобы стартовые события были в одном формате.
-const logger = new CalendarServiceLogger()
 // Конфиг читает OAuth-настройки, Redis URL и секреты.
 const config = readCalendarServiceConfig(process.env)
 

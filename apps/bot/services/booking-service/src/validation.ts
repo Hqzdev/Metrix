@@ -121,8 +121,16 @@ export function parseIdempotencyKey(input: unknown): string | null {
 
 /**
  * Извлекает обязательный path id из маршрута.
+ *
+ * Проверяет, что путь начинается с ожидаемого prefix, прежде чем делать slice.
+ * Это защищает от случайного вызова с неправильным путём вне dispatch-контекста.
  */
 export function readIdFromPath(path: string, prefix: string): string {
+  // Проверяем соответствие prefix, прежде чем вырезать id.
+  if (!path.startsWith(prefix)) {
+    throw new ValidationError('invalid path')
+  }
+
   // Берём всё, что находится после prefix.
   const id = path.slice(prefix.length)
   if (id.trim() === '') {

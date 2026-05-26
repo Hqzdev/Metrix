@@ -1,4 +1,5 @@
 import { buildAuthHeaders } from '@metrix/auth'
+import { DownstreamError } from './errors.js'
 
 // Максимальное время ожидания ответа от другого сервиса.
 const REQUEST_TIMEOUT_MS = 5_000
@@ -9,14 +10,17 @@ const SERVICE_NAME = 'admin-service'
 export type SignedHttpClient = {
   /**
    * Делает GET-запрос и возвращает JSON-тело ответа.
+   * Бросает DownstreamError, если сервис вернул нештатный статус.
    */
   getJson(url: string): Promise<unknown>
   /**
    * Делает PATCH-запрос с JSON-телом и возвращает JSON-тело ответа.
+   * Бросает DownstreamError, если сервис вернул нештатный статус.
    */
   patchJson(url: string, body: unknown): Promise<unknown>
   /**
-   * Делает POST-запрос с JSON-телом и возвращает тело плюс HTTP-код.
+   * Делает POST-запрос с JSON-телом и возвращает тело плюс реальный HTTP-код.
+   * Бросает DownstreamError, если сервис вернул нештатный статус.
    */
   postJson(url: string, body: unknown): Promise<{ body: unknown; statusCode: number }>
 }
@@ -24,32 +28,42 @@ export type SignedHttpClient = {
 /**
  * Создаёт HTTP-клиент, который подписывает каждый downstream-запрос.
  *
- * Admin-service меняет привилегированные данные через booking-service и
- * analytics-service, поэтому исходящие запросы обязаны иметь service-to-service auth.
+ * Admin-service меняет привилегированные данные через booking-service,
+ * analytics-service и payment-service, поэтому исходящие запросы обязаны
+ * иметь service-to-service auth.
+ *
+ * При нештатном ответе downstream-а бросается DownstreamError с реальным
+ * статус-кодом — это позволяет handleError в admin-router пробросить его
+ * клиенту без маскировки под 200 или 500.
  */
 export function createSignedHttpClient(signingSecret: string): SignedHttpClient {
   return {
     /**
      * GET не отправляет тело, поэтому передаём только метод, secret и URL.
+     * Возвращает распарсенное тело ответа или бросает DownstreamError.
      */
-    getJson(url) {
-      return requestJson({ method: 'GET', signingSecret, url })
+    async getJson(url) {
+      const result = await requestJson({ method: 'GET', signingSecret, url })
+      return result.body
     },
 
     /**
      * PATCH используется для частичного обновления сущностей.
+     * Возвращает распарсенное тело ответа или бросает DownstreamError.
      */
-    patchJson(url, body) {
-      return requestJson({ body, method: 'PATCH', signingSecret, url })
+    async patchJson(url, body) {
+      const result = await requestJson({ body, method: 'PATCH', signingSecret, url })
+      return result.body
     },
 
     /**
      * POST создаёт или запускает действие в другом сервисе.
+     * Возвращает тело и реальный HTTP-код, который вернул downstream.
+     * Это важно: создание report-а в analytics-service возвращает 201,
+     * и клиент должен увидеть именно 201, а не хардкод.
      */
     async postJson(url, body) {
-      const responseBody = await requestJson({ body, method: 'POST', signingSecret, url })
-      // Внутренний контракт admin-router ожидает statusCode рядом с body.
-      return { body: responseBody, statusCode: 201 }
+      return requestJson({ body, method: 'POST', signingSecret, url })
     },
   }
 }
@@ -66,10 +80,24 @@ type RequestJsonInput = {
   url: string
 }
 
+// Нормализованный ответ: тело всегда распарсено, код всегда есть.
+type RequestJsonOutput = {
+  body: unknown
+  statusCode: number
+}
+
 /**
  * Выполняет HTTP-запрос, парсит JSON и нормализует ошибки downstream-сервиса.
+ *
+ * При любом нештатном HTTP-коде (4xx, 5xx) бросает DownstreamError с реальным
+ * statusCode и телом ответа. Это позволяет вышестоящему коду либо пробросить
+ * ошибку клиенту, либо обработать её специфично для конкретного маршрута.
+ *
+ * Тело всегда читается через .json() — downstream-сервисы этого проекта
+ * возвращают JSON даже для ошибочных ответов. Если тело не является
+ * корректным JSON, пробрасывается исходный parse-error.
  */
-async function requestJson(input: RequestJsonInput): Promise<unknown> {
+async function requestJson(input: RequestJsonInput): Promise<RequestJsonOutput> {
   // Для GET body не нужен, для PATCH/POST сериализуем объект в JSON.
   const body = input.body === undefined ? '' : JSON.stringify(input.body)
   // URL парсим отдельно, потому что подпись использует pathname.
@@ -85,6 +113,15 @@ async function requestJson(input: RequestJsonInput): Promise<unknown> {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
 
-  // Downstream-сервисы в этом проекте возвращают JSON, поэтому сразу парсим ответ.
-  return response.json()
+  // Сначала парсим тело — оно нужно и для успешных, и для ошибочных ответов.
+  const responseBody = await response.json()
+
+  // Нештатный код означает, что downstream отклонил запрос.
+  // Бросаем DownstreamError, чтобы handleError в роутере мог пробросить
+  // реальный статус клиенту вместо маскировки под 500.
+  if (!response.ok) {
+    throw new DownstreamError(response.status, responseBody)
+  }
+
+  return { body: responseBody, statusCode: response.status }
 }

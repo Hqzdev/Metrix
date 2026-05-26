@@ -1,6 +1,7 @@
 import { createTelegramActor, evaluatePolicy } from '@metrix/rbac'
 import type { MetricsRegistry } from '@metrix/observability'
-import { ServiceHttpError, type ServicesClient } from './services-client.js'
+import { ServiceHttpError } from './errors.js'
+import type { ServicesClient } from './services-client.js'
 import type { TelegramClient } from './telegram-client.js'
 import type { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from './telegram-types.js'
 import type { TelegramUpdateStore } from './telegram-update-store.js'
@@ -40,7 +41,6 @@ import {
   slotsKeyboard,
   timePickerKeyboard,
 } from './keyboards.js'
-import { buildCustomSlotId } from '../../booking-service/src/slots.js'
 
 type BotOptions = {
   // Telegram ids пользователей, которым разрешена админка.
@@ -101,6 +101,9 @@ export class Bot {
     return false
   }
 
+  /**
+   * Загружает сохранённый язык пользователя с fallback на null при сбое.
+   */
   private async getSavedLanguage(telegramUserId: number): Promise<BotLanguage | null> {
     try {
       // Язык хранится в booking-service preferences.
@@ -118,11 +121,17 @@ export class Bot {
     }
   }
 
+  /**
+   * Возвращает язык пользователя или дефолтный английский.
+   */
   private async getLanguage(telegramUserId: number): Promise<BotLanguage> {
     // Английский — дефолт, если пользователь ещё не выбрал язык.
     return (await this.getSavedLanguage(telegramUserId)) ?? 'en'
   }
 
+  /**
+   * Отправляет первый экран выбора языка.
+   */
   private async sendLanguagePrompt(chatId: number): Promise<void> {
     // Первый экран для нового пользователя — выбор языка.
     await this.opts.telegram.sendMessage(chatId, languagePromptMessage(), {
@@ -1232,6 +1241,17 @@ function retryKeyboard(language: BotLanguage, retryCallbackData?: string) {
       [{ text: language === 'ru' ? 'Назад в меню' : 'Back to menu', callback_data: 'menu:start' }],
     ],
   }
+}
+
+/**
+ * Строит id кастомного слота по публичному формату booking-service.
+ *
+ * Gateway не импортирует исходники sibling-сервиса напрямую, чтобы TypeScript
+ * сборка оставалась внутри rootDir bot-gateway.
+ */
+function buildCustomSlotId(resourceId: string, dateStr: string, hour: number, duration: number): string {
+  // Формат должен совпадать с parseCustomSlot в booking-service.
+  return `${resourceId}-${dateStr}-${hour}-${duration}`
 }
 
 /**

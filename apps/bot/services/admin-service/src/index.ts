@@ -5,11 +5,10 @@ import { PrismaClient } from '@prisma/client'
 import { Redis } from 'ioredis'
 import { AdminRouter } from './admin-router.js'
 import { readAdminServiceConfig } from './config.js'
-import { AdminServiceLogger } from './logger.js'
+import { logger } from './logger.js'
 import { createSignedHttpClient } from './signed-http-client.js'
 
 // Логгер создаём первым, чтобы любые ошибки старта можно было вывести в одном формате.
-const logger = new AdminServiceLogger()
 // Конфиг читается из переменных окружения один раз при запуске сервиса.
 const config = readAdminServiceConfig(process.env)
 // Prisma отвечает за работу с PostgreSQL.

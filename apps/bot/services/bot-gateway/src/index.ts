@@ -4,7 +4,7 @@ import { Redis } from 'ioredis'
 import { Bot } from './bot.js'
 import { readBotGatewayConfig } from './config.js'
 import { startHealthServer } from './health-server.js'
-import { BotGatewayLogger } from './logger.js'
+import { logger } from './logger.js'
 import { createRateLimiter } from './rate-limiter.js'
 import { ServicesClient } from './services-client.js'
 import { TelegramClient } from './telegram-client.js'
@@ -15,7 +15,6 @@ import { RedisUserSessionStore } from './user-session-store.js'
 setDefaultResultOrder('ipv4first')
 
 // Логгер и конфиг создаём в самом начале запуска.
-const logger = new BotGatewayLogger()
 const config = readBotGatewayConfig(process.env)
 // Redis хранит offset Telegram updates, session state и rate limit.
 const redis = new Redis(config.redisUrl, { lazyConnect: true, password: process.env.REDIS_PASSWORD })

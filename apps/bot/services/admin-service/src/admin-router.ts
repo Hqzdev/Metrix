@@ -4,11 +4,16 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { PrismaClient } from '@prisma/client'
 import type { Redis } from 'ioredis'
 import type { AdminServiceConfig } from './config.js'
-import { AdminServiceError, AuthenticationError, NotFoundError, ReplayAttackError } from './errors.js'
+import { AdminServiceError, AuthenticationError, DownstreamError, NotFoundError, ReplayAttackError } from './errors.js'
 import { sendJson } from './http-response.js'
 import type { AdminServiceLogger } from './logger.js'
 import type { SignedHttpClient } from './signed-http-client.js'
-import { parseUpdateLocationInput, parseUpdateResourceInput, readIdFromPath } from './validation.js'
+import { parseReplayDlqInput, parseUpdateLocationInput, parseUpdateResourceInput, readIdFromPath } from './validation.js'
+
+// Сколько секунд хранить replay-ключ в Redis.
+// 300 секунд совпадает с окном, принятым в security-service и соответствует
+// максимальному времени жизни service-to-service nonce в @metrix/auth.
+const REPLAY_TTL_SECONDS = 300
 
 // Все внешние зависимости router получает снаружи, чтобы его было проще тестировать.
 type AdminRouterDependencies = {
@@ -38,8 +43,6 @@ type RequestContext = {
   query: URLSearchParams
   // Уникальный id запроса из service-to-service подписи.
   requestId: string
-  // Trace context для распределённой трассировки.
-  traceparent: string
 }
 
 /**
@@ -85,12 +88,12 @@ export class AdminRouter {
 
     // Health-check не требует подписи, чтобы инфраструктура могла проверять сервис просто.
     if (method === 'GET' && path === '/health') {
-      return { callerName: 'health-check', method, parsedBody: {}, path, query: url.searchParams, requestId: 'health-check', traceparent: '' }
+      return { callerName: 'health-check', method, parsedBody: {}, path, query: url.searchParams, requestId: 'health-check' }
     }
 
     // Для подписанных запросов важно иметь и распарсенное тело, и исходную строку тела.
     const { parsedBody, rawBody } = await readRequestBody(req, method)
-    // Проверяем подпись, request id, caller name и trace headers.
+    // Проверяем подпись, request id и caller name.
     const auth = verifyServiceRequest(req, rawBody, this.dependencies.config.trustedCallers)
 
     if (!auth.ok) {
@@ -98,7 +101,8 @@ export class AdminRouter {
     }
 
     // NX означает "запиши только если ключа ещё нет"; так ловим повтор того же requestId.
-    const fresh = await this.dependencies.redis.set(`replay:${auth.requestId}`, '1', 'EX', 60, 'NX')
+    // TTL 300 секунд выровнен с security-service и окном nonce в @metrix/auth.
+    const fresh = await this.dependencies.redis.set(`replay:${auth.requestId}`, '1', 'EX', REPLAY_TTL_SECONDS, 'NX')
     if (fresh !== 'OK') {
       throw new ReplayAttackError()
     }
@@ -110,7 +114,6 @@ export class AdminRouter {
       path,
       query: url.searchParams,
       requestId: auth.requestId,
-      traceparent: auth.traceparent,
     }
   }
 
@@ -156,6 +159,7 @@ export class AdminRouter {
     }
 
     // POST /reports просит analytics-service создать отчёт.
+    // Статус ответа берём напрямую из postJson, чтобы пробросить 201 от analytics-service.
     if (method === 'POST' && path === '/reports') {
       return this.createReport(context)
     }
@@ -210,52 +214,61 @@ export class AdminRouter {
   }
 
   /**
-   * Получает данные из downstream-сервиса или хранилища.
+   * Получает список бронирований из booking-service.
+   *
+   * Admin-service не хранит бронирования сам — он только проксирует запрос.
+   * При ошибке downstream-а бросается DownstreamError и обрабатывается в handleError.
    */
   private getBookings(): Promise<unknown> {
-    // Admin-service не хранит бронирования сам, а проксирует запрос в booking-service.
     return this.dependencies.httpClient.getJson(`${this.dependencies.config.bookingServiceUrl}/bookings`)
   }
 
   /**
-   * Получает данные из downstream-сервиса или хранилища.
+   * Получает агрегированную статистику из analytics-service.
+   *
+   * Вычисления живут в analytics-service, admin-service только пробрасывает результат.
    */
   private getStats(): Promise<unknown> {
-    // Статистика считается в analytics-service.
     return this.dependencies.httpClient.getJson(`${this.dependencies.config.analyticsServiceUrl}/stats`)
   }
 
   /**
-   * Получает данные из downstream-сервиса или хранилища.
+   * Получает краткую сводку из analytics-service для operator dashboard.
+   *
+   * Summary — укороченная версия stats, оптимизированная для виджета на главном экране.
    */
   private getSummary(): Promise<unknown> {
-    // Summary — короткая версия аналитики для интерфейса администратора.
     return this.dependencies.httpClient.getJson(`${this.dependencies.config.analyticsServiceUrl}/summary`)
   }
 
   /**
    * Возвращает persistent audit log с ограниченным набором фильтров.
+   *
+   * listAuditLogs владеет pagination internals: parseAuditCursor и nextCursor,
+   * поэтому admin-service просто передаёт query-параметры как есть.
    */
-  private async getAuditLogs(context: RequestContext): Promise<unknown> {
-    // listAuditLogs владеет pagination internals: parseAuditCursor и nextCursor.
+  private getAuditLogs(context: RequestContext): Promise<unknown> {
     return listAuditLogs(this.dependencies.prisma, context.query)
   }
 
   /**
-   * Обновляет существующую доменную сущность.
+   * Обновляет разрешённые поля локации через booking-service и пишет audit.
+   *
+   * Системные поля (id, locationId и т.д.) отфильтровываются в parseUpdateLocationInput,
+   * поэтому caller не может выполнить mass assignment через этот endpoint.
    */
   private async updateLocation(context: RequestContext): Promise<unknown> {
     // id берём из URL вида /locations/:id.
     const locationId = readIdFromPath(context.path, '/locations/')
     // Тело запроса фильтруем, чтобы наружу не ушли лишние поля.
     const payload = parseUpdateLocationInput(context.parsedBody)
-    // Само изменение выполняет booking-service.
+    // Само изменение выполняет booking-service, где хранится локация.
     const result = await this.dependencies.httpClient.patchJson(
       `${this.dependencies.config.bookingServiceUrl}/locations/${locationId}`,
       payload,
     )
 
-    // Быстрый audit event для общей системы аудита.
+    // Быстрый audit event для общей системы аудита (in-memory, non-blocking).
     audit({
       action: 'location.updated',
       callerService: context.callerName,
@@ -279,7 +292,10 @@ export class AdminRouter {
   }
 
   /**
-   * Обновляет существующую доменную сущность.
+   * Обновляет разрешённые поля ресурса через booking-service и пишет audit.
+   *
+   * Системные поля (id, locationId и т.д.) отфильтровываются в parseUpdateResourceInput,
+   * поэтому caller не может выполнить mass assignment через этот endpoint.
    */
   private async updateResource(context: RequestContext): Promise<unknown> {
     // id берём из URL вида /resources/:id.
@@ -317,13 +333,16 @@ export class AdminRouter {
 
   /**
    * Пишет persistent audit log без влияния на основной бизнес-flow.
+   *
+   * Ошибка записи в audit log не должна ломать административное действие:
+   * оператор уже выполнил операцию, и откат из-за audit был бы хуже тишины.
    */
   private async writeAudit(input: AuditLogInput): Promise<void> {
     try {
       // Сохраняем audit log в базе.
       await writeAuditLog(this.dependencies.prisma, input)
     } catch (error) {
-      // Ошибка audit log не должна ломать основное действие администратора.
+      // Логируем сбой, но не пробрасываем ошибку вверх.
       this.dependencies.logger.error({
         action: 'audit.persist.failed',
         error,
@@ -334,24 +353,31 @@ export class AdminRouter {
   }
 
   /**
-   * Создаёт доменную сущность или запрос к downstream-сервису.
+   * Проксирует создание отчёта в analytics-service.
+   *
+   * Контракт тела запроса проверяет analytics-service, поэтому admin-service
+   * передаёт тело как есть. Статус ответа (201) пробрасывается напрямую от
+   * analytics-service — так клиент видит правильный код без hardcoded значений.
    */
   private createReport(context: RequestContext): Promise<{ body: unknown; statusCode: number }> {
-    // Тело запроса передаём как есть: контракт отчёта проверяет analytics-service.
     return this.dependencies.httpClient.postJson(`${this.dependencies.config.analyticsServiceUrl}/reports`, context.parsedBody)
   }
 
   /**
-   * Получает данные из downstream-сервиса или хранилища.
+   * Получает готовый отчёт из analytics-service по его id.
+   *
+   * reportId берём из URL /reports/:id.
    */
   private getReport(context: RequestContext): Promise<unknown> {
-    // reportId берём из URL /reports/:id.
     const reportId = readIdFromPath(context.path, '/reports/')
     return this.dependencies.httpClient.getJson(`${this.dependencies.config.analyticsServiceUrl}/reports/${reportId}`)
   }
 
   /**
-   * Возвращает последние сообщения DLQ stream.
+   * Возвращает последние сообщения DLQ stream в обратном хронологическом порядке.
+   *
+   * stream query-параметр принимается как с prefix dlq:, так и без него,
+   * чтобы оператор мог скопировать имя stream-а из любого инструмента.
    */
   private async listDlq(context: RequestContext): Promise<unknown> {
     // stream обязателен, потому что DLQ может быть несколько.
@@ -374,10 +400,12 @@ export class AdminRouter {
   }
 
   /**
-   * Возвращает DLQ streams для operator dashboard.
+   * Возвращает список всех DLQ stream-ов для operator dashboard.
+   *
+   * SCAN безопаснее KEYS — он не блокирует Redis при большом количестве ключей,
+   * возвращая данные небольшими порциями через курсор.
    */
   private async listDlqStreams(): Promise<unknown> {
-    // SCAN безопаснее KEYS, потому что не блокирует Redis надолго.
     const streams = await scanRedisKeys(this.dependencies.redis, 'dlq:*')
     return {
       items: streams.sort().map((stream) => ({ stream })),
@@ -386,36 +414,39 @@ export class AdminRouter {
 
   /**
    * Переотправляет DLQ payload в исходный stream или явно указанный targetStream.
+   *
+   * Типичный сценарий: сообщение попало в DLQ из-за временной ошибки,
+   * оператор исправил причину и возвращает сообщение в рабочий поток.
    */
   private async replayDlq(context: RequestContext): Promise<unknown> {
-    // Для replay нужен stream DLQ и id конкретного сообщения.
-    const body = context.parsedBody as { dlqStream?: unknown; messageId?: unknown; targetStream?: unknown }
-    if (typeof body.dlqStream !== 'string' || body.dlqStream.trim() === '') throw new NotFoundError()
-    if (typeof body.messageId !== 'string' || body.messageId.trim() === '') throw new NotFoundError()
+    // Валидируем тело через parseReplayDlqInput, как это принято для всех других endpoints.
+    const input = parseReplayDlqInput(context.parsedBody)
 
-    // Ищем ровно одно сообщение по id.
-    const rows = (await this.dependencies.redis.xrange(body.dlqStream, body.messageId, body.messageId)) as Array<[string, string[]]>
+    // Ищем ровно одно сообщение по id в указанном DLQ stream-е.
+    const rows = (await this.dependencies.redis.xrange(input.dlqStream, input.messageId, input.messageId)) as Array<[string, string[]]>
     const [, fields] = rows[0] ?? []
+    // Если сообщение не найдено, оператор, скорее всего, указал неверный id.
     if (!fields) throw new NotFoundError()
 
-    // data — исходная полезная нагрузка, originalStream — куда её вернуть.
+    // data — исходная полезная нагрузка сообщения.
     const data = readField(fields, 'data')
+    // originalStream — stream, из которого сообщение попало в DLQ.
     const originalStream = readField(fields, 'originalStream')
-    // targetStream можно явно переопределить, иначе используем originalStream.
-    const targetStream = typeof body.targetStream === 'string' && body.targetStream.trim() !== '' ? body.targetStream : originalStream
+    // targetStream можно явно переопределить; иначе используем originalStream.
+    const targetStream = input.targetStream ?? originalStream
     if (!data || !targetStream) throw new NotFoundError()
 
     // Возвращаем payload обратно в рабочий Redis stream.
     const replayedId = await this.dependencies.redis.xadd(targetStream, '*', 'data', data)
 
-    // Фиксируем ручной replay в audit log.
+    // Фиксируем ручной replay в persistent audit log.
     await this.writeAudit({
       action: 'dlq.replayed',
       callerService: context.callerName,
-      entityId: body.messageId,
+      entityId: input.messageId,
       entityType: 'dlq_message',
       payload: {
-        dlqStream: body.dlqStream,
+        dlqStream: input.dlqStream,
         replayedId,
         targetStream,
       },
@@ -427,7 +458,11 @@ export class AdminRouter {
   }
 
   /**
-   * Запускает ручную компенсацию failed payment saga.
+   * Запускает ручную компенсацию failed payment saga через payment-service.
+   *
+   * Admin-service только проксирует действие; сам переход статуса saga делает payment-service.
+   * Статус ответа пробрасывается из postJson, но явно переводится в 200:
+   * для оператора важно знать, что команда принята, а не создан новый ресурс.
    */
   private async compensatePaymentSaga(context: RequestContext): Promise<{ body: unknown; statusCode: number }> {
     // invoiceId является id saga в payment-service.
@@ -441,16 +476,21 @@ export class AdminRouter {
   }
 
   /**
-   * Возвращает PaymentSaga для ручного recovery.
+   * Получает PaymentSaga для отображения в admin recovery queue.
+   *
+   * invoiceId берём из URL /payment-sagas/:invoiceId.
    */
   private getPaymentSaga(context: RequestContext): Promise<unknown> {
-    // invoiceId берём из URL /payment-sagas/:invoiceId.
     const invoiceId = readIdFromPath(context.path, '/payment-sagas/')
     return this.dependencies.httpClient.getJson(`${this.dependencies.config.paymentServiceUrl}/sagas/${invoiceId}`)
   }
 
   /**
-   * Возвращает PaymentSaga recovery queue для admin screen.
+   * Возвращает список payment saga, требующих ручного вмешательства оператора.
+   *
+   * Читает напрямую из общей базы через Prisma, потому что payment-service
+   * не экспонирует list endpoint для всех проблемных статусов одновременно.
+   * BigInt поля приводятся к строкам, чтобы JSON.stringify не падал.
    */
   private async listPaymentSagas(context: RequestContext): Promise<unknown> {
     // status=recovery означает стандартный набор проблемных статусов.
@@ -460,19 +500,17 @@ export class AdminRouter {
     const statuses = status && status !== 'recovery'
       ? [status]
       : ['failed', 'compensating', 'awaiting_booking']
-    // Payment saga лежит в общей базе, поэтому читаем её через Prisma.
+
     const rows = await this.dependencies.prisma.paymentSaga.findMany({
       orderBy: { updatedAt: 'desc' },
       take: limit,
-      where: {
-        status: { in: statuses },
-      },
+      where: { status: { in: statuses } },
     })
 
     return {
-      // BigInt поля превращаем в строки, чтобы JSON.stringify не упал.
       items: rows.map((row) => ({
         bookingId: row.bookingId,
+        // BigInt не сериализуется через JSON.stringify, поэтому явно переводим в строку.
         chatId: row.chatId.toString(),
         createdAt: row.createdAt.toISOString(),
         currentPart: row.currentPart,
@@ -492,12 +530,14 @@ export class AdminRouter {
   }
 
   /**
-   * Повторяет создание Booking для failed saga.
+   * Повторяет шаг создания booking для failed или awaiting_booking saga.
+   *
+   * Admin-service только проксирует действие; фактический retry делает payment-service,
+   * который повторно публикует PAYMENT_COMPLETED в Redis stream.
    */
   private async retryPaymentSagaBooking(context: RequestContext): Promise<{ body: unknown; statusCode: number }> {
     // invoiceId показывает, какую saga нужно повторить.
     const invoiceId = readIdFromPath(context.path, '/payment-sagas/', '/retry-booking')
-    // Повтор booking-шагов делает payment-service.
     const result = await this.dependencies.httpClient.postJson(
       `${this.dependencies.config.paymentServiceUrl}/sagas/${invoiceId}/retry-booking`,
       {},
@@ -507,6 +547,9 @@ export class AdminRouter {
 
   /**
    * Помечает ручную компенсацию завершённой.
+   *
+   * Используется после того, как оператор сделал refund вне системы
+   * и хочет перевести saga из compensating в compensated.
    */
   private async markPaymentSagaCompensated(context: RequestContext): Promise<{ body: unknown; statusCode: number }> {
     // invoiceId показывает, какую saga оператор уже компенсировал вручную.
@@ -521,9 +564,20 @@ export class AdminRouter {
 
   /**
    * Преобразует доменные ошибки в HTTP-ответы и логи.
+   *
+   * DownstreamError получает особую обработку: тело ответа downstream-а
+   * пробрасывается клиенту напрямую, чтобы оператор видел исходный контекст ошибки,
+   * а не нейтральное "internal error".
    */
   private handleError(res: ServerResponse, error: unknown): void {
-    // Ожидаемые доменные ошибки уже содержат правильный HTTP-код.
+    // DownstreamError несёт реальный статус и тело от downstream-сервиса.
+    // Пробрасываем их клиенту, чтобы не терять контекст ошибки.
+    if (error instanceof DownstreamError) {
+      sendJson(res, error.responseBody, error.statusCode)
+      return
+    }
+
+    // Остальные доменные ошибки уже содержат правильный HTTP-код и текст.
     if (error instanceof AdminServiceError) {
       sendJson(res, { error: error.message }, error.statusCode)
       return
@@ -541,14 +595,15 @@ export class AdminRouter {
 
 /**
  * Читает тело HTTP-запроса и безопасно парсит JSON.
+ *
+ * GET-запросы в этом сервисе тела не имеют.
+ * readJsonBody возвращает и parsed JSON, и raw строку для проверки подписи.
  */
 async function readRequestBody(req: IncomingMessage, method: string): Promise<{ parsedBody: unknown; rawBody: string }> {
-  // GET-запросы в этом сервисе не используют body.
   if (method === 'GET') {
     return { parsedBody: {}, rawBody: '' }
   }
 
-  // readJsonBody возвращает и parsed JSON, и raw строку для проверки подписи.
   const result = await readJsonBody<unknown>(req)
   return {
     parsedBody: result.parsed,
@@ -558,24 +613,28 @@ async function readRequestBody(req: IncomingMessage, method: string): Promise<{ 
 
 /**
  * Читает limit из query и ограничивает его безопасным максимумом.
+ *
+ * Невалидный или отсутствующий limit не роняет запрос — возвращается безопасный дефолт.
+ * Верхняя граница 100 защищает Redis и UI от слишком тяжёлых ответов.
  */
 function parseLimit(value: string | null): number {
-  // Если limit не передали, используем стандартную страницу на 50 элементов.
+  // Если limit не передали, используем стандартную страницу.
   if (value === null || value.trim() === '') return 50
 
   const parsed = Number(value)
-  // Невалидный limit не роняет запрос, а возвращает дефолт.
+  // Нецелое или отрицательное значение заменяем дефолтом.
   if (!Number.isInteger(parsed) || parsed < 1) return 50
 
-  // Больше 100 за раз не отдаём, чтобы не перегружать сервис и UI.
   return Math.min(parsed, 100)
 }
 
 /**
- * Читает обязательный query-параметр.
+ * Читает обязательный query-параметр или бросает NotFoundError.
+ *
+ * Пустая строка считается отсутствующим значением — оператор должен явно
+ * передать имя stream-а или другого обязательного параметра.
  */
 function readRequiredQueryParam(context: RequestContext, name: string): string {
-  // Пустая строка считается отсутствующим значением.
   const value = context.query.get(name)
   if (value === null || value.trim() === '') throw new NotFoundError()
   return value.trim()
@@ -590,25 +649,30 @@ function readLimitQueryParam(context: RequestContext): number {
 
 /**
  * Достаёт одно поле из плоского массива Redis stream fields.
+ *
+ * Redis хранит поля stream-сообщения как плоский массив:
+ * ['key1', 'value1', 'key2', 'value2', ...].
+ * Значение нужного поля всегда лежит сразу после его имени.
  */
 function readField(fields: string[], name: string): string | undefined {
-  // Redis возвращает поля как ['key1', 'value1', 'key2', 'value2'].
   const index = fields.indexOf(name)
   if (index === -1) return undefined
-  // Значение всегда лежит сразу после имени поля.
   return fields[index + 1]
 }
 
 /**
- * Ищет ключи Redis через SCAN по частям.
+ * Ищет ключи Redis через SCAN по частям, не блокируя сервер.
+ *
+ * SCAN безопаснее KEYS: он не блокирует Redis надолго даже при миллионах ключей,
+ * возвращая данные небольшими порциями через курсор.
+ * COUNT — это подсказка Redis, сколько ключей примерно вернуть за один шаг.
  */
 async function scanRedisKeys(redis: Redis, pattern: string): Promise<string[]> {
   const keys: string[] = []
-  // Redis cursor '0' означает старт, а потом и конец обхода.
+  // Redis cursor '0' означает начало обхода и сигнализирует о его конце.
   let cursor = '0'
 
   do {
-    // COUNT — подсказка Redis, сколько ключей примерно вернуть за один шаг.
     const [nextCursor, batch] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '100')
     cursor = nextCursor
     keys.push(...batch)

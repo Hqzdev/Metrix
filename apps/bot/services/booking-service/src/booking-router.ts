@@ -1,4 +1,3 @@
-import { runHealthChecks } from '@metrix/health'
 import { audit, extractUserId, readJsonBody, verifyServiceRequest } from '@metrix/auth'
 import { writeAuditLog, type AuditLogInput } from '@metrix/audit-log'
 import { STREAMS } from '@metrix/contracts'
@@ -193,15 +192,15 @@ export class BookingRouter {
   }
 
   /**
-   * Проверяет доступность DB и Redis — возвращает детальный статус.
-   * 200 = всё ok, 503 = хотя бы одна зависимость недоступна.
+   * Возвращает liveness статус сервиса.
+   *
+   * /health — это liveness probe: процесс жив и обрабатывает запросы.
+   * Глубокие проверки DB и Redis живут в /ready (readiness probe) в index.ts,
+   * чтобы инфраструктура могла различать "упал процесс" и "не готов к трафику".
+   * Паттерн единый для всех сервисов: router отвечает только за liveness.
    */
-  private async handleHealth(): Promise<{ body: unknown; statusCode: number }> {
-    const result = await runHealthChecks({
-      prisma: this.dependencies.prisma,
-      redis: this.dependencies.bus.getRedisClient(),
-    })
-    return { body: result, statusCode: result.ok ? 200 : 503 }
+  private handleHealth(): { body: unknown; statusCode: number } {
+    return { body: { ok: true }, statusCode: 200 }
   }
 
   /**
@@ -570,12 +569,11 @@ export class BookingRouter {
     })
     const result = serializeBooking(updated)
 
-    // completed публикуется отдельно, чтобы downstream-сервисы знали о завершении.
-    if (input.status === 'completed') {
-      await this.dependencies.bus.publish(STREAMS.BOOKING_COMPLETED, { booking: result })
-    }
-
     // cancelled требует событий, отмены jobs и audit log.
+    // Примечание: BOOKING_COMPLETED не публикуется здесь — статус 'completed'
+    // выставляет worker-service напрямую через Prisma и сам публикует событие.
+    // Через этот HTTP-endpoint 'completed' недостижим: parseUpdateBookingStatusInput
+    // разрешает только 'cancelled' и 'rescheduled'.
     if (input.status === 'cancelled') {
       await this.dependencies.bus.publish(STREAMS.BOOKING_CANCELLED, { booking: result })
 

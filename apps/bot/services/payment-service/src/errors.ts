@@ -77,14 +77,29 @@ export class NotFoundError extends PaymentServiceError {
 }
 
 /**
- * Ошибка зависимого сервиса.
+ * Ошибка runtime-конфигурации, которая блокирует платёжный сценарий.
  */
-export class DownstreamServiceError extends Error {
+export class PaymentConfigurationError extends PaymentServiceError {
   /**
-   * Создаёт ошибку без HTTP-кода, потому что она обычно ловится consumer-ом.
+   * 503 означает, что сервис запущен, но временно не может выполнить операцию.
    */
   constructor(message: string) {
-    super(message)
-    this.name = new.target.name
+    super(message, 503)
+  }
+}
+
+/**
+ * Ошибка зависимого сервиса.
+ */
+export class DownstreamServiceError extends PaymentServiceError {
+  /**
+   * Сохраняет реальный HTTP-код и тело ответа downstream-сервиса.
+   */
+  constructor(
+    statusCode: number,
+    // responseBody — распарсенный JSON или текстовый fallback ответа downstream.
+    public readonly responseBody: unknown,
+  ) {
+    super('downstream service error', statusCode)
   }
 }

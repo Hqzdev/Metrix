@@ -67,6 +67,9 @@ export class RedisTelegramUpdateStore implements TelegramUpdateStore {
   }
 }
 
+/**
+ * Строит Redis-ключ idempotency для Telegram update.
+ */
 function processedUpdateKey(updateId: number): string {
   // По одному ключу на каждый Telegram update_id.
   return `telegram:updates:processed:${updateId}`

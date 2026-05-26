@@ -1,14 +1,18 @@
 import { Worker } from 'bullmq'
+import { buildAuthHeaders } from '@metrix/auth'
 import type { Redis } from 'ioredis'
 import type { PrismaClient } from '@prisma/client'
 import { QUEUE_NAMES, createCalendarRefreshQueue, type CalendarRefreshJobData } from '../queues.js'
 import type { WorkerLogger } from '../logger.js'
+import { parseCalendarRefreshJobData } from '../validation.js'
 
 // Обновляем токен за 5 минут до истечения.
 const REFRESH_BUFFER_MS = 5 * 60 * 1_000
 
 // Переставляем следующий refresh-job за час до нового истечения.
 const RESCHEDULE_BUFFER_MS = 60 * 60 * 1_000
+// Имя сервиса для service-to-service подписи.
+const SERVICE_NAME = 'worker-service'
 
 /**
  * Worker для обновления OAuth-токенов Google Calendar.
@@ -34,7 +38,7 @@ export function startCalendarRefreshWorker(
     QUEUE_NAMES.CALENDAR_REFRESH,
     async (job) => {
       // connectionId указывает на CalendarConnection в базе.
-      const { connectionId, telegramUserId, provider } = job.data
+      const { connectionId, telegramUserId, provider } = parseCalendarRefreshJobData(job.data)
 
       logger.info({
         message: 'Refreshing calendar token',
@@ -62,13 +66,14 @@ export function startCalendarRefreshWorker(
       }
 
       // Вызываем calendar-service для обновления токена.
-      const body = JSON.stringify({ connectionId, provider })
-      const response = await fetch(`${calendarServiceUrl}/tokens/refresh`, {
+      const path = '/tokens/refresh'
+      const body = JSON.stringify({ provider, telegramUserId })
+      const headers = buildAuthHeaders('POST', path, body, SERVICE_NAME, calendarSigningSecret)
+      const response = await fetch(`${calendarServiceUrl}${path}`, {
         method: 'POST',
         headers: {
+          ...headers,
           'content-type': 'application/json',
-          'x-service-name': 'worker-service',
-          'x-signing-secret': calendarSigningSecret,
         },
         body,
         signal: AbortSignal.timeout(10_000),
@@ -76,7 +81,7 @@ export function startCalendarRefreshWorker(
 
       // Если calendar-service не смог обновить token, job упадёт и будет retry.
       if (!response.ok) {
-        throw new Error(`calendar-service token refresh failed: ${response.status}`)
+        throw new Error(`calendar-service token refresh failed: ${response.status} ${await response.text()}`)
       }
 
       // Если вернулся expiresAt, ставим следующий refresh.
@@ -108,6 +113,9 @@ export function startCalendarRefreshWorker(
   return worker
 }
 
+/**
+ * Планирует следующий refresh job перед истечением access token.
+ */
 async function scheduleNextRefresh(
   queue: ReturnType<typeof createCalendarRefreshQueue>,
   data: CalendarRefreshJobData,

@@ -1,0 +1,50 @@
+# ─── Traefik статическая конфигурация ────────────────────────────────────────
+# Этот файл читается один раз при старте Traefik.
+# Для изменения entrypoints или провайдеров нужен рестарт контейнера.
+# Динамические маршруты (Docker labels) подхватываются без рестарта.
+
+# ── API и Dashboard ───────────────────────────────────────────────────────────
+api:
+  # Dashboard показывает все роутеры, сервисы и middleware в реальном времени.
+  # В production замените на insecure: false и настройте BasicAuth middleware.
+  dashboard: true
+  insecure: true
+
+# ── Healthcheck endpoint ──────────────────────────────────────────────────────
+# /ping возвращает 200 OK когда Traefik готов принимать трафик.
+# Используется в docker-compose healthcheck и depends_on bot-gateway.
+ping: {}
+
+# ── Провайдеры конфигурации ───────────────────────────────────────────────────
+providers:
+  docker:
+    # Traefik слушает Docker events через socket и автоматически обновляет маршруты.
+    exposedByDefault: false
+    # network: metrix_default — все сервисы должны быть в одной docker-сети.
+    # Traefik сам определит сеть из docker-compose, если она одна.
+  file:
+    # Папка с YAML-файлами динамической конфигурации (middleware, TLS и т.д.).
+    directory: /etc/traefik/dynamic
+    # watch: true подхватывает изменения в dynamic/ без рестарта Traefik.
+    watch: true
+
+# ── Точки входа (entrypoints) ─────────────────────────────────────────────────
+entryPoints:
+  # HTTP-трафик. В production добавьте редирект на HTTPS через middleware.
+  web:
+    address: ':80'
+
+  # HTTPS-трафик. Используется в production с реальным TLS-сертификатом.
+  # Для локальной разработки entrypoint не нужен — используйте web.
+  websecure:
+    address: ':443'
+
+# ── Логирование ───────────────────────────────────────────────────────────────
+log:
+  # Формат JSON совместим с Vector и другими log aggregator-ами.
+  format: json
+  # info достаточно для production. debug — для отладки маршрутов.
+  level: info
+
+# Access логи отключены по умолчанию — они генерируют много шума.
+# Включите для аудита входящих запросов: accessLog: {}

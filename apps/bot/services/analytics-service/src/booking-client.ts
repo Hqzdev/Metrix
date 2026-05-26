@@ -47,12 +47,28 @@ export class BookingClient {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
-    // Не маскируем ошибку пустой аналитикой.
+    // Не маскируем ошибку пустой аналитикой и сохраняем тело ответа для диагностики.
     if (!response.ok) {
-      throw new DownstreamServiceError(`booking-service returned ${response.status}`)
+      const responseBody = await readResponseBody(response)
+      throw new DownstreamServiceError(response.status, responseBody)
     }
 
     // Ожидаем JSON-массив бронирований.
     return response.json() as Promise<BookingRow[]>
+  }
+}
+
+/**
+ * Читает тело ответа downstream-сервиса без потери диагностики.
+ *
+ * Booking-service обычно возвращает JSON, но fallback на text нужен, чтобы
+ * сохранить сообщение даже при HTML/plain-text ошибке прокси или runtime.
+ */
+async function readResponseBody(response: Response): Promise<unknown> {
+  try {
+    // clone позволяет прочитать тело как JSON, не ломая fallback на text.
+    return await response.clone().json()
+  } catch {
+    return { error: await response.text() }
   }
 }

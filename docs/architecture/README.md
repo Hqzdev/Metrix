@@ -21,6 +21,8 @@ Architecture Docs
 - QUEUES_AND_EVENTS.md — события и очереди.
 - PAYMENTS_AND_HOLDS.md — оплата и временное удержание слота.
 - OBSERVABILITY.md — health, ready, metrics и logs.
+- LOGGING.md — structured JSON logs, Loki/Vector и trace correlation.
+- TRACING.md — OpenTelemetry, Jaeger и traceparent propagation.
 - PRODUCTION_READINESS.md — общий production checklist.
 
 Как читать

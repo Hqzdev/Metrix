@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 
-COPY index.js ./index.js
+COPY *.js ./
 COPY public ./public
 
 EXPOSE 9090

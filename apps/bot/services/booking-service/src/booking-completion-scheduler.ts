@@ -63,6 +63,16 @@ export class BookingCompletionScheduler {
     const job = await this.queue.getJob(`completion:${bookingId}`)
     if (job) await job.remove()
   }
+
+  /**
+   * Закрывает BullMQ Queue и освобождает ресурсы.
+   *
+   * Должен вызываться в graceful shutdown до закрытия Redis-соединения:
+   * BullMQ бросает unhandled error, если Redis отключается раньше Queue.
+   */
+  async close(): Promise<void> {
+    await this.queue.close()
+  }
 }
 
 /**

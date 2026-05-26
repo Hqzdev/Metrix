@@ -1,0 +1,12 @@
+# Автоматически подключает Jaeger как источник данных для трейсов.
+# Используется для перехода из логов (Loki) к трейсам по traceId.
+apiVersion: 1
+
+datasources:
+  - name: Jaeger
+    type: jaeger
+    uid: metrix-jaeger
+    access: proxy
+    # Jaeger query API — тот же порт что и UI.
+    url: http://jaeger:16686
+    editable: false

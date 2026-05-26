@@ -87,3 +87,22 @@ export class OAuthStateError extends CalendarServiceError {
     super('invalid oauth state', 400)
   }
 }
+
+/**
+ * Ошибка внешнего OAuth provider-а.
+ *
+ * Хранит реальный status и тело ответа Google, чтобы caller видел причину
+ * отказа provider-а без маскировки под generic internal error.
+ */
+export class ProviderError extends CalendarServiceError {
+  /**
+   * Сохраняет статус и тело ответа OAuth provider-а.
+   */
+  constructor(
+    statusCode: number,
+    // responseBody — распарсенный ответ provider-а или fallback-объект.
+    public readonly responseBody: unknown,
+  ) {
+    super('provider error', statusCode)
+  }
+}

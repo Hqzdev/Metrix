@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@metrix/contracts": "*",
+    "@metrix/logger": "*",
     "@metrix/observability": "*",
     "@metrix/redis-bus": "*",
     "@prisma/client": "^5.0.0",

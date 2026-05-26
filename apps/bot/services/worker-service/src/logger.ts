@@ -1,29 +1,4 @@
-// Worker logs принимают произвольные поля.
-type LogEntry = Record<string, unknown>
+import { createLogger } from '@metrix/logger'
 
-/**
- * Структурированный JSON-логгер worker-service.
- * Формат совпадает с другими сервисами для единого парсинга в ELK/Loki.
- */
-export class WorkerLogger {
-  /**
-   * Пишет информационный лог.
-   */
-  info(entry: LogEntry): void {
-    console.log(JSON.stringify({ ...entry, level: 'info', timestamp: new Date().toISOString() }))
-  }
-
-  /**
-   * Пишет предупреждение.
-   */
-  warn(entry: LogEntry): void {
-    console.warn(JSON.stringify({ ...entry, level: 'warn', timestamp: new Date().toISOString() }))
-  }
-
-  /**
-   * Пишет ошибку.
-   */
-  error(entry: LogEntry): void {
-    console.error(JSON.stringify({ ...entry, level: 'error', timestamp: new Date().toISOString() }))
-  }
-}
+export const logger = createLogger('worker-service')
+export type WorkerLogger = typeof logger

@@ -1,0 +1,20 @@
+# Автоматически подключает Loki как источник данных при старте Grafana.
+# Loki — агрегатор логов. Grafana позволяет писать LogQL запросы к нему
+# и коррелировать логи с Prometheus-метриками на одном экране.
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    uid: metrix-loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      # Связывает поле traceId в логах с Jaeger datasource.
+      # Клик по traceId в Grafana Explore открывает трейс в Jaeger.
+      derivedFields:
+        - datasourceUid: metrix-jaeger
+          matcherRegex: '"traceId":"([a-f0-9]{32})"'
+          name: traceId
+          url: '$${__value.raw}'

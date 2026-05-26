@@ -3,13 +3,21 @@ import type { Redis } from 'ioredis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { PrismaClient } from '@prisma/client'
 import type { SecurityServiceConfig } from './config.js'
-import { AuthenticationError, NotFoundError, ReplayAttackError, SecurityServiceError, TooManyRequestsError, ValidationError } from './errors.js'
+import { AuthenticationError, NotFoundError, ReplayAttackError, SecurityServiceError, TooManyRequestsError } from './errors.js'
 import { sendJson } from './http-response.js'
 import { createJwt, verifyJwt } from './jwt.js'
 import { checkLoginAllowed, recordFailedLogin, resetLoginAttempts } from './login-rate-limiter.js'
 import type { SecurityServiceLogger } from './logger.js'
 import { ACCESS_TOKEN_TTL_SECONDS, createSession, deleteAllUserSessions, deleteSession, rotateSession } from './session-store.js'
 import { isTokenRevoked, revokeToken } from './token-blacklist.js'
+import {
+  parseCreateSessionInput,
+  parseDeleteAllSessionsInput,
+  parseDeleteSessionInput,
+  parseLoginIdentifierInput,
+  parseRotateSessionInput,
+  parseTokenInput,
+} from './validation.js'
 
 // зависимости, которые нужны роутеру для работы
 type SecurityRouterDependencies = {
@@ -183,20 +191,12 @@ export class SecurityRouter {
    * security-service не знает о паролях — он только выпускает токены.
    */
   private async createSession(context: RequestContext): Promise<unknown> {
-    const body = context.parsedBody as { userId?: unknown; userRole?: unknown }
-
-    // userId и userRole обязательны — без них сессию создать нельзя
-    if (typeof body.userId !== 'string' || !body.userId) {
-      throw new ValidationError('userId is required')
-    }
-    if (body.userRole !== 'admin' && body.userRole !== 'employee') {
-      throw new ValidationError('userRole must be admin or employee')
-    }
+    const input = parseCreateSessionInput(context.parsedBody)
 
     const session = await createSession({
       prisma: this.deps.prisma,
-      userId: body.userId,
-      userRole: body.userRole,
+      userId: input.userId,
+      userRole: input.userRole,
     })
 
     // access token создаём здесь, после получения session данных из БД
@@ -229,15 +229,11 @@ export class SecurityRouter {
    * Если токен уже использован — возвращаем 401 (возможна кража).
    */
   private async rotateSession(context: RequestContext): Promise<unknown> {
-    const body = context.parsedBody as { refreshToken?: unknown }
-
-    if (typeof body.refreshToken !== 'string' || !body.refreshToken) {
-      throw new ValidationError('refreshToken is required')
-    }
+    const input = parseRotateSessionInput(context.parsedBody)
 
     const result = await rotateSession({
       prisma: this.deps.prisma,
-      refreshToken: body.refreshToken,
+      refreshToken: input.refreshToken,
     })
 
     // токен не найден — либо уже использован, либо никогда не существовал
@@ -285,21 +281,17 @@ export class SecurityRouter {
    * даже если его TTL ещё не истёк.
    */
   private async deleteSession(context: RequestContext): Promise<{ ok: boolean }> {
-    const body = context.parsedBody as { refreshToken?: unknown; accessToken?: unknown }
-
-    if (typeof body.refreshToken !== 'string' || !body.refreshToken) {
-      throw new ValidationError('refreshToken is required')
-    }
+    const input = parseDeleteSessionInput(context.parsedBody)
 
     // удаляем сессию из БД
     await deleteSession({
       prisma: this.deps.prisma,
-      refreshToken: body.refreshToken,
+      refreshToken: input.refreshToken,
     })
 
     // если caller передал access token — немедленно его отзываем
-    if (typeof body.accessToken === 'string' && body.accessToken) {
-      await revokeToken(body.accessToken, this.deps.redis)
+    if (input.accessToken) {
+      await revokeToken(input.accessToken, this.deps.redis)
     }
 
     this.deps.logger.info({
@@ -320,15 +312,11 @@ export class SecurityRouter {
    * если caller не отзывает их отдельно через /tokens/revoke.
    */
   private async deleteAllSessions(context: RequestContext): Promise<{ ok: boolean; deletedCount: number }> {
-    const body = context.parsedBody as { userId?: unknown }
-
-    if (typeof body.userId !== 'string' || !body.userId) {
-      throw new ValidationError('userId is required')
-    }
+    const input = parseDeleteAllSessionsInput(context.parsedBody)
 
     const deletedCount = await deleteAllUserSessions({
       prisma: this.deps.prisma,
-      userId: body.userId,
+      userId: input.userId,
     })
 
     this.deps.logger.warn({
@@ -337,7 +325,7 @@ export class SecurityRouter {
       message: 'Все сессии пользователя удалены',
       requestId: context.requestId,
       service: 'security-service',
-      userId: body.userId,
+      userId: input.userId,
     })
 
     return { ok: true, deletedCount }
@@ -352,20 +340,16 @@ export class SecurityRouter {
    * Используется другими сервисами для аутентификации запросов.
    */
   private async verifyToken(context: RequestContext): Promise<{ id: string; role: string }> {
-    const body = context.parsedBody as { token?: unknown }
-
-    if (typeof body.token !== 'string' || !body.token) {
-      throw new ValidationError('token is required')
-    }
+    const input = parseTokenInput(context.parsedBody)
 
     // проверяем подпись и срок жизни JWT
-    const result = verifyJwt(body.token, this.deps.config.jwtKeys)
+    const result = verifyJwt(input.token, this.deps.config.jwtKeys)
     if (result.status === 'error') {
       throw new AuthenticationError(result.message)
     }
 
     // проверяем, не был ли токен отозван через /tokens/revoke
-    const revoked = await isTokenRevoked(body.token, this.deps.redis)
+    const revoked = await isTokenRevoked(input.token, this.deps.redis)
     if (revoked) {
       throw new AuthenticationError('token has been revoked')
     }
@@ -380,13 +364,9 @@ export class SecurityRouter {
    * работать раньше истечения TTL.
    */
   private async revokeToken(context: RequestContext): Promise<{ ok: boolean }> {
-    const body = context.parsedBody as { token?: unknown }
+    const input = parseTokenInput(context.parsedBody)
 
-    if (typeof body.token !== 'string' || !body.token) {
-      throw new ValidationError('token is required')
-    }
-
-    await revokeToken(body.token, this.deps.redis)
+    await revokeToken(input.token, this.deps.redis)
 
     this.deps.logger.info({
       action: 'token.revoked',
@@ -407,13 +387,9 @@ export class SecurityRouter {
    * если хоть один заблокирован.
    */
   private async checkLogin(context: RequestContext): Promise<{ allowed: boolean; retryAfterSeconds?: number }> {
-    const body = context.parsedBody as { identifier?: unknown }
+    const input = parseLoginIdentifierInput(context.parsedBody)
 
-    if (typeof body.identifier !== 'string' || !body.identifier) {
-      throw new ValidationError('identifier is required')
-    }
-
-    const result = await checkLoginAllowed(body.identifier, this.deps.redis)
+    const result = await checkLoginAllowed(input.identifier, this.deps.redis)
 
     if (result.status === 'locked') {
       // не бросаем ошибку — caller сам решает, что делать
@@ -429,21 +405,17 @@ export class SecurityRouter {
    * Exponential backoff: каждая попытка сверх лимита удваивает время блокировки.
    */
   private async recordFailure(context: RequestContext): Promise<{ ok: boolean; locked?: boolean; retryAfterSeconds?: number }> {
-    const body = context.parsedBody as { identifier?: unknown }
+    const input = parseLoginIdentifierInput(context.parsedBody)
 
-    if (typeof body.identifier !== 'string' || !body.identifier) {
-      throw new ValidationError('identifier is required')
-    }
-
-    await recordFailedLogin(body.identifier, this.deps.redis)
+    await recordFailedLogin(input.identifier, this.deps.redis)
 
     // проверяем, не заблокировали ли мы этот identifier только что
-    const check = await checkLoginAllowed(body.identifier, this.deps.redis)
+    const check = await checkLoginAllowed(input.identifier, this.deps.redis)
 
     if (check.status === 'locked') {
       this.deps.logger.warn({
         action: 'login.locked',
-        identifier: body.identifier,
+        identifier: input.identifier,
         message: 'Вход заблокирован после превышения лимита попыток',
         requestId: context.requestId,
         retryAfterSeconds: check.retryAfterSeconds,
@@ -461,13 +433,9 @@ export class SecurityRouter {
    * Вызывается сразу после подтверждения пароля, до создания сессии.
    */
   private async resetAttempts(context: RequestContext): Promise<{ ok: boolean }> {
-    const body = context.parsedBody as { identifier?: unknown }
+    const input = parseLoginIdentifierInput(context.parsedBody)
 
-    if (typeof body.identifier !== 'string' || !body.identifier) {
-      throw new ValidationError('identifier is required')
-    }
-
-    await resetLoginAttempts(body.identifier, this.deps.redis)
+    await resetLoginAttempts(input.identifier, this.deps.redis)
 
     return { ok: true }
   }

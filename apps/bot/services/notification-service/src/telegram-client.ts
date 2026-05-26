@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { basename, resolve } from 'node:path'
+import { basename, isAbsolute, relative, resolve } from 'node:path'
 import { TelegramApiError, UnsafeFilePathError } from './errors.js'
 import type { NotificationServiceLogger } from './logger.js'
 
@@ -14,6 +14,12 @@ type TelegramClientDependencies = {
   logger: NotificationServiceLogger
   // Директория, из которой разрешено отправлять документы.
   reportsDir: string
+}
+
+// Минимальная форма JSON-ответа Telegram Bot API.
+type TelegramResponseBody = {
+  description?: string
+  ok?: boolean
 }
 
 /**
@@ -76,11 +82,11 @@ export class TelegramClient {
    * path traversal при подделанном сообщении в очереди.
    */
   async sendDocument(chatId: number, filePath: string, caption?: string): Promise<void> {
-    // basename отбрасывает любые ../ и оставляет только имя файла.
-    const safePath = resolve(this.deps.reportsDir, basename(filePath))
+    const reportsRoot = resolve(this.deps.reportsDir)
+    const safePath = resolve(reportsRoot, filePath)
 
     // Проверяем, что итоговый путь остался внутри reportsDir.
-    if (!safePath.startsWith(`${this.deps.reportsDir}/`)) {
+    if (!isInsideDirectory(reportsRoot, safePath)) {
       throw new UnsafeFilePathError(filePath)
     }
 
@@ -99,11 +105,7 @@ export class TelegramClient {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
-    // Любую ошибку Telegram превращаем в TelegramApiError с body ответа.
-    if (!response.ok) {
-      const body = await response.text()
-      throw new TelegramApiError('sendDocument', response.status, body)
-    }
+    await ensureTelegramResponseOk('sendDocument', response)
   }
 
   /**
@@ -118,10 +120,41 @@ export class TelegramClient {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
-    // Telegram часто кладёт полезную диагностику в body, поэтому сохраняем его.
-    if (!response.ok) {
-      const body = await response.text()
-      throw new TelegramApiError(method, response.status, body)
-    }
+    await ensureTelegramResponseOk(method, response)
   }
+}
+
+/**
+ * Проверяет HTTP-level и Telegram-level успешность ответа.
+ */
+async function ensureTelegramResponseOk(method: string, response: Response): Promise<void> {
+  const bodyText = await response.text()
+  const body = parseTelegramBody(bodyText)
+
+  // Telegram часто кладёт полезную диагностику в body, поэтому сохраняем его.
+  if (!response.ok || body.ok === false) {
+    const message = body.description ?? bodyText
+    throw new TelegramApiError(method, response.status, message)
+  }
+}
+
+/**
+ * Разбирает JSON Telegram API, не теряя исходный текст при unexpected body.
+ */
+function parseTelegramBody(bodyText: string): TelegramResponseBody {
+  if (!bodyText) return {}
+
+  try {
+    return JSON.parse(bodyText) as TelegramResponseBody
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Проверяет, что путь находится внутри разрешённой директории.
+ */
+function isInsideDirectory(root: string, candidate: string): boolean {
+  const relativePath = relative(root, candidate)
+  return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath)
 }

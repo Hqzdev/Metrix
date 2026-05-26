@@ -5,6 +5,9 @@ type SendOptions = { reply_markup?: InlineKeyboardMarkup; parse_mode?: string }
 // Опции редактирования сообщения.
 type EditOptions = { reply_markup?: InlineKeyboardMarkup; parse_mode?: string }
 
+// Максимальное время ожидания ответа Telegram Bot API.
+const REQUEST_TIMEOUT_MS = 30_000
+
 /**
  * Оборачивает методы Telegram Bot API, используемые сервисом.
  */
@@ -30,11 +33,17 @@ export class TelegramClient {
     })
   }
 
+  /**
+   * Отправляет текстовое сообщение в Telegram.
+   */
   async sendMessage(chatId: number, text: string, options: SendOptions = {}): Promise<{ message_id: number }> {
     // sendMessage возвращает message_id, который можно потом редактировать.
     return this.call<{ message_id: number }>('sendMessage', { chat_id: chatId, text, ...options })
   }
 
+  /**
+   * Редактирует текст существующего Telegram-сообщения.
+   */
   async editMessageText(chatId: number, messageId: number, text: string, options: EditOptions = {}): Promise<void> {
     try {
       await this.call('editMessageText', { chat_id: chatId, message_id: messageId, text, ...options })
@@ -52,6 +61,9 @@ export class TelegramClient {
     await this.call('answerCallbackQuery', { callback_query_id: id, text })
   }
 
+  /**
+   * Отвечает Telegram на pre_checkout_query перед списанием оплаты.
+   */
   async answerPreCheckoutQuery(id: string, input: { ok: true } | { ok: false; errorMessage: string }): Promise<void> {
     // Telegram требует ответить на pre_checkout_query перед списанием.
     await this.call('answerPreCheckoutQuery', {
@@ -61,6 +73,9 @@ export class TelegramClient {
     })
   }
 
+  /**
+   * Отправляет Telegram invoice напрямую через Bot API.
+   */
   async sendInvoice(input: {
     chatId: number
     title: string
@@ -111,17 +126,18 @@ export class TelegramClient {
     })
   }
 
+  /**
+   * Выполняет JSON-вызов Telegram Bot API и нормализует ошибочный ответ.
+   */
   private async call<T = unknown>(method: string, payload: unknown): Promise<T> {
-    // Отдельный AbortController нужен для таймаута Telegram API.
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), 30_000)
     // Telegram Bot API вызываем JSON POST-запросом.
     const res = await fetch(`${this.base}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: ctrl.signal,
-    }).finally(() => clearTimeout(t))
+      // Таймаут не даёт polling/webhook обработке зависнуть на сетевом вызове.
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
 
     // Telegram возвращает объект вида { ok, result, description }.
     const body = (await res.json()) as TelegramApiResponse<T>

@@ -5,6 +5,7 @@ import type { RedisBus } from '@metrix/redis-bus'
 import { STREAMS } from '@metrix/contracts'
 import { QUEUE_NAMES, type ReminderJobData } from '../queues.js'
 import type { WorkerLogger } from '../logger.js'
+import { parseReminderJobData } from '../validation.js'
 
 // За сколько минут до начала отправляем напоминание.
 // Должно совпадать со значением в booking-service/src/reminder-scheduler.ts.
@@ -33,7 +34,7 @@ export function startReminderWorker(
     QUEUE_NAMES.REMINDERS,
     async (job) => {
       // Достаём данные, которые booking-service положил в delayed job.
-      const { bookingId, telegramUserId, chatId, resourceName, locationName, startsAt, language } = job.data
+      const { bookingId, telegramUserId, chatId, resourceName, locationName, startsAt, language } = parseReminderJobData(job.data)
 
       logger.info({
         message: 'Processing reminder job',

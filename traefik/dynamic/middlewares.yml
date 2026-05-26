@@ -1,0 +1,49 @@
+# ─── Traefik динамические middleware ─────────────────────────────────────────
+# Этот файл подхватывается без рестарта Traefik (watch: true в traefik.yml).
+# Middleware применяются к роутерам через labels: traefik.http.routers.<name>.middlewares
+
+http:
+  middlewares:
+    # ── Безопасные HTTP-заголовки ─────────────────────────────────────────────
+    # Применяйте к любому публичному роутеру для защиты от XSS, clickjacking и т.д.
+    secure-headers:
+      headers:
+        # Запрещает браузеру угадывать Content-Type (sniff protection).
+        contentTypeNosniff: true
+        # Защищает от clickjacking — запрещает iframe-встройку.
+        frameDeny: true
+        # XSS-фильтр включён принудительно.
+        browserXssFilter: true
+        # Referrer не передаётся во внешние домены.
+        referrerPolicy: same-origin
+        customResponseHeaders:
+          # Убираем версию Traefik из ответов — не раскрываем инфраструктуру клиентам.
+          X-Powered-By: ''
+          Server: ''
+
+    # ── Rate limiting для Telegram webhook ────────────────────────────────────
+    # Telegram шлёт до 30 updates/сек на бота. 60/сек с burst 120 даёт запас.
+    # Превышение → 429 Too Many Requests (Telegram повторит попытку).
+    webhook-rate-limit:
+      rateLimit:
+        average: 60
+        burst: 120
+        period: 1s
+
+    # ── Rate limiting для внутренних admin-интерфейсов ────────────────────────
+    # Grafana, GlitchTip и dashboard не должны принимать много запросов снаружи.
+    admin-rate-limit:
+      rateLimit:
+        average: 20
+        burst: 40
+        period: 1s
+
+    # ── BasicAuth для admin-интерфейсов в production ──────────────────────────
+    # Раскомментируйте и добавьте хеши паролей для защиты Grafana/GlitchTip/dashboard
+    # через Traefik (в дополнение к встроенной аутентификации каждого сервиса).
+    #
+    # Сгенерировать хеш: htpasswd -nb admin yourpassword
+    # admin-auth:
+    #   basicAuth:
+    #     users:
+    #       - 'admin:$apr1$...'

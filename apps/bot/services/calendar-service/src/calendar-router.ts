@@ -1,13 +1,19 @@
 import { audit, extractUserId, readJsonBody, signOAuthState, verifyOAuthState, verifyServiceRequest } from '@metrix/auth'
+import { writeAuditLog, type AuditLogInput } from '@metrix/audit-log'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Redis } from 'ioredis'
 import type { PrismaClient } from '@prisma/client'
 import type { CalendarServiceConfig } from './config.js'
-import { AuthenticationError, CalendarServiceError, NotFoundError, OAuthStateError, ProviderNotConfiguredError, ReplayAttackError, ValidationError } from './errors.js'
+import { AuthenticationError, CalendarServiceError, NotFoundError, OAuthStateError, ProviderError, ProviderNotConfiguredError, ReplayAttackError } from './errors.js'
 import { sendJson } from './http-response.js'
 import { decrypt, encrypt } from './crypto.js'
 import type { CalendarServiceLogger } from './logger.js'
 import type { GoogleOAuthClient } from './google-oauth-client.js'
+import { parseBuildAuthUrlInput, parseDeleteConnectionInput, parseOAuthCallbackInput, parseRefreshTokenInput, resolveUserId } from './validation.js'
+
+// Сколько секунд хранить replay-ключ в Redis.
+// 300 секунд совпадает с окном security/admin и временем жизни service-to-service nonce.
+const REPLAY_TTL_SECONDS = 300
 
 // Все зависимости router-а приходят снаружи.
 type CalendarRouterDependencies = {
@@ -120,7 +126,7 @@ export class CalendarRouter {
     }
 
     // NX защищает от повторного использования requestId.
-    const fresh = await this.deps.redis.set(`replay:${auth.requestId}`, '1', 'EX', 60, 'NX')
+    const fresh = await this.deps.redis.set(`replay:${auth.requestId}`, '1', 'EX', REPLAY_TTL_SECONDS, 'NX')
     if (fresh !== 'OK') {
       throw new ReplayAttackError()
     }
@@ -218,20 +224,18 @@ export class CalendarRouter {
    * Выполняет шаг buildAuthUrl внутри сервисного сценария.
    */
   private async buildAuthUrl(context: RequestContext): Promise<{ url: string }> {
-    // Provider сейчас поддерживается только google.
-    const body = context.parsedBody as { provider?: unknown; telegramUserId?: unknown; scope?: unknown; resourceId?: unknown }
+    // Валидируем provider, user id, scope и optional resourceId.
+    const input = parseBuildAuthUrlInput(context.parsedBody, context.callerUserId)
 
-    if (body.provider !== 'google' || !this.deps.config.googleClientId) {
+    if (!this.deps.config.googleClientId || !this.deps.config.googleClientSecret) {
       throw new ProviderNotConfiguredError()
     }
 
-    // user id нельзя брать слепо из body, если есть подписанный callerUserId.
-    const userId = resolveUserId(context.callerUserId, body.telegramUserId)
-    const scope = typeof body.scope === 'string' ? body.scope : 'user'
-    const resourceId = typeof body.resourceId === 'string' ? body.resourceId : undefined
-
     // state подписывается HMAC — защита от подделки telegramUserId в OAuth redirect.
-    const state = signOAuthState({ telegramUserId: userId, scope, resourceId }, this.deps.config.tokenSecret)
+    const state = signOAuthState(
+      { telegramUserId: input.telegramUserId, scope: input.scope, resourceId: input.resourceId },
+      this.deps.config.tokenSecret,
+    )
     const url = this.deps.googleOAuthClient.buildAuthUrl(state)
 
     return { url }
@@ -242,52 +246,52 @@ export class CalendarRouter {
    */
   private async handleOAuthCallback(context: RequestContext): Promise<unknown> {
     // Google возвращает code и state после consent.
-    const body = context.parsedBody as { code?: unknown; state?: unknown }
-
-    if (typeof body.code !== 'string' || typeof body.state !== 'string') {
-      throw new ValidationError('code and state are required')
-    }
+    const input = parseOAuthCallbackInput(context.parsedBody)
 
     let stateData: OAuthStateData
     try {
       // Проверяем подпись state и достаём user id/scope/resourceId.
-      stateData = verifyOAuthState(body.state, this.deps.config.tokenSecret) as OAuthStateData
+      stateData = verifyOAuthState(input.state, this.deps.config.tokenSecret) as OAuthStateData
     } catch {
       throw new OAuthStateError()
     }
 
     // exchangeCode бросает ошибку если Google не вернул refresh_token.
     // Fallback к access_token запрещён, access token истекает примерно через час.
-    const token = await this.deps.googleOAuthClient.exchangeCode(body.code)
+    const token = await this.deps.googleOAuthClient.exchangeCode(input.code)
 
-    // upsert позволяет переподключить календарь без дублей.
-    const conn = await this.deps.prisma.calendarConnection.upsert({
-      where: {
-        provider_scope_telegramUserId_resourceId: {
+    // Nullable resourceId нельзя надёжно использовать через compound upsert.
+    // Поэтому сначала ищем существующую запись, затем обновляем или создаём.
+    const where = {
+      provider: 'google',
+      scope: stateData.scope,
+      telegramUserId: BigInt(stateData.telegramUserId),
+      resourceId: stateData.resourceId ?? null,
+    }
+    const existing = await this.deps.prisma.calendarConnection.findFirst({ where })
+    const conn = existing
+      ? await this.deps.prisma.calendarConnection.update({
+        where: { id: existing.id },
+        data: {
+          // Токены всегда храним зашифрованными.
+          accessToken: encrypt(token.access_token, this.deps.config.tokenSecret),
+          refreshToken: encrypt(token.refresh_token, this.deps.config.tokenSecret),
+          expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
+        },
+      })
+      : await this.deps.prisma.calendarConnection.create({
+        data: {
           provider: 'google',
           scope: stateData.scope,
           telegramUserId: BigInt(stateData.telegramUserId),
-          resourceId: stateData.resourceId ?? '',
+          resourceId: stateData.resourceId ?? null,
+          // primary — основной календарь Google пользователя.
+          calendarId: 'primary',
+          accessToken: encrypt(token.access_token, this.deps.config.tokenSecret),
+          refreshToken: encrypt(token.refresh_token, this.deps.config.tokenSecret),
+          expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
         },
-      },
-      update: {
-        // Токены всегда храним зашифрованными.
-        accessToken: encrypt(token.access_token, this.deps.config.tokenSecret),
-        refreshToken: encrypt(token.refresh_token, this.deps.config.tokenSecret),
-        expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
-      },
-      create: {
-        provider: 'google',
-        scope: stateData.scope,
-        telegramUserId: BigInt(stateData.telegramUserId),
-        resourceId: stateData.resourceId,
-        // primary — основной календарь Google пользователя.
-        calendarId: 'primary',
-        accessToken: encrypt(token.access_token, this.deps.config.tokenSecret),
-        refreshToken: encrypt(token.refresh_token, this.deps.config.tokenSecret),
-        expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
-      },
-    })
+      })
 
     // Audit фиксирует факт подключения календаря.
     audit({
@@ -297,6 +301,17 @@ export class CalendarRouter {
       userId: stateData.telegramUserId,
       provider: 'google',
       requestId: context.requestId,
+    })
+    // Persistent audit log нужен для dashboard и расследований.
+    await this.writeAudit({
+      action: 'calendar.connected',
+      actorUserId: stateData.telegramUserId,
+      callerService: context.callerName,
+      entityId: conn.id,
+      entityType: 'calendarConnection',
+      payload: { provider: 'google', scope: stateData.scope, resourceId: stateData.resourceId ?? null },
+      requestId: context.requestId,
+      service: 'calendar',
     })
 
     // Caller получает расшифрованные токены через доверенный канал.
@@ -310,20 +325,12 @@ export class CalendarRouter {
    * Новый access token сохраняется в БД — refresh token при этом не меняется.
    */
   private async handleRefreshToken(context: RequestContext): Promise<unknown> {
-    // Provider обязателен, потому что в будущем могут быть разные провайдеры.
-    const body = context.parsedBody as { provider?: unknown; telegramUserId?: unknown; scope?: unknown }
-
-    if (typeof body.provider !== 'string') {
-      throw new ValidationError('provider is required')
-    }
-
-    // user id берём из подписи или body.
-    const userId = resolveUserId(context.callerUserId, body.telegramUserId)
-    const scope = typeof body.scope === 'string' ? body.scope : 'user'
+    // Валидируем provider, scope и владельца подключения.
+    const input = parseRefreshTokenInput(context.parsedBody, context.callerUserId)
 
     // Ищем существующее подключение календаря.
     const conn = await this.deps.prisma.calendarConnection.findFirst({
-      where: { provider: body.provider, scope, telegramUserId: BigInt(userId) },
+      where: { provider: input.provider, scope: input.scope, telegramUserId: BigInt(input.telegramUserId) },
     })
 
     if (!conn) {
@@ -354,19 +361,12 @@ export class CalendarRouter {
    * возможность отвязать аккаунт даже при недоступности Google API.
    */
   private async deleteConnection(context: RequestContext): Promise<{ ok: boolean }> {
-    // Provider показывает, какое подключение удалить.
-    const body = context.parsedBody as { provider?: unknown; telegramUserId?: unknown }
-
-    if (typeof body.provider !== 'string') {
-      throw new ValidationError('provider is required')
-    }
-
-    // user id определяет владельца подключения.
-    const userId = resolveUserId(context.callerUserId, body.telegramUserId)
+    // Provider и user id определяют, какие подключения удалить.
+    const input = parseDeleteConnectionInput(context.parsedBody, context.callerUserId)
 
     // Находим все подключения, чтобы отозвать токены перед удалением.
     const connections = await this.deps.prisma.calendarConnection.findMany({
-      where: { provider: body.provider, scope: 'user', telegramUserId: BigInt(userId) },
+      where: { provider: input.provider, scope: 'user', telegramUserId: BigInt(input.telegramUserId) },
     })
 
     // Отзываем refresh tokens на стороне Google.
@@ -386,7 +386,7 @@ export class CalendarRouter {
 
     // После попыток revoke удаляем локальные записи.
     await this.deps.prisma.calendarConnection.deleteMany({
-      where: { provider: body.provider, scope: 'user', telegramUserId: BigInt(userId) },
+      where: { provider: input.provider, scope: 'user', telegramUserId: BigInt(input.telegramUserId) },
     })
 
     // Audit фиксирует отключение календаря.
@@ -394,12 +394,40 @@ export class CalendarRouter {
       ts: new Date().toISOString(),
       service: 'calendar',
       action: 'calendar.disconnected',
-      userId,
-      provider: body.provider,
+      userId: input.telegramUserId,
+      provider: input.provider,
       requestId: context.requestId,
+    })
+    // Persistent audit log пишем отдельно и не блокируем disconnect при ошибке.
+    await this.writeAudit({
+      action: 'calendar.disconnected',
+      actorUserId: input.telegramUserId,
+      callerService: context.callerName,
+      entityType: 'calendarConnection',
+      payload: { connectionIds: connections.map((connection) => connection.id), provider: input.provider },
+      requestId: context.requestId,
+      service: 'calendar',
     })
 
     return { ok: true }
+  }
+
+  /**
+   * Пишет persistent audit log без влияния на основной бизнес-flow.
+   */
+  private async writeAudit(input: AuditLogInput): Promise<void> {
+    try {
+      // Пишем audit log в PostgreSQL.
+      await writeAuditLog(this.deps.prisma, input)
+    } catch (error) {
+      // Audit не должен ломать пользовательский сценарий.
+      this.deps.logger.error({
+        action: 'audit.persist.failed',
+        error,
+        message: 'Failed to persist audit log',
+        service: 'calendar-service',
+      })
+    }
   }
 
   /**
@@ -425,6 +453,12 @@ export class CalendarRouter {
    * Преобразует доменные ошибки в HTTP-ответы и логи.
    */
   private handleError(res: ServerResponse, error: unknown): void {
+    // ProviderError несёт реальный статус и тело от Google OAuth API.
+    if (error instanceof ProviderError) {
+      sendJson(res, error.responseBody, error.statusCode)
+      return
+    }
+
     // Доменные ошибки уже содержат HTTP status code.
     if (error instanceof CalendarServiceError) {
       sendJson(res, { error: error.message }, error.statusCode)
@@ -439,19 +473,6 @@ export class CalendarRouter {
     })
     sendJson(res, { error: 'internal error' }, 500)
   }
-}
-
-/**
- * Выбирает доверенный user id из подписи или payload.
- */
-function resolveUserId(callerUserId: number | undefined, rawValue: unknown): number {
-  // Подписанный callerUserId важнее значения из payload/query.
-  const userId = callerUserId ?? Number(rawValue)
-  if (!userId || !Number.isFinite(userId) || userId <= 0) {
-    throw new ValidationError('telegramUserId is required and must be a positive integer')
-  }
-
-  return userId
 }
 
 /**

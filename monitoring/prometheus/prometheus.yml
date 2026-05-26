@@ -1,0 +1,75 @@
+# Глобальные параметры опроса.
+# scrape_interval — как часто Prometheus снимает метрики с targets.
+# evaluation_interval — как часто пересчитываются recording rules и alerting rules.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Файлы с alerting rules (алертов пока нет, секция оставлена для расширения).
+rule_files: []
+
+# Список источников метрик.
+scrape_configs:
+  # ── bot-gateway ─────────────────────────────────────────────────────────────
+  # Главный шлюз Telegram-бота. Снимаем метрики с /metrics.
+  - job_name: bot-gateway
+    static_configs:
+      - targets: ['bot-gateway:3000']
+        labels:
+          service: bot-gateway
+
+  # ── booking-service ──────────────────────────────────────────────────────────
+  # Сервис бронирований. Основная бизнес-логика, за ним смотрим особенно внимательно.
+  - job_name: booking-service
+    static_configs:
+      - targets: ['booking-service:3001']
+        labels:
+          service: booking-service
+
+  # ── calendar-service ─────────────────────────────────────────────────────────
+  # Интеграция с Google и Microsoft Calendar.
+  - job_name: calendar-service
+    static_configs:
+      - targets: ['calendar-service:3002']
+        labels:
+          service: calendar-service
+
+  # ── payment-service ──────────────────────────────────────────────────────────
+  # Сервис оплаты через Telegram Payments. Высокий приоритет алертов.
+  - job_name: payment-service
+    static_configs:
+      - targets: ['payment-service:3003']
+        labels:
+          service: payment-service
+
+  # ── analytics-service ────────────────────────────────────────────────────────
+  # Сбор и выдача аналитики по бронированиям.
+  - job_name: analytics-service
+    static_configs:
+      - targets: ['analytics-service:3005']
+        labels:
+          service: analytics-service
+
+  # ── admin-service ────────────────────────────────────────────────────────────
+  # Административные операции: изменение ресурсов, просмотр аудита.
+  - job_name: admin-service
+    static_configs:
+      - targets: ['admin-service:3006']
+        labels:
+          service: admin-service
+
+  # ── security-service ─────────────────────────────────────────────────────────
+  # Аутентификация, JWT, rate limiting. Сбои здесь блокируют все сервисы.
+  - job_name: security-service
+    static_configs:
+      - targets: ['security-service:3008']
+        labels:
+          service: security-service
+
+  # ── prometheus (self-monitoring) ─────────────────────────────────────────────
+  # Prometheus следит сам за собой, чтобы видеть задержки scrape и размер TSDB.
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: prometheus

@@ -177,7 +177,8 @@ async function forwardOAuthCallback(input: { code: string; options: HealthServer
 
   // Если calendar-service не принял callback, пользователь увидит Connection failed.
   if (!response.ok) {
-    throw new Error(`calendar-service oauth callback failed: ${response.status}`)
+    const responseBody = await readResponseBody(response)
+    throw new Error(`calendar-service oauth callback failed: ${response.status} ${JSON.stringify(responseBody)}`)
   }
 }
 
@@ -190,4 +191,16 @@ async function readBody(req: IncomingMessage): Promise<string> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   }
   return Buffer.concat(chunks).toString('utf8')
+}
+
+/**
+ * Читает тело ответа calendar-service для диагностики OAuth callback ошибок.
+ */
+async function readResponseBody(response: Response): Promise<unknown> {
+  try {
+    // Calendar-service возвращает JSON-ошибки через sendJson.
+    return await response.clone().json()
+  } catch {
+    return { error: await response.text() }
+  }
 }

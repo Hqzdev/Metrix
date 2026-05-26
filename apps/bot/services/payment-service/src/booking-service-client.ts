@@ -77,7 +77,7 @@ export class BookingServiceClient {
 
     // Остальные ошибки считаем проблемой downstream-сервиса.
     if (!response.ok) {
-      throw new DownstreamServiceError(`booking-service returned ${response.status} for GET ${path}`)
+      throw new DownstreamServiceError(response.status, await readResponseBody(response))
     }
 
     return response.json() as Promise<ResourceDetails>
@@ -97,7 +97,7 @@ export class BookingServiceClient {
     })
 
     if (!response.ok) {
-      throw new DownstreamServiceError(`booking-service returned ${response.status} for GET ${path}`)
+      throw new DownstreamServiceError(response.status, await readResponseBody(response))
     }
 
     // Если slotId есть в списке доступных, можно платить.
@@ -125,7 +125,7 @@ export class BookingServiceClient {
     })
 
     if (!response.ok) {
-      throw new DownstreamServiceError(`booking-service returned ${response.status} for GET ${path}`)
+      throw new DownstreamServiceError(response.status, await readResponseBody(response))
     }
 
     return response.json() as Promise<BookingRecord[]>
@@ -157,10 +157,24 @@ export class BookingServiceClient {
 
     // Если booking-service не создал бронь, payment consumer переведёт saga в failed.
     if (!response.ok) {
-      throw new DownstreamServiceError(`booking-service returned ${response.status} for POST ${path}`)
+      throw new DownstreamServiceError(response.status, await readResponseBody(response))
     }
 
     return response.json() as Promise<BookingConfirmation>
+  }
+}
+
+/**
+ * Читает тело ответа booking-service для диагностики downstream-ошибок.
+ */
+async function readResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text()
+  if (!text) return {}
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { message: text }
   }
 }
 

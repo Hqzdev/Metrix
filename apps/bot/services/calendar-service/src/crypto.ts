@@ -39,7 +39,9 @@ export function decrypt(value: string, secret: string): string {
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8')
 }
 
-// HKDF растягивает секрет до 256-битного ключа с контекстной привязкой.
+/**
+ * Растягивает общий secret до 256-битного ключа с контекстной привязкой.
+ */
 function deriveKey(secret: string): Buffer {
   return Buffer.from(hkdfSync('sha256', secret, '', HKDF_INFO, 32))
 }

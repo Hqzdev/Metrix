@@ -69,12 +69,19 @@ export class NotFoundError extends AnalyticsServiceError {
 
 /**
  * Ошибка downstream-сервиса, например booking-service.
+ *
+ * Хранит реальный HTTP-код и тело ответа downstream-а, чтобы router мог
+ * вернуть caller-у исходный контекст ошибки без маскировки под общий 502.
  */
 export class DownstreamServiceError extends AnalyticsServiceError {
   /**
-   * 502 показывает, что analytics-service жив, но зависимый сервис ответил плохо.
+   * Сохраняет статус и тело ответа зависимого сервиса.
    */
-  constructor(message: string) {
-    super(message, 502)
+  constructor(
+    statusCode: number,
+    // responseBody — распарсенный ответ downstream-а или fallback-объект.
+    public readonly responseBody: unknown,
+  ) {
+    super('downstream service error', statusCode)
   }
 }

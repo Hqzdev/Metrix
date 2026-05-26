@@ -5,13 +5,12 @@ import { MetricsRegistry, createObservedHandler, installGracefulShutdown, sendMe
 import { RedisBus, SlotLocker } from '@metrix/redis-bus'
 import { BookingRouter } from './booking-router.js'
 import { readBookingServiceConfig } from './config.js'
-import { BookingServiceLogger } from './logger.js'
+import { logger } from './logger.js'
 import { ReminderScheduler } from './reminder-scheduler.js'
 import { BookingCompletionScheduler } from './booking-completion-scheduler.js'
 import { seedDatabase } from './seed.js'
 
-// Логгер нужен сразу при старте, чтобы писать ошибки и служебные события единым JSON-форматом.
-const logger = new BookingServiceLogger()
+// logger — синглтон из @metrix/logger с автоматической инъекцией traceId, env, hostname, pid.
 // Конфиг читаем один раз из переменных окружения.
 const config = readBookingServiceConfig(process.env)
 // Prisma работает с основной PostgreSQL базой.
@@ -97,17 +96,25 @@ const server = createServer(
 installGracefulShutdown({
   logger,
   resources: [
+    // Сначала закрываем BullMQ Queue-объекты — они должны остановиться до Redis.
+    // Если Redis отключится раньше, BullMQ бросит unhandled error.
+    async () => {
+      await reminderScheduler?.close()
+    },
+    async () => {
+      await completionScheduler?.close()
+    },
+    // Закрываем отдельное BullMQ Redis-соединение после Queue.
+    async () => {
+      await bullRedis?.quit()
+    },
     // Закрываем PostgreSQL connection pool.
     async () => {
       await prisma.$disconnect()
     },
-    // Закрываем RedisBus.
+    // Закрываем RedisBus последним — он нужен вплоть до завершения всех операций.
     async () => {
       await bus.disconnect()
-    },
-    // Закрываем отдельное BullMQ Redis-соединение, если оно было создано.
-    async () => {
-      await bullRedis?.quit()
     },
   ],
   server,

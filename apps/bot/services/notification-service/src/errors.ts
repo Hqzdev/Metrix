@@ -34,3 +34,20 @@ export class UnsafeFilePathError extends Error {
     this.name = new.target.name
   }
 }
+
+/**
+ * Ошибка в payload события уведомления.
+ *
+ * Бросается до вызова Telegram API, чтобы malformed Redis event не исчезал
+ * молча и не выглядел как успешно отправленное уведомление.
+ */
+export class NotificationValidationError extends Error {
+  /**
+   * Создаёт validation-ошибку с причиной отказа.
+   */
+  constructor(message: string) {
+    super(message)
+    // name помогает отделить плохие входные события от сетевых ошибок Telegram.
+    this.name = new.target.name
+  }
+}

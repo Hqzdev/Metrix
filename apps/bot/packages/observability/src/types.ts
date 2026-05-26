@@ -3,6 +3,10 @@ export type ObservabilityLogEntry<TService extends string> = {
   error?: unknown
   message: string
   service: TService
+  // Inject via getActiveTraceId() from @metrix/tracing for log-trace correlation.
+  traceId?: string
+  // Inject via getActiveSpanContext().spanId for precise span-level correlation.
+  spanId?: string
   [key: string]: unknown
 }
 

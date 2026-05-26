@@ -81,13 +81,16 @@ export function verifyJwt(token: string, keys: JwtKeysConfig): VerifyJwtResult {
     return { status: 'error', message: 'invalid token signature' }
   }
 
-  const parsed = JSON.parse(Buffer.from(rawPayload, 'base64url').toString('utf8')) as JwtPayload
+  const payloadResult = parsePayload(rawPayload)
+  if (payloadResult.status === 'error') {
+    return payloadResult
+  }
 
-  if (parsed.exp < Math.floor(Date.now() / 1000)) {
+  if (payloadResult.payload.exp < Math.floor(Date.now() / 1000)) {
     return { status: 'error', message: 'token expired' }
   }
 
-  return { status: 'ok', payload: parsed }
+  return { status: 'ok', payload: payloadResult.payload }
 }
 
 /**
@@ -124,14 +127,46 @@ function findSecretByKid(keys: JwtKeysConfig, kid: string): string | null {
   return prev?.secret ?? null
 }
 
+/**
+ * Парсит JWT payload после проверки подписи.
+ */
+function parsePayload(rawPayload: string): VerifyJwtResult {
+  try {
+    const decoded = JSON.parse(Buffer.from(rawPayload, 'base64url').toString('utf8')) as Partial<JwtPayload>
+
+    if (
+      typeof decoded.exp !== 'number' ||
+      typeof decoded.kid !== 'string' ||
+      (decoded.role !== 'admin' && decoded.role !== 'employee') ||
+      typeof decoded.sub !== 'string' ||
+      decoded.sub.trim() === ''
+    ) {
+      return { status: 'error', message: 'invalid token payload' }
+    }
+
+    return { status: 'ok', payload: decoded as JwtPayload }
+  } catch {
+    return { status: 'error', message: 'malformed token payload' }
+  }
+}
+
+/**
+ * Кодирует JSON-значение в base64url для JWT header/payload.
+ */
 function encode(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url')
 }
 
+/**
+ * Подписывает строку JWT алгоритмом HS256.
+ */
 function sign(value: string, secret: string): string {
   return createHmac('sha256', secret).update(value).digest('base64url')
 }
 
+/**
+ * Сравнивает подписи в constant-time режиме.
+ */
 function safeEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left)
   const rightBuffer = Buffer.from(right)

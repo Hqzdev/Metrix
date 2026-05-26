@@ -6,10 +6,9 @@ import { AnalyticsRouter } from './analytics-router.js'
 import { BookingClient } from './booking-client.js'
 import { readAnalyticsServiceConfig } from './config.js'
 import { registerAnalyticsEventConsumers } from './event-consumers.js'
-import { AnalyticsServiceLogger } from './logger.js'
+import { logger } from './logger.js'
 
 // Логгер создаём первым, чтобы события старта тоже были в JSON-формате.
-const logger = new AnalyticsServiceLogger()
 // Конфиг читается из env один раз при запуске.
 const config = readAnalyticsServiceConfig(process.env)
 // Prisma нужен для хранения и чтения report-записей.
