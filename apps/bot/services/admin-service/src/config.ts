@@ -6,7 +6,7 @@ const DEFAULT_BOOKING_SERVICE_URL = 'http://localhost:3001'
 const DEFAULT_ANALYTICS_SERVICE_URL = 'http://localhost:3005'
 const DEFAULT_PAYMENT_SERVICE_URL = 'http://localhost:3003'
 const DEFAULT_REDIS_URL = 'redis://localhost:6379'
-
+ 
 // Полный набор настроек, которые нужны admin-service во время работы.
 export type AdminServiceConfig = {
   // URL analytics-service: туда уходит чтение статистики и создание отчётов.
