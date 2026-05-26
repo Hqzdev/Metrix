@@ -31,7 +31,7 @@ type PaymentRouterDependencies = {
   // Prisma для invoices, holds и sagas.
   prisma: PrismaClient
 }
-
+ 
 // Контекст одного HTTP-запроса после auth и парсинга.
 type RequestContext = {
   // Имя caller-сервиса.

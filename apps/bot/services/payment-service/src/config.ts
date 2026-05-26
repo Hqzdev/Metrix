@@ -26,7 +26,7 @@ export type PaymentServiceConfig = {
   trustedCallers: TrustedCaller[]
   // Секрет для проверки Telegram user id от gateway.
   userIdSigningSecret: string
-}
+} 
 
 /**
  * Читает и валидирует конфигурацию при старте процесса.

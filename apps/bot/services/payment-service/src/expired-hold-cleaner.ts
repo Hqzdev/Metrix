@@ -24,7 +24,7 @@ export function startExpiredHoldCleaner(prisma: PrismaClient, logger: PaymentSer
 
   return timer
 }
-
+ 
 /**
  * Помечает устаревшие holds как expired.
  */

@@ -11,3 +11,4 @@ export function sendJson(res: ServerResponse, data: unknown, statusCode = 200): 
   // Потом сериализуем body.
   res.end(JSON.stringify(data))
 }
+ 

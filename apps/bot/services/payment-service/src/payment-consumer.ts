@@ -27,7 +27,7 @@ const PENDING_RETRY_INTERVAL_MS = 60_000
 
 /**
  * Подписывается на PAYMENT_COMPLETED и создаёт бронирование в booking-service.
- *
+ * 
  * важно:
  * - вызывается после того как Telegram подтвердил оплату — booking-service
  *   вызывается ровно один раз на каждое событие.

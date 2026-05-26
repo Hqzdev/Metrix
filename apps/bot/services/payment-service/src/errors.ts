@@ -27,7 +27,7 @@ export class ValidationError extends PaymentServiceError {
     super(message, 400)
   }
 }
-
+ 
 /**
  * Ошибка service-to-service авторизации.
  */

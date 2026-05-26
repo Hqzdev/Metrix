@@ -21,7 +21,7 @@ export type ResourceDetails = {
 // Минимальная форма слота из booking-service.
 export type AvailableSlot = {
   id: string
-}
+} 
 
 // Ответ booking-service после создания booking.
 export type BookingConfirmation = {

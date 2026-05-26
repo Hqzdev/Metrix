@@ -26,7 +26,7 @@ export type CreateInvoiceInput = {
   resourceId: string
   slotId: string
   telegramUserId: number
-}
+} 
 
 /**
  * Валидирует payload создания invoice.

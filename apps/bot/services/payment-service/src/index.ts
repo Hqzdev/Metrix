@@ -29,7 +29,7 @@ if (!config.providerToken) {
     service: 'payment-service',
   })
 }
-
+ 
 // Prisma хранит pending invoices, slot holds и payment saga.
 const prisma = new PrismaClient()
 // RedisBus публикует payment events и notification events.
