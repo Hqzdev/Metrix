@@ -1,5 +1,5 @@
 import type { BookingRow } from './booking-client.js'
-
+ 
 // Короткая статистика для admin UI.
 export type AnalyticsStats = {
   // Количество активных бронирований.
