@@ -16,7 +16,7 @@ export type ParsedCallbackData =
   | { type: 'confirm'; resourceId: string; slotId: string }
   | { type: 'confirm_custom' }
   | { type: 'date'; date: string }
-  | { type: 'time'; hour: number }
+  | { type: 'time'; hour: number } 
   | { type: 'dur'; hours: number }
   | { type: 'cancel'; bookingId: string }
   | { type: 'cancel_confirm'; bookingId: string }

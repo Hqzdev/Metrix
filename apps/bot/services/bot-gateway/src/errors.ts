@@ -19,3 +19,4 @@ export class ServiceHttpError extends Error {
     this.name = new.target.name
   }
 }
+ 

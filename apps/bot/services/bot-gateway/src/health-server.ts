@@ -19,7 +19,7 @@ type HealthServerOptions = {
   telegramWebhookSecret?: string
   webhookHandler?: (update: TelegramUpdate) => Promise<void>
 }
-
+ 
 /**
  * Запускает health endpoint и Google OAuth callback boundary.
  *

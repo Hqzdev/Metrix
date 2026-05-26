@@ -23,7 +23,7 @@ const metrics = new MetricsRegistry('bot-gateway')
 
 // Подключаем Redis до старта polling/webhook.
 await redis.connect()
-
+ 
 // ServicesClient ходит во внутренние микросервисы с подписью.
 const services = new ServicesClient(config.serviceUrls, {
   signing: config.signingSecret,

@@ -23,7 +23,7 @@ export function createRateLimiter(redis: Redis): (userId: number) => Promise<boo
     // На первом запросе ставим TTL, чтобы ключ сам удалился.
     if (count === 1) {
       await redis.expire(key, RATE_WINDOW_SEC)
-    }
+    } 
 
     // true означает "запрос разрешён".
     return count <= RATE_LIMIT

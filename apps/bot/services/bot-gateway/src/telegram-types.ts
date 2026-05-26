@@ -28,7 +28,7 @@ export type TelegramCallbackQuery = {
   from: TelegramUser
   message?: TelegramMessage
   data?: string
-}
+} 
 
 // Запрос Telegram перед финальным списанием оплаты.
 export type TelegramPreCheckoutQuery = {

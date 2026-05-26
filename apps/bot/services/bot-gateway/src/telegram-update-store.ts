@@ -29,7 +29,7 @@ export type TelegramUpdateStore = {
  * offset key позволяет bot-gateway продолжать polling с последней позиции.
  */
 export class RedisTelegramUpdateStore implements TelegramUpdateStore {
-  /**
+  /** 
    * Сохраняет Redis client.
    */
   constructor(private readonly redis: Redis) {}

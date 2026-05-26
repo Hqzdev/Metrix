@@ -28,7 +28,7 @@ type Urls = {
   analytics: string
   // Admin-service проксирует административные чтения.
   admin: string
-}
+} 
 
 /**
  * Инкапсулирует HTTP-вызовы из gateway во внутренние сервисы.

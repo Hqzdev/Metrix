@@ -25,7 +25,7 @@ function dayLabel(d: Date, index: number, language: BotLanguage): string {
   if (index === 1) return 'Завтра'
   const day = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][d.getDay()]
   return `${day} ${d.getDate()}.${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+} 
 
 /** Разбивает массив на строки по N элементов. */
 function chunk<T>(arr: T[], size: number): T[][] {

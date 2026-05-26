@@ -19,7 +19,7 @@ export type ServiceUrls = {
 export type BotGatewayConfig = {
   // Telegram id админов.
   adminTelegramIds: number[]
-  // Порт health/webhook сервера.
+  // Порт health/webhook сервера. 
   healthPort: number
   // Redis для sessions, rate limit и update dedupe.
   redisUrl: string

@@ -35,7 +35,7 @@ export type UserSessionStore = {
   setRescheduleFromId(telegramUserId: number, bookingId: string): Promise<void>
   setState(telegramUserId: number, patch: BotSessionPatch): Promise<void>
 }
-
+ 
 export type BotSession = {
   locationId?: string
   resourceId?: string

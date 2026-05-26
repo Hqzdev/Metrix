@@ -23,7 +23,7 @@ const copy = {
     locationEmpty: 'No offices available at this location.',
     noActiveBookings: 'You have no active bookings.',
     noSlots: (resourceName: string) => `${resourceName} has no available slots right now.`,
-    office: 'Office',
+    office: 'Office', 
     paid: 'Paid',
     seats: 'Seats',
     rescheduleIntro: (resourceName: string, startsAt: string) =>

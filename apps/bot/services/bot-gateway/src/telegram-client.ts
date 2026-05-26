@@ -30,7 +30,7 @@ export class TelegramClient {
       allowed_updates: ['message', 'callback_query', 'pre_checkout_query'],
       offset,
       timeout: 25,
-    })
+    }) 
   }
 
   /**

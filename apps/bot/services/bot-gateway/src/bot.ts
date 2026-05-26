@@ -16,7 +16,7 @@ import {
   languagePromptMessage,
   type BotLanguage,
   helpMessage,
-  locationsMessage,
+  locationsMessage, 
   rescheduleIntroMessage,
   resourcesMessage,
   selectDateMessage,
