@@ -29,7 +29,7 @@ type SecurityRouterDependencies = {
   prisma: PrismaClient
   // Redis для blacklist и rate limiter
   redis: Redis
-}
+} 
 
 // контекст одного HTTP-запроса после прохождения auth
 type RequestContext = {

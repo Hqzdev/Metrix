@@ -13,3 +13,4 @@ export function sendJson(res: ServerResponse, data: unknown, statusCode = 200): 
   res.writeHead(statusCode, { 'content-type': JSON_CONTENT_TYPE })
   res.end(JSON.stringify(data))
 }
+ 

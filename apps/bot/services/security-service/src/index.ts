@@ -29,7 +29,7 @@ await redis.connect()
 
 // основной router обрабатывает все входящие запросы
 const router = new SecurityRouter({ config, logger, prisma, redis })
-
+ 
 const server = createServer(
   // Observability wrapper собирает HTTP-метрики по всем endpoint-ам.
   createObservedHandler({

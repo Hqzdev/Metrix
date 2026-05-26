@@ -28,7 +28,7 @@ export type JwtKeysConfig = {
   previous: Array<{ id: string; secret: string }>
 }
 
-/**
+/** 
  * Читает и валидирует конфигурацию сервиса при старте.
  *
  * важно:

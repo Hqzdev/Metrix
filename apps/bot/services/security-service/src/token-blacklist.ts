@@ -33,7 +33,7 @@ export async function isTokenRevoked(token: string, redis: Redis): Promise<boole
   const key = buildKey(token)
   const value = await redis.get(key)
   return value !== null
-}
+} 
 
 /**
  * Строит Redis-ключ: SHA-256 хеш токена + префикс.

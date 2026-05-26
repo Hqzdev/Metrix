@@ -25,7 +25,7 @@ export class ValidationError extends SecurityServiceError {
   constructor(message: string) {
     super(message, 400)
   }
-}
+} 
 
 /**
  * Ошибка аутентификации: запрос не прошёл проверку подписи или токен невалиден.

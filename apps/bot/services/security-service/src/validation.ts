@@ -32,7 +32,7 @@ export type LoginIdentifierInput = {
   identifier: string
 }
 
-/**
+/** 
  * Валидирует payload создания пользовательской сессии.
  */
 export function parseCreateSessionInput(input: unknown): CreateSessionInput {

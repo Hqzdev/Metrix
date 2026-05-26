@@ -26,7 +26,7 @@ export type VerifyJwtResult =
  * - kid записывается в header — при верификации им выбирается правильный ключ.
  * - для подписи всегда берётся current-ключ из конфига.
  * - используется HS256 — симметричная подпись достаточна, верификатор и эмитент один сервис.
- */
+ */ 
 export function createJwt(input: {
   expiresInSeconds: number
   keys: JwtKeysConfig

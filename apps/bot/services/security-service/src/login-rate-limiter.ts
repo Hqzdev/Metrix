@@ -28,7 +28,7 @@ export type LoginCheckResult =
  * Идентификатор — IP-адрес или userId. Рекомендуется вызывать дважды:
  * для IP и для userId, и блокировать если хоть один заблокирован.
  * Это защищает и от перебора по одному аккаунту, и от перебора с одного IP.
- */
+ */ 
 export async function checkLoginAllowed(identifier: string, redis: Redis): Promise<LoginCheckResult> {
   const ttl = await redis.ttl(buildLockoutKey(identifier))
 
