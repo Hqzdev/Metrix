@@ -20,7 +20,7 @@ export function parseUpdateLocationInput(input: unknown): UpdateLocationInput {
   if (body.occupancy !== undefined) {
     safeBody.occupancy = requireString(body.occupancy, 'occupancy')
   }
-
+ 
   // members — описание участников или доступности для локации.
   if (body.members !== undefined) {
     safeBody.members = requireString(body.members, 'members')
