@@ -14,7 +14,7 @@ import { parseBuildAuthUrlInput, parseDeleteConnectionInput, parseOAuthCallbackI
 // Сколько секунд хранить replay-ключ в Redis.
 // 300 секунд совпадает с окном security/admin и временем жизни service-to-service nonce.
 const REPLAY_TTL_SECONDS = 300
-
+ 
 // Все зависимости router-а приходят снаружи.
 type CalendarRouterDependencies = {
   // Конфиг с OAuth-секретами, Redis URL и token secret.

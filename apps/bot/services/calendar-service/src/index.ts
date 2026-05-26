@@ -26,7 +26,7 @@ const googleOAuthClient = new GoogleOAuthClient({
   clientId: config.googleClientId,
   clientSecret: config.googleClientSecret,
   redirectUri: config.googleRedirectUri,
-})
+}) 
 
 // Router содержит HTTP API calendar-service.
 const router = new CalendarRouter({

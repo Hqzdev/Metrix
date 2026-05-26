@@ -23,7 +23,7 @@ export type GoogleTokenResponse = {
   // Долгоживущий token для обновления access token.
   refresh_token?: string
 }
-
+ 
 // Ответ Google при refresh access token.
 export type GoogleRefreshResponse = {
   // Новый access token.

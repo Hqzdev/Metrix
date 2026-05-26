@@ -5,3 +5,4 @@ RUN npm install
 COPY . .
 RUN npm run build 2>/dev/null || true
 CMD ["node", "--experimental-vm-modules", "dist/index.js"]
+ 

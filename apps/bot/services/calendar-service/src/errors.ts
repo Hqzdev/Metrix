@@ -25,7 +25,7 @@ export class ValidationError extends CalendarServiceError {
    */
   constructor(message: string) {
     super(message, 400)
-  }
+  } 
 }
 
 /**

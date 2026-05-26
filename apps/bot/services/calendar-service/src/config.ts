@@ -16,7 +16,7 @@ export type CalendarServiceConfig = {
   // Куда Google вернёт пользователя после consent.
   googleRedirectUri: string
   // HTTP-порт сервиса.
-  port: number
+  port: number 
   // Redis для replay-защиты.
   redisUrl: string
   // Секрет для шифрования токенов и подписи OAuth state.

@@ -29,7 +29,7 @@ export type DeleteConnectionInput = {
   provider: string
   telegramUserId: number
 }
-
+ 
 /**
  * Валидирует payload создания Google OAuth URL.
  *

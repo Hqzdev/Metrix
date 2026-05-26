@@ -20,7 +20,7 @@ export function encrypt(value: string, secret: string): string {
   const enc = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()])
   // authTag нужен для проверки, что ciphertext не меняли.
   return `${iv.toString('base64')}.${cipher.getAuthTag().toString('base64')}.${enc.toString('base64')}`
-}
+} 
 
 /**
  * Расшифровывает строку, зашифрованную через encrypt().
