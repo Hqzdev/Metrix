@@ -23,7 +23,7 @@ type AnalyticsRouterDependencies = {
   // Prisma для report-записей.
   prisma: PrismaClient
 }
-
+ 
 // Контекст одного HTTP-запроса после разбора и авторизации.
 type RequestContext = {
   // Имя сервиса, который вызвал analytics-service.
