@@ -26,3 +26,4 @@ export declare function parseCustomSlot(resourceId: string, slotId: string): Ava
  * Публичный контракт живёт в @metrix/contracts.
  */
 export declare function buildCustomSlotId(resourceId: string, dateStr: string, hour: number, duration: number): string;
+ 

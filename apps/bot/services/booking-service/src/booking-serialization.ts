@@ -23,7 +23,7 @@ export type BookingRecord = {
   // ID ресурса, например комнаты.
   resourceId: string
   // Название ресурса для UI и сообщений.
-  resourceName: string
+  resourceName: string 
   // ID выбранного временного слота.
   slotId: string
   // Человекочитаемое время начала.

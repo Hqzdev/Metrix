@@ -30,7 +30,7 @@ export function createSlotsForDate(resourceId, dateStr) {
         makeSlot(resourceId, `${dateStr}-a`, base, 13, 17),
         makeSlot(resourceId, `${dateStr}-e`, base, 18, 21),
     ];
-}
+} 
 /**
  * Строит один кастомный слот из resourceId + дата + час начала + продолжительность.
  *

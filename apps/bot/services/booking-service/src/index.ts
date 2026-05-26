@@ -21,7 +21,7 @@ const bus = new RedisBus(config.redisUrl, undefined, { password: process.env.RED
 const metrics = new MetricsRegistry('booking-service')
 
 // До старта HTTP-сервера подключаемся к Redis.
-await bus.connect()
+await bus.connect() 
 // Заполняем базовые данные, если они ещё не созданы.
 await seedDatabase(prisma, logger)
 

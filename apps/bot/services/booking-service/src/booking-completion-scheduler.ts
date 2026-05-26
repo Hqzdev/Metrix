@@ -9,7 +9,7 @@ export type CompletionJobData = {
   telegramUserId: number
 }
 
-/**
+/** 
  * Клиент для постановки задач автоматического завершения бронирований.
  *
  * Booking-service ставит delayed job при создании бронирования.

@@ -26,7 +26,7 @@ type ReminderJobData = {
 
 /**
  * Клиент для постановки напоминаний в BullMQ очередь.
- *
+ * 
  * Booking-service ставит delayed job при создании бронирования.
  * Worker-service выполняет job в нужное время и отправляет уведомление.
  *

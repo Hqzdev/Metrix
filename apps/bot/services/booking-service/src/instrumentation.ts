@@ -26,7 +26,7 @@
  *     } finally {
  *       span.end()
  *     }
- *   })
+ *   }) 
  *
  * To correlate logs with traces add traceId to every log entry:
  *

@@ -21,7 +21,7 @@ export type BookingServiceConfig = {
  *
  * Trusted secrets обязательны: сервис не должен стартовать в режиме, где все
  * внутренние запросы будут отвергаться или приниматься без явного trust boundary.
- */
+ */ 
 export function readBookingServiceConfig(env: NodeJS.ProcessEnv): BookingServiceConfig {
   return {
     port: readPort(env.PORT),

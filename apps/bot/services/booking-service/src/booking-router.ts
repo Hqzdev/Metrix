@@ -18,7 +18,7 @@ import {
   ValidationError,
 } from './errors.js'
 import { sendJson } from './http-response.js'
-import type { BookingServiceLogger } from './logger.js'
+import type { BookingServiceLogger } from './logger.js' 
 import { serializeBooking, type BookingRecord } from './booking-serialization.js'
 import { createSlots, createSlotsForDate, parseCustomSlot } from './slots.js'
 import { assertValidTransition } from './booking-fsm.js'

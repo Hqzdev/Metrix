@@ -23,7 +23,7 @@ const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   rescheduled: ['cancelled'],
   cancelled: [],
 }
-
+ 
 /**
  * Проверяет допустимость перехода между статусами бронирования.
  *

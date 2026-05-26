@@ -18,7 +18,7 @@ export class BookingServiceError extends Error {
     this.name = new.target.name
   }
 }
-
+ 
 /**
  * Ошибка входных данных: тело запроса или параметры не прошли проверку.
  */

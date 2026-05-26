@@ -27,7 +27,7 @@ const seatLabels = ['2 seats', '4 seats', '6 seats', '8 seats', '10 seats', '3 s
 // Минимальный интерфейс логгера, чтобы seed не зависел от конкретного класса.
 type SeedLogger = {
   info(entry: { message: string; service: 'booking-service'; [key: string]: unknown }): void
-}
+} 
 
 /**
  * Заполняет пустую базу стартовыми локациями и ресурсами.

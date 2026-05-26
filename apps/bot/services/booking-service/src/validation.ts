@@ -29,7 +29,7 @@ export function parseCreateBookingInput(input: unknown, callerUserId: number | u
     slotId: requireString(body.slotId, 'slotId'),
     telegramUserId: requirePositiveInteger(rawUserId, 'telegramUserId'),
   }
-}
+} 
 
 /**
  * Валидирует изменение статуса бронирования.

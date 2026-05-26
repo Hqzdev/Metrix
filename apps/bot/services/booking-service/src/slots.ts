@@ -34,7 +34,7 @@ export function createSlotsForDate(resourceId: string, dateStr: string): Availab
   ]
 }
 
-/**
+/** 
  * Строит один кастомный слот из resourceId + дата + час начала + продолжительность.
  *
  * Формат slotId: `{resourceId}-{YYYYMMDD}-{H}-{DUR}`
