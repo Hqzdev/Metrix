@@ -16,3 +16,4 @@ class ServiceHttpError extends Error {
 module.exports = {
   ServiceHttpError,
 }
+ 

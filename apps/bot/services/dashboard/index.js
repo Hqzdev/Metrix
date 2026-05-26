@@ -21,7 +21,7 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'dashboard' })
 })
 
-/**
+/** 
  * Отдаёт readiness dashboard и проверяет доступность Docker socket.
  */
 app.get('/ready', async (_req, res) => {

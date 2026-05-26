@@ -22,7 +22,7 @@ function serializeError(error) {
  */
 function write(level, message, fields = {}) {
   const record = {
-    level,
+    level, 
     timestamp: new Date().toISOString(),
     service: SERVICE_NAME,
     env: process.env.NODE_ENV || 'development',

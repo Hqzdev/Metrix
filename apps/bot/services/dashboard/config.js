@@ -14,7 +14,7 @@ function readPositiveIntegerEnv(name, fallback) {
   }
 
   return value
-}
+} 
 
 // Список сервисов, которые dashboard показывает в UI.
 const SERVICES = [
