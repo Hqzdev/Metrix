@@ -116,7 +116,7 @@ Web / Telegram
 - [Production readiness](./docs/architecture/PRODUCTION_READINESS.md)
 
 ## Web-приложение
-
+ 
 `apps/web` — публичная часть продукта:
 
 - главная страница и маркетинговые страницы;

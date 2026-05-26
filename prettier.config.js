@@ -8,3 +8,4 @@ module.exports = {
   arrowParens: "always",
   bracketSpacing: true,
 }
+ 
