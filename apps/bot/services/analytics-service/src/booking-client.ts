@@ -19,7 +19,7 @@ export type BookingRow = {
   // Статус booking: active, completed, cancelled, rescheduled.
   status: string
 }
-
+ 
 /**
  * Загружает факты бронирований из booking-service подписанным запросом.
  *
