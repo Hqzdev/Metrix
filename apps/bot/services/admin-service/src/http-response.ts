@@ -12,3 +12,4 @@ export function sendJson(res: ServerResponse, data: unknown, statusCode = 200): 
   // Потом сериализуем тело ответа в JSON-строку.
   res.end(JSON.stringify(data))
 }
+ 
