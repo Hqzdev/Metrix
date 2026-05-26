@@ -354,7 +354,7 @@ export class AdminRouter {
 
   /**
    * Проксирует создание отчёта в analytics-service.
-   *
+   * 
    * Контракт тела запроса проверяет analytics-service, поэтому admin-service
    * передаёт тело как есть. Статус ответа (201) пробрасывается напрямую от
    * analytics-service — так клиент видит правильный код без hardcoded значений.
