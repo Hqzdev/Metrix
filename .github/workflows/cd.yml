@@ -1,6 +1,9 @@
 name: CD
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Deployment gates stay explicit so staging, smoke checks and production rollout
+# remain auditable from a single workflow.
+#
 # Triggered only after CI passes on main.
 # Workflow:
 #   build-push  →  deploy-staging  →  smoke-staging  →  [manual approval]

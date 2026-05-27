@@ -1,1 +1,2 @@
+# Run repository-wide verification before publishing refs.
 npm run hook:pre-push

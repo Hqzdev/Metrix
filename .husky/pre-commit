@@ -1,1 +1,2 @@
+# Keep local commits behind the same typecheck gates used by CI.
 npm run hook:pre-commit

@@ -1,5 +1,7 @@
 name: CI
 
+# Quality gates for pull requests and main: schema, types, tests, API contract,
+# app builds and Docker images must stay reproducible before release.
 on:
   pull_request:
   push:
