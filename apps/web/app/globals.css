@@ -163,15 +163,20 @@
    animation-init.tsx adds .revealed on scroll
    =========================================== */
 
-[data-reveal] {
+html.reveal-ready [data-reveal]:not(.revealed) {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-[data-reveal="left"]  { transform: translateX(-24px); }
-[data-reveal="right"] { transform: translateX(24px); }
-[data-reveal="scale"] { transform: scale(0.94) translateY(14px); }
+html.reveal-ready [data-reveal="left"]:not(.revealed)  { transform: translateX(-24px); }
+html.reveal-ready [data-reveal="right"]:not(.revealed) { transform: translateX(24px); }
+html.reveal-ready [data-reveal="scale"]:not(.revealed) { transform: scale(0.94) translateY(14px); }
+
+[data-reveal] {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
 
 [data-reveal].revealed {
   opacity: 1;

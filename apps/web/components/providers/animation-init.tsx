@@ -7,11 +7,18 @@ export function AnimationInit() {
   const pathname = usePathname();
 
   useEffect(() => {
+    const root = document.documentElement;
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) return;
-
     const els = document.querySelectorAll<HTMLElement>("[data-reveal]");
     if (!els.length) return;
+
+    if (prefersReduced || typeof IntersectionObserver === "undefined") {
+      els.forEach((el) => el.classList.add("revealed"));
+      root.classList.remove("reveal-ready");
+      return;
+    }
+
+    root.classList.add("reveal-ready");
 
     const observer = new IntersectionObserver(
       (entries) => {
