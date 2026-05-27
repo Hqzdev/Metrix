@@ -1,4 +1,4 @@
-<img src="apps/web/public/images/banner.png" alt="Metrix" />
+<img src="./apps/web/public/images/banner.png?raw=1&v=2026-05-27" alt="Metrix" />
 
 # Metrix
 
@@ -12,6 +12,21 @@ Metrix — платформа для бронирования коворкинг
 ![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-green)
 ![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-tracing-blueviolet)
 ![Quality gates](https://img.shields.io/badge/quality%20gates-typecheck%20%7C%20tests%20%7C%20contracts%20%7C%20openapi%20%7C%20audit-informational)
+
+## Скриншоты
+
+### Web
+
+| Главная | Бронирование | Аналитика |
+| --- | --- | --- |
+| ![Metrix web screen 1](./apps/web/public/screen/1.png?raw=1) | ![Metrix web screen 2](./apps/web/public/screen/2.png?raw=1) | ![Metrix web screen 3](./apps/web/public/screen/3.png?raw=1) |
+| ![Metrix web screen 4](./apps/web/public/screen/4.png?raw=1) | ![Metrix web screen 5](./apps/web/public/screen/5.png?raw=1) | ![Metrix web screen 6](./apps/web/public/screen/6.png?raw=1) |
+
+### Mobile
+
+| Flow | Booking | Payment | Profile | Status |
+| --- | --- | --- | --- | --- |
+| ![Metrix mobile screen 1](./apps/web/public/screen/mobile/1.png?raw=1) | ![Metrix mobile screen 2](./apps/web/public/screen/mobile/2.png?raw=1) | ![Metrix mobile screen 3](./apps/web/public/screen/mobile/3.png?raw=1) | ![Metrix mobile screen 4](./apps/web/public/screen/mobile/4.png?raw=1) | ![Metrix mobile screen 5](./apps/web/public/screen/mobile/5.png?raw=1) |
 
 ## Что делает проект
 
