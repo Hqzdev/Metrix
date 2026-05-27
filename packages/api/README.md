@@ -30,3 +30,16 @@ src/database — доступ к БД и инфраструктурные мап
 backend-data.md — backend/data блок, Prisma, auth, validation и contracts
 queues-realtime.md — Redis, BullMQ, events и WebSocket availability
 analytics.md — архитектура analytics, reports и report-export queue
+
+Публичный API
+
+Внешние приложения должны импортировать код через `@metrix/api`, а не через
+глубокие пути внутри `src`. Это сохраняет возможность менять внутреннюю
+структуру пакета без массовых правок в приложениях.
+
+Что можно экспортировать из `src/index.ts`:
+
+* контракты и публичные типы;
+* validators, которые используются несколькими сервисами;
+* use cases и repositories с устойчивым интерфейсом;
+* queue/realtime/event helpers, которые нужны за пределами пакета.
