@@ -42,3 +42,7 @@ yarn-error.log*
 .cache/
 TODO.local.md
 backups/
+
+# Local scratch files created during manual repository maintenance
+*.local
+*.bak

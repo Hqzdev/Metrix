@@ -1,5 +1,6 @@
 root = true
 
+# Default source formatting for repository files.
 [*.{js,jsx,ts,tsx,json,md}]
 charset = utf-8
 end_of_line = lf

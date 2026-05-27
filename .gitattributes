@@ -1,2 +1,3 @@
+# Normalize text files across operating systems.
 # Auto detect text files and perform LF normalization
 * text=auto

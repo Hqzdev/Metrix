@@ -1,8 +1,13 @@
+# Dependency directories
 node_modules
+
+# Build artifacts
 dist
 build
 .next
 coverage
+
+# Generated package manager files
 package-lock.json
 pnpm-lock.yaml
 yarn.lock

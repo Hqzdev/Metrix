@@ -6,6 +6,7 @@ const reactHooks = require("eslint-plugin-react-hooks")
 const importPlugin = require("eslint-plugin-import")
 const jsxA11y = require("eslint-plugin-jsx-a11y")
 
+// Shared lint rules for source files across the monorepo.
 module.exports = [
   {
     ignores: [
