@@ -1,7 +1,7 @@
 import { NodeSDK } from '@opentelemetry/sdk-node'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
-import { Resource } from '@opentelemetry/resources'
+import { resourceFromAttributes } from '@opentelemetry/resources'
 import { TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-node'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 import type { TracingConfig } from './types.js'
@@ -42,7 +42,7 @@ export async function initTracing(config: TracingConfig): Promise<void> {
     process.env.SERVICE_VERSION ??
     '0.0.0'
 
-  const resource = new Resource({
+  const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: config.service,
     [ATTR_SERVICE_VERSION]: version,
     // Deployment environment for filtering in Jaeger / Grafana Tempo.

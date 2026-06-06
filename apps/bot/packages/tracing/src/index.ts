@@ -23,6 +23,8 @@
  *   logger.info({ message: 'booking created', traceId: getActiveTraceId() })
  */
 
+import { trace as otelTrace } from '@opentelemetry/api'
+
 export { getActiveTraceId, getActiveSpanContext } from './active-span.js'
 export { extractTraceContext, injectTraceContext } from './propagation.js'
 export { initTracing } from './sdk.js'
@@ -36,5 +38,5 @@ export type { Span, Tracer } from '@opentelemetry/api'
  * Returns a named tracer. Call once per module; the SDK is a singleton.
  */
 export function getTracer(name: string): import('@opentelemetry/api').Tracer {
-  return (await import('@opentelemetry/api')).trace.getTracer(name)
+  return otelTrace.getTracer(name)
 }
