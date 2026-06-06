@@ -48,6 +48,9 @@ booking.updated:
 
 BullMQ настройки
 
+Все jobs должны получать стабильный jobId из bookingId/resourceId, чтобы retry
+или повторное событие не создавали дубль фоновой задачи.
+
 Calendar sync:
 
 - attempts: 3
