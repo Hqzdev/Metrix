@@ -1,3 +1,13 @@
+/**
+ * Public backend API facade.
+ *
+ * This module re-exports the stable service contracts, repositories, queues,
+ * realtime helpers, authentication helpers, and event utilities used by Metrix
+ * backend consumers.
+ *
+ * @packageDocumentation
+ */
+
 // Public contracts
 export type * from './contracts/index.js'
 

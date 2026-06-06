@@ -1,0 +1,26 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "Metrix API Reference",
+  "entryPoints": [
+    "packages/api/src/index.ts",
+    "apps/bot/packages/auth/src/index.ts",
+    "apps/bot/packages/contracts/src/index.ts",
+    "apps/bot/packages/observability/src/index.ts",
+    "apps/bot/packages/tracing/src/index.ts"
+  ],
+  "entryPointStrategy": "resolve",
+  "out": "docs/api-reference",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "docs/typedoc-readme.md",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "externalSymbolLinkMappings": {
+    "@opentelemetry/api": {
+      "SpanContext": "#",
+      "SpanStatus": "#"
+    }
+  },
+  "skipErrorChecking": true,
+  "hideGenerator": true
+}
