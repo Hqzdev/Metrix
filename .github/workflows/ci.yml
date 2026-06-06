@@ -29,7 +29,7 @@ jobs:
         run: npm run prisma:validate
 
       - name: Typecheck API package
-        run: npm run typecheck:api
+        run: npm --prefix packages/api run typecheck
 
       - name: Run tests
         run: npm test
