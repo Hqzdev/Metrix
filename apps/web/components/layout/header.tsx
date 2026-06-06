@@ -79,6 +79,7 @@ export function Header() {
             className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
             aria-label="Toggle menu"
             aria-expanded={isMenuOpen}
+            aria-controls="mobile-menu"
           >
             <HugeiconsIcon
               icon={isMenuOpen ? Cancel01Icon : Menu01Icon}
@@ -92,6 +93,7 @@ export function Header() {
 
       {/* Mobile menu */}
       <div
+        id="mobile-menu"
         className={`absolute left-0 right-0 top-[calc(100%+0.5rem)] grid overflow-hidden rounded-[28px] bg-white/90 backdrop-blur-md transition-[grid-template-rows,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] md:hidden dark:bg-zinc-900/90 ${
           isMenuOpen
             ? "pointer-events-auto grid-rows-[1fr] translate-y-0 opacity-100"
