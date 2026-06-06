@@ -54,6 +54,9 @@ Booking safety
 - не пересекается ли новая бронь с активной бронью;
 - можно ли создать запись в транзакции.
 
+Обновление брони должно идти через optimistic concurrency contract:
+`docs/api/booking-concurrency.md`.
+
 Команды
 
 npm run prisma:generate — сгенерировать Prisma Client.
