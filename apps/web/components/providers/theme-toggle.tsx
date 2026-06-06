@@ -1,28 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Sun01Icon, Moon01Icon } from "@hugeicons/core-free-icons";
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme, theme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
     const meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
     if (!meta) return;
 
     meta.content = theme === "dark" ? "dark" : theme === "light" ? "light" : "light dark";
-  }, [mounted, theme, resolvedTheme]);
+  }, [theme, resolvedTheme]);
 
-  const dark = mounted ? resolvedTheme === "dark" : false;
+  const dark = resolvedTheme === "dark";
 
   return (
     <button

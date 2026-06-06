@@ -42,10 +42,10 @@ export function TechnologySection() {
               Real-time booking
             </p>
             <h2 className="text-4xl font-bold leading-[1.1] tracking-[-0.03em] text-zinc-900 dark:text-white md:text-5xl">
-              Always know what's open before you leave home.
+              Always know what&apos;s open before you leave home.
             </h2>
             <p className="mt-6 text-lg leading-relaxed text-zinc-500 dark:text-zinc-400">
-              Metrix syncs desk and room availability in real time. No stale calendars, no double-bookings. What you see in the bot is what's actually free.
+              Metrix syncs desk and room availability in real time. No stale calendars, no double-bookings. What you see in the bot is what&apos;s actually free.
             </p>
             <ul className="mt-8 flex flex-col gap-3">
               {features.map((f) => (

@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
+import Image from "next/image";
 import {
   ArrowLeft01Icon,
   Dollar01Icon,
@@ -574,15 +575,20 @@ const MapCanvas = memo(function MapCanvas({
             style={{ transform: `scale(${mapData.zoomScale})`, willChange: "transform" }}
           >
             {mapData.tiles.map((tile) => (
-              <img
+              <div
                 key={tile.key}
-                src={tile.src}
-                alt=""
-                draggable={false}
-                decoding="async"
                 className="pointer-events-none absolute select-none object-cover"
                 style={{ left: tile.left, top: tile.top, width: tile.size, height: tile.size }}
-              />
+              >
+                <Image
+                  src={tile.src}
+                  alt=""
+                  fill
+                  draggable={false}
+                  sizes={tile.size}
+                  className="object-cover"
+                />
+              </div>
             ))}
             <div className="pointer-events-none absolute inset-0 bg-indigo-600/[0.03]" />
             {mapData.points.map((p) => (
