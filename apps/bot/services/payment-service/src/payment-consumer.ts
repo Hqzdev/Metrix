@@ -7,6 +7,7 @@ import type { BookingServiceClient } from './booking-service-client.js'
 import type { BookingConfirmation } from './booking-service-client.js'
 import type { PaymentServiceLogger } from './logger.js'
 import { ValidationError } from './errors.js'
+import { markSagaBookingCompleted, markSagaBookingFailed } from './saga-transitions.js'
 import { parsePaymentCompletedEvent } from './validation.js'
 
 // Зависимости consumer-а.
@@ -100,14 +101,7 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
     )
     // Если booking создан, закрываем hold и saga.
     await deps.prisma.$transaction(async (tx) => {
-      await tx.slotHold.updateMany({
-        data: { status: 'paid' },
-        where: { invoiceId: event.invoiceId, status: 'held' },
-      })
-      await tx.paymentSaga.updateMany({
-        data: { bookingId: booking.id, status: 'completed' },
-        where: { invoiceId: event.invoiceId },
-      })
+      await markSagaBookingCompleted(tx, event.invoiceId, booking.id)
     })
     await writeAudit(deps.prisma, deps.logger, {
       action: 'payment.booking_created',
@@ -125,13 +119,7 @@ async function handlePaymentCompleted(event: PaymentCompletedEvent, deps: Paymen
     // Ошибка booking-service переводит saga в failed для ручного recovery.
     const failureReason = error instanceof Error ? error.message : 'booking create failed'
     await deps.prisma.$transaction(async (tx) => {
-      await tx.paymentSaga.updateMany({
-        data: {
-          failureReason,
-          status: 'failed',
-        },
-        where: { invoiceId: event.invoiceId },
-      })
+      await markSagaBookingFailed(tx, event.invoiceId, failureReason)
     })
     await writeAudit(deps.prisma, deps.logger, {
       action: 'payment.booking_failed',
