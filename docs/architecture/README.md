@@ -19,6 +19,7 @@ Architecture Docs
 - SECURITY.md — безопасность.
 - DATABASE_SCHEMA.md — база данных.
 - QUEUES_AND_EVENTS.md — события и очереди.
+- TRANSACTIONAL_OUTBOX.md — надёжная публикация доменных событий после commit.
 - PAYMENTS_AND_HOLDS.md — оплата и временное удержание слота.
 - OBSERVABILITY.md — health, ready, metrics и logs.
 - LOGGING.md — structured JSON logs, Loki/Vector и trace correlation.
