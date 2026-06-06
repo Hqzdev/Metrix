@@ -1,39 +1,53 @@
-API Contracts
+# API Contracts
 
-Этот документ объясняет API-контракты.
+API contract - это договор между producer-ом данных и consumer-ом. В Metrix
+consumer-ами могут быть web-клиент, Telegram gateway, bot microservices,
+admin-service, contract tests и внешние интеграции.
 
-Что такое contract
+## Где лежат contracts
 
-Contract — это договор между backend и клиентом.
+- `apps/bot/packages/contracts` - события, stream payloads и bot service DTO.
+- `packages/api/src/contracts` - root API request/response types.
+- `docs/openapi/metrix-bot-api.yaml` - OpenAPI spec для публичных HTTP shapes.
+- `tests/contracts` - contract tests для сервисных endpoint-ов.
 
-Например:
+## Что считается contract change
 
-- какие поля принимает endpoint;
-- какие поля возвращает endpoint;
-- какие ошибки возможны.
+- Добавление, удаление или переименование поля.
+- Изменение типа поля или enum value.
+- Изменение обязательности поля.
+- Новый HTTP status code.
+- Новый error shape.
+- Новая версия события Redis stream.
 
-Где лежат contracts
+## Правило совместимости
 
-- apps/bot/packages/contracts;
-- packages/api/src/contracts;
-- docs/openapi/metrix-bot-api.yaml.
+Backward-compatible изменения можно выпускать без версии, если старый consumer
+продолжает работать. Breaking changes требуют migration plan:
 
-Зачем это нужно
+1. Добавить новое поле или endpoint.
+2. Обновить consumer-ы.
+3. Дождаться deploy всех consumer-ов.
+4. Удалить старый shape отдельным PR.
 
-Чтобы изменение backend не ломало bot, web или внешнего клиента неожиданно.
+## Checklist изменения response
 
-Правило изменения
+1. Обновить TypeScript contract.
+2. Обновить validator или parser.
+3. Обновить OpenAPI spec, если endpoint публичный.
+4. Обновить contract tests.
+5. Обновить документацию и examples.
+6. Проверить, что старые consumer-ы не сломаются без coordinated deploy.
 
-Если меняешь response:
+## Error contract
 
-1. Обнови TypeScript contract.
-2. Обнови OpenAPI.
-3. Обнови tests.
-4. Обнови документацию.
+Ошибки должны быть предсказуемыми:
 
-Что уже есть
+- `400` - invalid input.
+- `401`/`403` - auth или permission failure.
+- `404` - сущность не найдена.
+- `409` - конфликт состояния, например слот уже занят.
+- `5xx` - ошибка сервиса или downstream dependency.
 
-- typed contracts;
-- OpenAPI spec;
-- OpenAPI validation script;
-- contract test для публичных shapes.
+Error body должен содержать стабильное поле `error` или documented typed shape,
+чтобы web и bot могли показать понятное сообщение пользователю.
