@@ -1,69 +1,65 @@
-API Backend And Data
+# API Backend And Data
 
-Этот документ объясняет root API-блок.
+Этот документ описывает root API-блок Metrix: `packages/api`, общую Prisma
+схему в `prisma/schema.prisma` и правила работы с данными, которые относятся к
+web/API слою. Telegram microservices runtime из `apps/bot` описан отдельно в
+`docs/telegram-bot/`.
 
-Важно
+## Роль `packages/api`
 
-Он описывает packages/api и root prisma/schema.prisma.
-Он не описывает весь Telegram bot microservices runtime из apps/bot.
+`packages/api` - переиспользуемый backend пакет. Его можно подключать к Next.js
+route handlers, отдельному Node API или тестовым harness-ам без копирования
+бизнес-логики.
 
-Зачем нужен packages/api
+Пакет держит три слоя:
 
-packages/api — это reusable backend-блок.
-Его можно подключить к Next route handlers или отдельному Node API.
+- `src/contracts` - типы запросов, ответов и публичных DTO.
+- `src/modules/*` - use cases и мапперы конкретных доменных областей.
+- `src/shared/*` - auth, validation и общие инфраструктурные helper-ы.
 
-Что внутри
+## Данные и владение
 
-- src/contracts — типы запросов и ответов.
-- src/database/prisma-client.ts — общий PrismaClient.
-- src/modules/bookings — создание и проверка брони.
-- src/modules/resources — преобразование локаций, ресурсов и слотов.
-- src/modules/admin — validation для админских изменений.
-- src/shared/auth — JWT, session, password hash, auth guard.
-- src/shared/validation — простые validators.
+Root Prisma schema находится в `prisma/schema.prisma`. Она описывает данные,
+которые нужны web/API слою и общим интеграциям:
 
-Root Prisma schema
+- `User` и `Session` - пользовательские аккаунты, роли и refresh sessions.
+- `Location`, `Resource`, `Slot` - каталог локаций, ресурсов и доступных слотов.
+- `Booking` - подтвержденная бронь и ее состояние.
+- `CalendarConnection`, `CalendarEvent` - подключенные календари и синхронизация.
 
-Файл:
+Владелец модели должен быть понятен до изменения схемы. Если модель используется
+и root API, и bot microservices, изменение сначала согласуется через contract или
+миграцию, а затем раскатывается в оба runtime.
 
-prisma/schema.prisma
+## Booking safety
 
-Главные модели:
+Создание брони должно оставаться транзакционным:
 
-- User — пользователь или админ.
-- Session — refresh-сессия.
-- Location — офисная локация.
-- Resource — ресурс внутри локации.
-- Slot — слот времени.
-- Booking — бронь.
-- CalendarConnection — подключение календаря.
-- CalendarEvent — событие календаря.
+- проверить существование `Resource`;
+- проверить `Slot` или явный интервал `startsAt`/`endsAt`;
+- отфильтровать активные брони, которые пересекаются с новым интервалом;
+- создать запись в транзакции, чтобы параллельные запросы не расходились.
 
-Auth
+Любая новая ветка логики бронирования должна явно отвечать, что происходит при
+повторном запросе, конфликте слота и отмене брони.
 
-JWT используется для обычного API-слоя.
-Пароли хешируются через pbkdf2.
-Refresh sessions лежат в таблице Session.
+## Auth
 
-Booking safety
+JWT используется для API-запросов. Пароли хешируются через `pbkdf2`, а refresh
+sessions хранятся в таблице `Session`. Код, который читает user identity, не
+должен доверять client-provided id без проверки токена или server-side session.
 
-Создание брони проверяет:
+## Команды
 
-- существует ли resource;
-- существует ли slot или переданы startsAt/endsAt;
-- не пересекается ли новая бронь с активной бронью;
-- можно ли создать запись в транзакции.
+- `npm run prisma:generate` - сгенерировать Prisma Client.
+- `npm run prisma:validate` - проверить схему без подключения к production DB.
+- `npm run prisma:migrate` - применить локальную миграцию.
+- `npm run prisma:seed` - заполнить локальные данные.
 
-Команды
+## Чеклист расширения
 
-npm run prisma:generate — сгенерировать Prisma Client.
-npm run prisma:migrate — применить миграции.
-npm run prisma:seed — заполнить локальные данные.
-
-Как расширять
-
-1. Сначала обновить contract.
-2. Потом validator.
-3. Потом use case или repository.
-4. Потом mapper.
-5. Потом тесты.
+1. Обновить contract или DTO.
+2. Добавить validation для входных данных.
+3. Обновить use case и repository/Prisma запрос.
+4. Добавить mapper для ответа наружу.
+5. Покрыть happy path, conflict path и invalid input тестами.
