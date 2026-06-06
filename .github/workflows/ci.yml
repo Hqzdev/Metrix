@@ -144,7 +144,7 @@ jobs:
           JWT_KEY_ID=ci-key-1
           JWT_PREVIOUS_KEYS=
           TELEGRAM_BOT_TOKEN=0:ci_placeholder_token
-          TELEGRAM_PAYMENT_PROVIDER_TOKEN=
+          TELEGRAM_PAYMENT_PROVIDER_TOKEN=ci_payment_provider_token
           YOOKASSA_PROVIDER_TOKEN=
           PAYMENT_CURRENCY=RUB
           GOOGLE_CALENDAR_CLIENT_ID=
@@ -200,6 +200,9 @@ jobs:
       - name: Run contract tests
         env:
           CONTRACT_TEST: 'true'
+          CONTRACT_TEST_SERVICE_NAME: bot-gateway
+          CONTRACT_TEST_SIGNING_SECRET: ci_gateway_secret_32chars_padding
+          CONTRACT_TEST_USER_ID_SIGNING_SECRET: ci_userid_secret_32chars_padding
           BOOKING_SERVICE_URL: http://localhost:3001
           PAYMENT_SERVICE_URL: http://localhost:3003
           CALENDAR_SERVICE_URL: http://localhost:3002

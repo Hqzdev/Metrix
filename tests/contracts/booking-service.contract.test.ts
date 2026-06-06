@@ -24,6 +24,7 @@ import {
   assertResource,
   assertSlot,
 } from './schema.js'
+import { serviceAuthHeaders, userIdHeaders } from './auth.js'
 
 const RUN = process.env.CONTRACT_TEST === 'true'
 const BASE = (process.env.BOOKING_SERVICE_URL ?? 'http://localhost:3001').replace(/\/$/, '')
@@ -32,7 +33,19 @@ const SKIP = RUN ? undefined : 'set CONTRACT_TEST=true to run contract tests (re
 // ── HTTP helpers ───────────────────────────────────────────────────────────
 
 async function get(path: string): Promise<{ status: number; body: unknown }> {
-  const res = await fetch(`${BASE}${path}`)
+  const res = await fetch(`${BASE}${path}`, {
+    headers: serviceAuthHeaders('GET', path),
+  })
+  return { status: res.status, body: await res.json() }
+}
+
+async function post(path: string, body: unknown): Promise<{ status: number; body: unknown }> {
+  const raw = JSON.stringify(body)
+  const res = await fetch(`${BASE}${path}`, {
+    body: raw,
+    headers: serviceAuthHeaders('POST', path, raw),
+    method: 'POST',
+  })
   return { status: res.status, body: await res.json() }
 }
 
@@ -105,44 +118,44 @@ describe('booking-service contract', { skip: SKIP }, () => {
   // ── Error shape contract ──────────────────────────────────────────────────
 
   test('POST /bookings with missing fields → 400 with error shape', async () => {
-    const res = await fetch(`${BASE}/bookings`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    assert.equal(res.status, 400, `expected 400 for malformed request, got ${res.status}`)
-    const body = await res.json() as Record<string, unknown>
+    const { status, body } = await post('/bookings', {})
+    assert.equal(status, 400, `expected 400 for malformed request, got ${status}`)
     assert.ok(
-      typeof body.error === 'string' && body.error.length > 0,
+      typeof (body as Record<string, unknown>).error === 'string' &&
+        ((body as Record<string, unknown>).error as string).length > 0,
       'error response must have a non-empty "error" string field',
     )
   })
 
   test('GET /bookings/:id with unknown id → 404 with error shape', async () => {
-    const res = await fetch(`${BASE}/bookings/does-not-exist-00000`)
-    // Some services return 404, others 401 if auth is required. Either is valid.
-    assert.ok(res.status === 404 || res.status === 401, `expected 404 or 401, got ${res.status}`)
-    if (res.status === 404) {
-      const body = await res.json() as Record<string, unknown>
-      assert.ok(
-        typeof body.error === 'string',
-        '404 response must have an "error" string field',
-      )
-    }
+    const path = '/bookings/does-not-exist-00000'
+    const res = await fetch(`${BASE}${path}`, {
+      headers: serviceAuthHeaders('GET', path),
+    })
+    assert.equal(res.status, 404, `expected 404, got ${res.status}`)
+    const body = await res.json() as Record<string, unknown>
+    assert.ok(
+      typeof body.error === 'string',
+      '404 response must have an "error" string field',
+    )
   })
 
   // ── Booking response shape (if a booking exists in seed data) ─────────────
 
   test('bookings returned by list endpoint match Booking contract', async () => {
-    // We need a valid auth token to list bookings — skip if none provided.
-    const authToken = process.env.CONTRACT_TEST_AUTH_TOKEN
-    if (!authToken) {
-      console.log('  [skip] set CONTRACT_TEST_AUTH_TOKEN to test booking list shape')
+    const rawUserId = process.env.CONTRACT_TEST_USER_ID
+    const userId = rawUserId ? Number(rawUserId) : undefined
+    if (!userId) {
+      console.log('  [skip] set CONTRACT_TEST_USER_ID to test booking list shape')
       return
     }
 
-    const res = await fetch(`${BASE}/bookings`, {
-      headers: { authorization: `Bearer ${authToken}` },
+    const path = '/bookings'
+    const res = await fetch(`${BASE}${path}`, {
+      headers: {
+        ...serviceAuthHeaders('GET', path),
+        ...userIdHeaders(userId),
+      },
     })
 
     if (res.status === 200) {
