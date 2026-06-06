@@ -28,8 +28,13 @@ jobs:
       - name: Validate Prisma schema
         run: npm run prisma:validate
 
+      - name: Install API package dependencies
+        working-directory: packages/api
+        run: npm ci
+
       - name: Typecheck API package
-        run: npm --prefix packages/api run typecheck
+        working-directory: packages/api
+        run: npm run typecheck
 
       - name: Run tests
         run: npm test
