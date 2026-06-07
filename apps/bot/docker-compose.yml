@@ -82,6 +82,7 @@ services:
   # ── Бизнес-сервисы ────────────────────────────────────────────────────────────
 
   booking-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/booking-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -124,6 +125,7 @@ services:
         condition: service_healthy
 
   calendar-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/calendar-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -159,6 +161,7 @@ services:
         condition: service_healthy
 
   payment-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/payment-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -199,6 +202,7 @@ services:
         condition: service_started
 
   notification-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/notification-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -213,6 +217,7 @@ services:
         condition: service_healthy
 
   worker-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/worker-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -245,6 +250,7 @@ services:
         condition: service_healthy
 
   analytics-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/analytics-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -279,6 +285,7 @@ services:
         condition: service_healthy
 
   security-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/security-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -316,6 +323,7 @@ services:
         condition: service_healthy
 
   admin-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/admin-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
@@ -356,6 +364,7 @@ services:
         condition: service_started
 
   bot-gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/hqzdev/metrix}/bot-gateway:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.service
