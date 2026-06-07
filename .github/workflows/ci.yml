@@ -99,6 +99,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Show Docker build inputs
+        run: |
+          echo "SERVICE_NAME=${{ matrix.service }}"
+          awk 'toupper($1) == "FROM" { print "BASE_IMAGE=" $2; exit }' apps/bot/Dockerfile.service
+          docker version --format 'Client={{.Client.Version}} Server={{.Server.Version}}'
+
       - name: Build service image
         run: docker build apps/bot --file apps/bot/Dockerfile.service --build-arg SERVICE_NAME=${{ matrix.service }}
 
