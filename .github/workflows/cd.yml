@@ -119,11 +119,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ── Check whether SSH deployment is configured ───────────────────────────
+  deploy-config:
+    name: Check deploy configuration
+    needs: guard
+    runs-on: ubuntu-latest
+    outputs:
+      production_ready: ${{ steps.check.outputs.production_ready }}
+      staging_ready: ${{ steps.check.outputs.staging_ready }}
+    steps:
+      - name: Check deployment settings
+        id: check
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          SSH_HOST_PRODUCTION: ${{ secrets.SSH_HOST_PRODUCTION }}
+          SSH_HOST_STAGING: ${{ secrets.SSH_HOST_STAGING }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          staging_ready=true
+          for name in DEPLOY_PATH SSH_HOST_STAGING SSH_KNOWN_HOSTS SSH_PRIVATE_KEY SSH_USER; do
+            if [[ -z "${!name}" ]]; then
+              echo "::notice::${name} is not configured; staging SSH deploy will be skipped"
+              staging_ready=false
+            fi
+          done
+
+          production_ready=true
+          for name in DEPLOY_PATH SSH_HOST_PRODUCTION SSH_KNOWN_HOSTS SSH_PRIVATE_KEY SSH_USER; do
+            if [[ -z "${!name}" ]]; then
+              echo "::notice::${name} is not configured; production SSH deploy will be skipped"
+              production_ready=false
+            fi
+          done
+
+          echo "staging_ready=${staging_ready}" >> "$GITHUB_OUTPUT"
+          echo "production_ready=${production_ready}" >> "$GITHUB_OUTPUT"
+
   # ── Deploy to staging ─────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to staging
-    needs: [guard, build-push]
+    needs: [guard, build-push, deploy-config]
     runs-on: ubuntu-latest
+    if: ${{ needs.deploy-config.outputs.staging_ready == 'true' }}
     environment:
       name: staging
       url: https://staging.metrixplatform.com
@@ -234,8 +273,9 @@ jobs:
   # ── Deploy to production ──────────────────────────────────────────────────
   deploy-production:
     name: Deploy to production
-    needs: [guard, smoke-staging]
+    needs: [guard, smoke-staging, deploy-config]
     runs-on: ubuntu-latest
+    if: ${{ needs.deploy-config.outputs.production_ready == 'true' }}
     environment:
       name: production
       url: https://metrixplatform.com

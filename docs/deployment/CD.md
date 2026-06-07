@@ -59,6 +59,10 @@ GHCR/Docker repository path должен быть lowercase, иначе `docker 
 
 `production` с required reviewers — это и есть ручной approval gate.
 
+Если SSH secrets или `DEPLOY_PATH` не настроены, pipeline только соберёт и
+опубликует GHCR images, а SSH deploy jobs будут skipped с notice в CD run.
+Это защищает `main` от красного CD в репозиториях без подключённых серверов.
+
 ## Необходимые секреты
 
 Добавить в GitHub Settings → Secrets → Actions:
