@@ -1,24 +1,22 @@
 name: CD
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Deployment gates stay explicit so staging, smoke checks and production rollout
-# remain auditable from a single workflow.
+# Deployment gates stay explicit so image publication, production rollout and
+# rollback remain auditable from a single workflow.
 #
 # Triggered only after CI passes on main.
 # Workflow:
-#   build-push  →  deploy-staging  →  smoke-staging  →  [manual approval]
-#                                                     →  deploy-production
-#                                                     →  smoke-production
+#   build-push  →  [manual approval]  →  deploy-production
+#                                    →  smoke-production
 #
 # Rollback is a manually dispatched workflow_dispatch job that redeploys the
 # previous image tag stored in the GitHub deployment environment.
 #
 # Required GitHub secrets:
-#   SSH_HOST_STAGING      — IP / hostname of staging server
 #   SSH_HOST_PRODUCTION   — IP / hostname of production server
-#   SSH_USER              — SSH user on both servers
+#   SSH_USER              — SSH user on the production server
 #   SSH_PRIVATE_KEY       — Private key (no passphrase)
-#   SSH_KNOWN_HOSTS       — Output of `ssh-keyscan <host>` for both servers
+#   SSH_KNOWN_HOSTS       — Output of `ssh-keyscan <host>`
 #   POSTGRES_PASSWORD     — injected via Docker env on deploy
 #   REDIS_PASSWORD        — injected via Docker env on deploy
 #   JWT_SECRET            — injected via Docker env on deploy
@@ -40,9 +38,9 @@ on:
       environment:
         description: 'Target environment'
         required: true
-        default: staging
+        default: production
         type: choice
-        options: [staging, production]
+        options: [production]
       image_tag:
         description: 'Image tag to deploy (default: latest sha on main)'
         required: false
@@ -126,26 +124,16 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       production_ready: ${{ steps.check.outputs.production_ready }}
-      staging_ready: ${{ steps.check.outputs.staging_ready }}
     steps:
       - name: Check deployment settings
         id: check
         env:
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
           SSH_HOST_PRODUCTION: ${{ secrets.SSH_HOST_PRODUCTION }}
-          SSH_HOST_STAGING: ${{ secrets.SSH_HOST_STAGING }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          staging_ready=true
-          for name in DEPLOY_PATH SSH_HOST_STAGING SSH_KNOWN_HOSTS SSH_PRIVATE_KEY SSH_USER; do
-            if [[ -z "${!name}" ]]; then
-              echo "::notice::${name} is not configured; staging SSH deploy will be skipped"
-              staging_ready=false
-            fi
-          done
-
           production_ready=true
           for name in DEPLOY_PATH SSH_HOST_PRODUCTION SSH_KNOWN_HOSTS SSH_PRIVATE_KEY SSH_USER; do
             if [[ -z "${!name}" ]]; then
@@ -154,117 +142,7 @@ jobs:
             fi
           done
 
-          echo "staging_ready=${staging_ready}" >> "$GITHUB_OUTPUT"
           echo "production_ready=${production_ready}" >> "$GITHUB_OUTPUT"
-
-  # ── Deploy to staging ─────────────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy to staging
-    needs: [guard, build-push, deploy-config]
-    runs-on: ubuntu-latest
-    if: ${{ needs.deploy-config.outputs.staging_ready == 'true' }}
-    environment:
-      name: staging
-      url: https://staging.metrixplatform.com
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate staging deploy settings
-        env:
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-          SSH_HOST: ${{ secrets.SSH_HOST_STAGING }}
-          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          missing=0
-          for name in DEPLOY_PATH SSH_HOST SSH_KNOWN_HOSTS SSH_PRIVATE_KEY SSH_USER; do
-            if [[ -z "${!name}" ]]; then
-              echo "::error::${name} is not configured for staging deployment"
-              missing=1
-            fi
-          done
-          exit "$missing"
-
-      - name: Write SSH key
-        env:
-          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-
-      - name: Deploy to staging server
-        env:
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
-          IMAGE_TAG: ${{ needs.guard.outputs.image_tag }}
-          SSH_HOST: ${{ secrets.SSH_HOST_STAGING }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          ssh_target="${SSH_USER}@${SSH_HOST}"
-          ssh -i ~/.ssh/deploy_key \
-              -o StrictHostKeyChecking=yes \
-              "$ssh_target" \
-              "DEPLOY_PATH=${DEPLOY_PATH@Q} IMAGE_PREFIX=${IMAGE_PREFIX@Q} IMAGE_TAG=${IMAGE_TAG@Q} bash -s" << 'ENDSSH'
-            set -euo pipefail
-            cd "$DEPLOY_PATH/apps/bot"
-
-            # Pull new images.
-            echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            TAG="${IMAGE_TAG}"
-
-            for svc in admin-service analytics-service booking-service bot-gateway \
-                       calendar-service notification-service payment-service \
-                       security-service worker-service; do
-              docker pull "${IMAGE_PREFIX}/${svc}:${TAG}"
-            done
-
-            # Write current tag for rollback reference.
-            echo "${TAG}" > .last-deployed-tag
-
-            # Rolling restart: update each service image reference and redeploy.
-            export IMAGE_TAG="${TAG}"
-            docker compose up -d --no-build \
-              admin-service analytics-service booking-service bot-gateway \
-              calendar-service notification-service payment-service \
-              security-service worker-service
-
-            # Wait for all containers to be healthy (max 120 s).
-            deadline=$(($(date +%s) + 120))
-            while [[ $(date +%s) -lt $deadline ]]; do
-              unhealthy=$(docker compose ps --format json \
-                | jq -r 'select(.Health != "healthy" and .Health != "") | .Name')
-              [[ -z "$unhealthy" ]] && echo "All services healthy" && break
-              echo "Waiting for: $unhealthy"
-              sleep 5
-            done
-          ENDSSH
-
-  # ── Smoke test staging ────────────────────────────────────────────────────
-  smoke-staging:
-    name: Smoke test staging
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: Run smoke tests against staging
-        env:
-          BOOKING_SERVICE_URL: https://staging.metrixplatform.com/booking
-          INTEGRATION_TEST: 'true'
-        run: npm run test:integration -- --test-name-pattern="smoke"
 
   # ── Manual approval gate before production ───────────────────────────────
   # GitHub Environments with required reviewers provides the approval UI.
@@ -273,7 +151,7 @@ jobs:
   # ── Deploy to production ──────────────────────────────────────────────────
   deploy-production:
     name: Deploy to production
-    needs: [guard, smoke-staging, deploy-config]
+    needs: [guard, build-push, deploy-config]
     runs-on: ubuntu-latest
     if: ${{ needs.deploy-config.outputs.production_ready == 'true' }}
     environment:
