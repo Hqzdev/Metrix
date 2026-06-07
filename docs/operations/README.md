@@ -10,6 +10,7 @@ Runbook — это инструкция на плохой день.
 - redis-outage.md — Redis недоступен.
 - db-restore.md — восстановление базы.
 - dlq-replay.md — replay сообщения из DLQ.
+- ci-docker-builds.md — сбои Docker builds в CI.
 - failed-deploy-rollback.md — откат сломанного deploy.
 - failure-scenarios.md — список типовых отказов.
 - SLO.md — цели надежности.
