@@ -11,7 +11,7 @@ export const TELEGRAM_BOT_URL = "https://t.me/metritxsxbot";
 const navItems = [
   ["Spaces", "/#spaces"],
   ["How it works", "/#how"],
-  ["Book now", "/#demo"],
+  ["Pricing", "/#demo"],
   ["For business", "/#b2b"],
   ["FAQ", "/#faq"],
 ];
@@ -20,10 +20,24 @@ export function MetrixHeader() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
+    const hero = document.querySelector(".metrix-hero");
+
+    if (!hero || typeof IntersectionObserver === "undefined") {
+      const onScroll = () => setScrolled(window.scrollY > 12);
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+      return () => window.removeEventListener("scroll", onScroll);
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setScrolled(!entry.isIntersecting && window.scrollY > 12);
+      },
+      { rootMargin: "-96px 0px 0px 0px", threshold: 0 },
+    );
+
+    observer.observe(hero);
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -53,10 +67,9 @@ export function MetrixHeader() {
 
 export function MetrixFooter() {
   const groups: Array<[string, Array<[string, string]>]> = [
-    ["Product", [["Hot desks", "/#spaces"], ["Meeting rooms", "/#spaces"], ["Private offices", "/#spaces"], ["Events", "/#spaces"]]],
-    ["Company", [["About", "/about"], ["Press", "/press"], ["Careers", "/careers"], ["Manifesto", "/manifesto"]]],
-    ["Resources", [["FAQ", "/faq"], ["Status", "/status"], ["Changelog", "/changelog"], ["API", "/api"]]],
-    ["Get in touch", [["@metritxsxbot", TELEGRAM_BOT_URL], ["hello@metrix.app", "mailto:hello@metrix.app"], ["Moscow HQ", "#"]]],
+    ["Spaces", [["Hot desks", "/#spaces"], ["Meeting rooms", "/#spaces"], ["Private offices", "/#spaces"]]],
+    ["Help", [["FAQ", "/#faq"]]],
+    ["Get in touch", [["@metritxsxbot", TELEGRAM_BOT_URL], ["hello@metrix.app", "mailto:hello@metrix.app"]]],
   ];
 
   return (

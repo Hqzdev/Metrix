@@ -9,9 +9,11 @@ function easeOutCubic(t: number) {
 interface CountUpNumberProps {
   value: string;
   className?: string;
+  startValue?: number;
+  durationMs?: number;
 }
 
-export function CountUpNumber({ value, className }: CountUpNumberProps) {
+export function CountUpNumber({ value, className, startValue = 0, durationMs = 1200 }: CountUpNumberProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const [display, setDisplay] = useState(value);
 
@@ -22,13 +24,15 @@ export function CountUpNumber({ value, className }: CountUpNumberProps) {
     const el = ref.current;
     if (!el) return;
 
-    const match = value.match(/^(\d+\.?\d*)(.*)/);
+    const match = value.match(/^([\d\s.,]+)(.*)/);
     if (!match) return;
 
-    const target = parseFloat(match[1]);
+    const numberText = match[1];
+    const normalized = numberText.replace(/\s/g, "").replace(",", ".");
+    const target = parseFloat(normalized);
     const suffix = match[2];
-    const isDecimal = match[1].includes(".");
-    const duration = 1200;
+    const isDecimal = normalized.includes(".");
+    const usesGrouping = /\s/.test(numberText) || target >= 1000;
     let startTime: number | null = null;
     let rafId: number;
 
@@ -40,9 +44,13 @@ export function CountUpNumber({ value, className }: CountUpNumberProps) {
         const animate = (now: number) => {
           if (startTime === null) startTime = now;
           const elapsed = now - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          const current = target * easeOutCubic(progress);
-          const formatted = isDecimal ? current.toFixed(1) : Math.round(current).toString();
+          const progress = Math.min(elapsed / durationMs, 1);
+          const current = startValue + (target - startValue) * easeOutCubic(progress);
+          const formatted = isDecimal
+            ? current.toFixed(1)
+            : usesGrouping
+              ? new Intl.NumberFormat("ru-RU").format(Math.round(current))
+              : Math.round(current).toString();
           setDisplay(formatted + suffix);
           if (progress < 1) rafId = requestAnimationFrame(animate);
         };
@@ -58,7 +66,7 @@ export function CountUpNumber({ value, className }: CountUpNumberProps) {
       observer.disconnect();
       cancelAnimationFrame(rafId);
     };
-  }, [value]);
+  }, [durationMs, startValue, value]);
 
   return (
     <span ref={ref} className={className}>
