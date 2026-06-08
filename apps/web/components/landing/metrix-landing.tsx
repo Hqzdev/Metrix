@@ -33,6 +33,12 @@ type VenueOption = {
   unit: string;
   seats: string;
 };
+type ChatMessageProps = {
+  accent?: boolean;
+  children: React.ReactNode;
+  from?: "bot" | "me";
+  visible: boolean;
+};
 
 const Pict = ({ icon, size = 56, label, className }: PictProps & { icon: IconSvgElement; className?: string }) => (
   <span
@@ -58,6 +64,14 @@ const CheckDot = ({ size = 18, color = "var(--metrix-ok)" }: PictProps & { color
 const Plus = ({ size = 18 }: PictProps) => <HugeiconsIcon icon={PlusSignIcon} size={size} strokeWidth={2} aria-hidden="true" />;
 const Pin = ({ size = 16 }: PictProps) => <HugeiconsIcon icon={Location01Icon} size={size} strokeWidth={2} aria-hidden="true" />;
 const Clock = ({ size = 16 }: PictProps) => <HugeiconsIcon icon={Clock01Icon} size={size} strokeWidth={2} aria-hidden="true" />;
+
+function ChatMessage({ from = "bot", children, accent, visible }: ChatMessageProps) {
+  return (
+    <div className={`metrix-chat-row ${from === "me" ? "is-me" : ""} ${visible ? "is-visible" : ""}`}>
+      <div className={`metrix-chat-msg ${from === "me" ? "is-me" : ""} ${accent ? "is-accent" : ""}`}>{children}</div>
+    </div>
+  );
+}
 
 const SPACE_OPTIONS = [
   {
@@ -285,12 +299,6 @@ function ChatPreview() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const Msg = ({ from = "bot", children, accent, visible }: { from?: "bot" | "me"; children: React.ReactNode; accent?: boolean; visible: boolean }) => (
-    <div className={`metrix-chat-row ${from === "me" ? "is-me" : ""} ${visible ? "is-visible" : ""}`}>
-      <div className={`metrix-chat-msg ${from === "me" ? "is-me" : ""} ${accent ? "is-accent" : ""}`}>{children}</div>
-    </div>
-  );
-
   return (
     <div className="metrix-chat-card">
       <div className="metrix-chat-head">
@@ -305,12 +313,12 @@ function ChatPreview() {
       </div>
 
       <div className="metrix-chat-body">
-        <Msg visible={step >= 0}>
+        <ChatMessage visible={step >= 0}>
           <strong>Hi! Where do you need a workspace?</strong>
           <small>Tap a Moscow location or send your address</small>
-        </Msg>
-        <Msg visible={step >= 1} from="me">Patriarchy · today</Msg>
-        <Msg visible={step >= 2}>
+        </ChatMessage>
+        <ChatMessage visible={step >= 1} from="me">Patriarchy · today</ChatMessage>
+        <ChatMessage visible={step >= 2}>
           <strong>3 spaces near you</strong>
           <div className="metrix-chat-list">
             {[
@@ -324,12 +332,12 @@ function ChatPreview() {
               </span>
             ))}
           </div>
-        </Msg>
-        <Msg visible={step >= 3} from="me">Courtyard Bench, 14:00-18:00</Msg>
-        <Msg visible={step >= 4} accent>
+        </ChatMessage>
+        <ChatMessage visible={step >= 3} from="me">Courtyard Bench, 14:00-18:00</ChatMessage>
+        <ChatMessage visible={step >= 4} accent>
           <span className="metrix-chat-confirm"><CheckDot size={18} color="var(--metrix-ink)" /> <strong>Booked. 3 604 RUB paid.</strong></span>
           <small>Door code <b>4421</b> · receipt sent</small>
-        </Msg>
+        </ChatMessage>
       </div>
 
       <div className="metrix-chat-composer">
@@ -545,8 +553,37 @@ function BookingDemo() {
   const startHour = HOURS[startIdx];
   const endHour = HOURS[Math.min(startIdx + hours, HOURS.length - 1)] ?? "20:00";
 
-  useEffect(() => setVenueIdx(0), [city, spaceId]);
-  useEffect(() => setConfirmed(false), [city, spaceId, venueIdx, startIdx, hours, people, extras]);
+  const resetConfirmation = () => setConfirmed(false);
+  const selectCity = (nextCity: string) => {
+    setCity(nextCity);
+    setVenueIdx(0);
+    resetConfirmation();
+  };
+  const selectSpace = (nextSpaceId: SpaceId) => {
+    setSpaceId(nextSpaceId);
+    setVenueIdx(0);
+    resetConfirmation();
+  };
+  const selectVenue = (index: number) => {
+    setVenueIdx(index);
+    resetConfirmation();
+  };
+  const selectStart = (index: number) => {
+    setStartIdx(index);
+    resetConfirmation();
+  };
+  const selectHours = (nextHours: number) => {
+    setHours(nextHours);
+    resetConfirmation();
+  };
+  const setPeopleCount = (nextPeople: number) => {
+    setPeople(nextPeople);
+    resetConfirmation();
+  };
+  const toggleExtra = (key: keyof typeof extras) => {
+    setExtras((current) => ({ ...current, [key]: !current[key] }));
+    resetConfirmation();
+  };
 
   return (
     <section id="demo" className="metrix-section metrix-demo">
@@ -555,12 +592,12 @@ function BookingDemo() {
         <div className="metrix-demo-grid">
           <div className="metrix-card metrix-booking-surface" data-reveal="left">
             <Field label="01  Where">
-              <div className="metrix-chip-row">{Object.keys(BOOKING_VENUES).map((item) => <Chip key={item} on={item === city} onClick={() => setCity(item)}><Pin size={12} /> {item}</Chip>)}</div>
+              <div className="metrix-chip-row">{Object.keys(BOOKING_VENUES).map((item) => <Chip key={item} on={item === city} onClick={() => selectCity(item)}><Pin size={12} /> {item}</Chip>)}</div>
             </Field>
             <Field label="02  What">
               <div className="metrix-space-options">
                 {SPACE_OPTIONS.map((item) => (
-                  <button key={item.id} className={item.id === spaceId ? "is-active" : ""} onClick={() => setSpaceId(item.id)}>
+                  <button key={item.id} className={item.id === spaceId ? "is-active" : ""} onClick={() => selectSpace(item.id)}>
                     {item.pict(28)}<span>{item.name}</span><small>from {priceLabelShort(item.price, item.unit)}</small>
                   </button>
                 ))}
@@ -569,27 +606,27 @@ function BookingDemo() {
             <Field label="03  Which" hint={`${spaceVenues.length} ${space.name.toLowerCase()}${spaceVenues.length === 1 ? "" : "s"} open in ${city}`}>
               <div className="metrix-venue-list">
                 {spaceVenues.map((item, index) => (
-                  <button key={item.name} className={index === venueIdx ? "is-active" : ""} onClick={() => setVenueIdx(index)}>
+                  <button key={item.name} className={index === venueIdx ? "is-active" : ""} onClick={() => selectVenue(index)}>
                     <i /><strong>{item.name}</strong><span>{item.area} · {priceLabel(item.price, item.unit)}</span>{index === 0 && <b>hot</b>}
                   </button>
                 ))}
               </div>
             </Field>
             <Field label="04  When" hint={`Today · ${startHour} -> ${endHour}`}>
-              <div className="metrix-hours">{HOURS.map((hour, index) => <button key={hour} className={index === startIdx ? "is-start" : index > startIdx && index < startIdx + hours ? "is-range" : ""} onClick={() => setStartIdx(index)}>{hour}</button>)}</div>
-              <div className="metrix-duration"><span>Duration</span>{[1, 2, 3, 4, 6, 8].map((item) => <Chip key={item} small on={item === hours} onClick={() => setHours(item)}>{item}h</Chip>)}</div>
+              <div className="metrix-hours">{HOURS.map((hour, index) => <button key={hour} className={index === startIdx ? "is-start" : index > startIdx && index < startIdx + hours ? "is-range" : ""} onClick={() => selectStart(index)}>{hour}</button>)}</div>
+              <div className="metrix-duration"><span>Duration</span>{[1, 2, 3, 4, 6, 8].map((item) => <Chip key={item} small on={item === hours} onClick={() => selectHours(item)}>{item}h</Chip>)}</div>
             </Field>
             <Field label="05  Extras">
               <div className="metrix-chip-row">
                 <div className="metrix-people">
                   <span>People</span>
-                  <button onClick={() => setPeople(Math.max(1, people - 1))}>-</button>
+                  <button onClick={() => setPeopleCount(Math.max(1, people - 1))}>-</button>
                   <strong className="metrix-num">{people}</strong>
-                  <button onClick={() => setPeople(people + 1)}>+</button>
+                  <button onClick={() => setPeopleCount(people + 1)}>+</button>
                 </div>
-                <Chip on={extras.coffee} onClick={() => setExtras((current) => ({ ...current, coffee: !current.coffee }))}>Coffee 450 RUB/hr</Chip>
-                <Chip on={extras.parking} onClick={() => setExtras((current) => ({ ...current, parking: !current.parking }))}>Parking 800 RUB</Chip>
-                {(spaceId === "meeting" || spaceId === "office") && <Chip on={extras.screen} onClick={() => setExtras((current) => ({ ...current, screen: !current.screen }))}>4K screen · free</Chip>}
+                <Chip on={extras.coffee} onClick={() => toggleExtra("coffee")}>Coffee 450 RUB/hr</Chip>
+                <Chip on={extras.parking} onClick={() => toggleExtra("parking")}>Parking 800 RUB</Chip>
+                {(spaceId === "meeting" || spaceId === "office") && <Chip on={extras.screen} onClick={() => toggleExtra("screen")}>4K screen · free</Chip>}
               </div>
             </Field>
           </div>
@@ -612,7 +649,7 @@ function BookingDemo() {
               <small>Free cancellation up to 1 hour before · No card needed today</small>
             </div>
             <div className="metrix-card metrix-chat-snippet">
-              <span className="metrix-eyebrow">What you'll see in chat</span>
+              <span className="metrix-eyebrow">What you&apos;ll see in chat</span>
               {confirmed ? (
                 <p className="is-confirmed"><CheckDot color="var(--metrix-ink)" size={16} /> <strong>Booking confirmed</strong><br />{venue.name} · {startHour}-{endHour} · {formatRub(total)} paid<br />Door code <b>{1000 + (subtotal * 7) % 9000}</b></p>
               ) : (
@@ -662,7 +699,7 @@ function B2B() {
 function FAQ() {
   const [open, setOpen] = useState(0);
   const faqs: Array<[string, React.ReactNode]> = [
-    ["Do I need an account?", <>No. The Telegram bot is your account. Open <BotHandle />, send one message, and you're in. We use your Telegram identity for receipts and remember your card so you never re-enter it.</>],
+    ["Do I need an account?", <>No. The Telegram bot is your account. Open <BotHandle />, send one message, and you&apos;re in. We use your Telegram identity for receipts and remember your card so you never re-enter it.</>],
     ["What if a space turns out to be busy or closed?", "Every booking is live-confirmed by the venue within 30 seconds. If we can't confirm, you're auto-refunded and offered the next-closest space at the same hour."],
     ["Can I cancel or move a booking?", "Yes. Free cancellation up to 60 minutes before check-in. Within the hour, you keep 50%. Move a booking to a different time, same venue, at any point."],
     ["How does pricing work?", "You pay the live venue rate in RUB plus a 6% Metrix fee. Desks start at 2 900 RUB / day, meeting rooms at 27 000 RUB / hour, private offices at 1 080 000 RUB / month, and team pods at 33 000 RUB / desk / month."],

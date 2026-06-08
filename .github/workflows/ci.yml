@@ -80,6 +80,26 @@ jobs:
       - name: Typecheck web
         run: npm --prefix apps/web run typecheck
 
+  web-lint:
+    name: Web lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install web dependencies
+        run: npm --prefix apps/web ci
+
+      - name: Lint web
+        run: npm --prefix apps/web run lint
+
   docker:
     name: Docker builds
     runs-on: ubuntu-latest
