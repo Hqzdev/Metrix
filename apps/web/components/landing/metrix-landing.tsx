@@ -466,11 +466,11 @@ function SpaceTabs() {
   return (
     <section id="spaces" className="metrix-section">
       <div className="metrix-wrap">
-        <SectionHead eyebrow="What you can book" title={<>Real Moscow <strong>spaces.</strong><br />One bot.</>} lead="From a single hot desk to a meeting suite or a monthly team pod. Every Metrix venue uses the same live prices from the booking inventory." />
+        <SectionHead eyebrow="What you can book" title={<>Real Moscow <em>spaces.</em><br />One bot.</>} lead="From a single hot desk to a meeting suite or a monthly team pod. Every Metrix venue uses the same live prices from the booking inventory." />
 
         <div className="metrix-tabs" role="tablist" aria-label="Workspace types" data-reveal data-delay="80">
           {SPACE_OPTIONS.map((item) => (
-            <button key={item.id} className={item.id === active ? "is-active" : ""} onClick={() => setActive(item.id)}>
+            <button key={item.id} type="button" className={item.id === active ? "is-active" : ""} onClick={() => setActive(item.id)}>
               {item.pict(20)} {item.name}
             </button>
           ))}
@@ -544,7 +544,7 @@ function SpaceListing({ spaceId, idx }: { spaceId: SpaceId; idx: number }) {
       </div>
       <aside>
         <strong className="metrix-num"><span>{formatRubShort(venue.price)}</span><small>/ {venue.unit}</small></strong>
-        <button className="metrix-btn metrix-btn-primary">Book <Arrow size={12} /></button>
+        <button type="button" className="metrix-btn metrix-btn-primary">Book <Arrow size={12} /></button>
       </aside>
     </article>
   );
@@ -622,7 +622,7 @@ function BookingDemo() {
             <Field label="02  What">
               <div className="metrix-space-options">
                 {SPACE_OPTIONS.map((item) => (
-                  <button key={item.id} className={item.id === spaceId ? "is-active" : ""} onClick={() => setSpaceId(item.id)}>
+                  <button key={item.id} type="button" className={item.id === spaceId ? "is-active" : ""} onClick={() => setSpaceId(item.id)}>
                     {item.pict(28)}<span>{item.name}</span><small>from {priceLabelShort(item.price, item.unit)}</small>
                   </button>
                 ))}
@@ -631,23 +631,23 @@ function BookingDemo() {
             <Field label="03  Which" hint={`${spaceVenues.length} ${space.name.toLowerCase()}${spaceVenues.length === 1 ? "" : "s"} open in ${city}`}>
               <div className="metrix-venue-list">
                 {spaceVenues.map((item, index) => (
-                  <button key={item.name} className={index === venueIdx ? "is-active" : ""} onClick={() => setVenueIdx(index)}>
+                  <button key={item.name} type="button" className={index === venueIdx ? "is-active" : ""} onClick={() => setVenueIdx(index)}>
                     <i /><strong>{item.name}</strong><span>{item.area} · {priceLabel(item.price, item.unit)}</span>{index === 0 && <b>hot</b>}
                   </button>
                 ))}
               </div>
             </Field>
             <Field label="04  When" hint={`Today · ${startHour} -> ${endHour}`}>
-              <div className="metrix-hours">{HOURS.map((hour, index) => <button key={hour} className={index === startIdx ? "is-start" : index > startIdx && index < startIdx + hours ? "is-range" : ""} onClick={() => setStartIdx(index)}>{hour}</button>)}</div>
+              <div className="metrix-hours">{HOURS.map((hour, index) => <button key={hour} type="button" className={index === startIdx ? "is-start" : index > startIdx && index < startIdx + hours ? "is-range" : ""} onClick={() => setStartIdx(index)}>{hour}</button>)}</div>
               <div className="metrix-duration"><span>Duration</span>{[1, 2, 3, 4, 6, 8].map((item) => <Chip key={item} small on={item === hours} onClick={() => setHours(item)}>{item}h</Chip>)}</div>
             </Field>
             <Field label="05  Extras">
               <div className="metrix-chip-row">
                 <div className="metrix-people">
                   <span>People</span>
-                  <button onClick={() => setPeople(Math.max(1, people - 1))}>-</button>
+                  <button type="button" onClick={() => setPeople(Math.max(1, people - 1))}>-</button>
                   <strong className="metrix-num">{people}</strong>
-                  <button onClick={() => setPeople(people + 1)}>+</button>
+                  <button type="button" onClick={() => setPeople(people + 1)}>+</button>
                 </div>
                 <Chip on={extras.coffee} onClick={() => setExtras((current) => ({ ...current, coffee: !current.coffee }))}>Coffee 450 RUB/hr</Chip>
                 <Chip on={extras.parking} onClick={() => setExtras((current) => ({ ...current, parking: !current.parking }))}>Parking 800 RUB</Chip>
@@ -672,7 +672,7 @@ function BookingDemo() {
                 <strong key={total} className="metrix-num metrix-price-roll">{formatRub(total)}</strong>
               </div>
               {spaceId === "office" && <p className="metrix-total-context">/ month · fits teams of 8–12 · includes utilities</p>}
-              <button onClick={() => setConfirmed(true)} className={`metrix-btn ${confirmed ? "is-confirmed" : ""}`}>
+              <button type="button" onClick={() => setConfirmed(true)} className={`metrix-btn ${confirmed ? "is-confirmed" : ""}`}>
                 {confirmed ? <><CheckDot color="var(--metrix-ink)" /> Booked!</> : <><PictTelegram size={16} /> Confirm via Telegram <Arrow /></>}
               </button>
               <small>Free cancellation up to 1 hour before · No card needed today</small>
@@ -744,7 +744,7 @@ function FAQ() {
           <div className="metrix-faq-list" data-reveal>
             {faqs.map(([question, answer], index) => (
               <article key={question} className={`metrix-card ${open === index ? "is-open" : ""}`}>
-                <button onClick={() => setOpen(open === index ? -1 : index)} aria-expanded={open === index}>
+                <button type="button" onClick={() => setOpen(open === index ? -1 : index)} aria-expanded={open === index}>
                   <span><b className="metrix-num">0{index + 1}</b>{question}</span>
                   <i><Plus size={16} /></i>
                 </button>
@@ -801,7 +801,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 function Chip({ on, onClick, children, small }: { on: boolean; onClick: () => void; children: React.ReactNode; small?: boolean }) {
-  return <button className={`metrix-chip ${on ? "is-active" : ""} ${small ? "is-small" : ""}`} onClick={onClick}>{children}</button>;
+  return <button type="button" className={`metrix-chip ${on ? "is-active" : ""} ${small ? "is-small" : ""}`} onClick={onClick}>{children}</button>;
 }
 
 function ReceiptRow({ label, value, muted }: { label: string; value: string; muted?: boolean }) {

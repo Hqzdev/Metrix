@@ -416,6 +416,12 @@ body ::selection {
   font: inherit;
 }
 
+.metrix-site :is(a, button) {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
 .metrix-site button:focus-visible,
 .metrix-site a:focus-visible {
   outline: 2px solid var(--metrix-accent);
