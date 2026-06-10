@@ -1,51 +1,58 @@
-Deployment
+# Deployment
 
-Этот документ объясняет запуск и deploy.
+Этот документ описывает порядок запуска Metrix runtime и минимальный checklist
+для deploy. Подробные runbooks лежат в `docs/operations/`.
 
-Из чего состоит runtime
+## Runtime
 
-- PostgreSQL;
-- PgBouncer;
-- Redis;
-- bot-gateway;
-- booking-service;
-- calendar-service;
-- payment-service;
-- analytics-service;
-- admin-service;
-- notification-service;
-- worker-service.
+| Группа | Компоненты |
+| --- | --- |
+| Data | PostgreSQL, PgBouncer, Redis |
+| Bot services | bot-gateway, booking-service, calendar-service, payment-service |
+| Backoffice | analytics-service, admin-service |
+| Async | notification-service, worker-service |
+| Edge/observability | Traefik, metrics, logs, error tracking |
 
-Главное правило сети
+## Сетевое правило
 
-Наружу не должны торчать PostgreSQL, Redis и внутренние сервисы.
-Публичной точкой входа является bot-gateway.
+Наружу не должны быть опубликованы PostgreSQL, Redis, PgBouncer и внутренние
+service ports. Публичные входы ограничиваются Telegram webhook/gateway, web
+frontend и явно разрешенными admin endpoints.
 
-Порядок старта
+## Порядок старта
 
 1. PostgreSQL.
 2. Redis.
 3. PgBouncer.
-4. db-init/migrations.
-5. внутренние сервисы.
-6. bot-gateway.
+4. `db-init` или миграции.
+5. Доменные сервисы: booking, calendar, payment.
+6. Async сервисы: notification, worker.
+7. Admin/analytics.
+8. bot-gateway и публичный edge.
 
-Что проверять после запуска
+## Pre-deploy checklist
 
-- docker compose ps;
-- /health;
-- /ready;
-- /metrics;
-- logs;
-- DB connection;
-- Redis connection.
+- [ ] Образы собраны из ожидаемого commit SHA.
+- [ ] Миграции проверены на staging или локальной копии.
+- [ ] Secrets заданы для каждого сервиса по принципу least privilege.
+- [ ] Contract tests и typecheck прошли для измененной области.
+- [ ] Rollback image/tag известен команде.
 
-Rollback
+## Post-deploy checklist
+
+- [ ] `docker compose ps` или orchestrator status показывает healthy сервисы.
+- [ ] `/health` и `/ready` доступны для публичных и внутренних сервисов.
+- [ ] `/metrics` собирается observability stack.
+- [ ] Логи не показывают startup error, auth mismatch или DB reconnect loop.
+- [ ] Booking create/cancel smoke test прошел.
+- [ ] Payment recovery queue не растет неожиданно.
+
+## Rollback
 
 Если deploy сломан:
 
-1. остановить rollout;
-2. вернуть предыдущий образ;
-3. проверить /ready;
-4. проверить платежные и booking states;
-5. записать incident notes.
+1. Остановить rollout.
+2. Вернуть предыдущий image/tag.
+3. Проверить `/ready` и основные smoke tests.
+4. Проверить payment saga и booking states, которые могли попасть в середину flow.
+5. Записать incident notes и follow-up владельца.
