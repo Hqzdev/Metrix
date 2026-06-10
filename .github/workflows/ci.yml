@@ -99,8 +99,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Warm Docker base image
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull node:22-alpine; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Base image pull failed after ${attempt} attempts"
+              exit 1
+            fi
+
+            echo "Base image pull failed on attempt ${attempt}; retrying in $((attempt * 10)) seconds"
+            sleep $((attempt * 10))
+          done
+
       - name: Build service image
-        run: docker build apps/bot --file apps/bot/Dockerfile.service --build-arg SERVICE_NAME=${{ matrix.service }}
+        run: |
+          for attempt in 1 2 3; do
+            if docker build apps/bot --file apps/bot/Dockerfile.service --build-arg SERVICE_NAME=${{ matrix.service }}; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Docker build failed after ${attempt} attempts"
+              exit 1
+            fi
+
+            echo "Docker build failed on attempt ${attempt}; retrying in $((attempt * 10)) seconds"
+            sleep $((attempt * 10))
+          done
 
   # ── Contract tests ────────────────────────────────────────────────────────
   # Spins up the three stateful services against a real Postgres + Redis,
