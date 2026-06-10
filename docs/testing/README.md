@@ -1,43 +1,45 @@
-Testing
+# Testing
 
-Этот раздел объясняет проверки проекта.
+Тесты в Metrix нужны не для галочки. Они подтверждают, что booking, payment,
+calendar sync, web UI и Telegram bot flow продолжают работать после изменения.
 
-Главная мысль
+## Основные команды
 
-Тесты нужны не для галочки.
-Они доказывают, что система работает после изменений.
+| Команда | Что проверяет |
+| --- | --- |
+| `npm test` | Root unit/integration tests через `node --test`. |
+| `npm run typecheck` | TypeScript для API, bot и web. |
+| `npm run openapi:validate` | Синтаксис и shape OpenAPI spec. |
+| `npm run prisma:validate` | Root Prisma schema. |
+| `npm --prefix apps/web run lint` | Web ESLint правила. |
+| `npm --prefix apps/bot run build` | Сборку bot workspaces. |
 
-Основные команды
+## Уровни покрытия
 
-npm test
-npm run typecheck
-npm run build
-npm run openapi:validate
+- Unit tests проверяют маленькие функции, validators и formatters.
+- Integration tests проверяют взаимодействие модулей и инфраструктурных helper-ов.
+- Contract tests проверяют публичные HTTP shapes между сервисами и клиентами.
+- E2E tests проверяют полный пользовательский flow.
+- Production readiness checks проверяют Docker, health, metrics, backup и recovery.
 
-Типы проверок
+## Что покрывать в первую очередь
 
-Unit tests
+1. Booking conflict detection и отмену брони.
+2. Payment saga transitions, idempotency и ручной recovery.
+3. Calendar sync retry и обработку истекших токенов.
+4. Notification rendering и отправку Telegram сообщений.
+5. Web формы, где пользователь создает или меняет бронь.
 
-Проверяют маленькие функции и модули.
+## Evidence
 
-Integration tests
-
-Проверяют взаимодействие сервисов и зависимостей.
-
-E2E tests
-
-Проверяют полный пользовательский flow.
-
-Production readiness checks
-
-Проверяют Docker, health, metrics, backup, incidents и recovery.
-
-Evidence
-
-Если проверка важная, результат нужно записать:
+Для важной проверки записывается короткое evidence:
 
 - команда;
 - дата;
+- окружение;
 - результат;
 - ошибка, если была;
-- follow-up.
+- follow-up владелец.
+
+Evidence нужен для production readiness, incident drills и изменений, которые
+затрагивают платежи, бронирования или security boundary.
