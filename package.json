@@ -13,6 +13,7 @@
     "dev:web": "npm --prefix apps/web run dev",
     "prepare": "husky",
     "lint": "npm --prefix apps/web run lint",
+    "docs:typedoc": "typedoc --options typedoc.json",
     "hook:pre-commit": "npm run typecheck:api && npm run typecheck:web",
     "hook:pre-push": "npm run audit:security && npm test && npm run openapi:validate",
     "audit:security": "npm audit --audit-level=high",
@@ -44,6 +45,8 @@
     "husky": "^9.1.7",
     "prisma": "^6.0.0",
     "tsx": "^4.20.6",
+    "typedoc": "^0.28.19",
+    "typedoc-plugin-markdown": "^4.12.0",
     "typescript": "^5.0.0"
   }
 }
