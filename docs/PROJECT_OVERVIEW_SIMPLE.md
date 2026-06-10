@@ -30,6 +30,7 @@ Web-приложение:
 
 - apps/web
 - Next.js, React, TypeScript, Tailwind CSS
+- основной пользовательский вход для просмотра проекта и сценариев брони
 
 Telegram bot runtime:
 
