@@ -10,6 +10,7 @@ import { AuthenticationError, ConflictError, DownstreamServiceError, NotFoundErr
 import { sendJson } from './http-response.js'
 import type { PaymentServiceLogger } from './logger.js'
 import type { BookingServiceClient } from './booking-service-client.js'
+import { markSagaAwaitingBooking, startSagaCompensation } from './saga-transitions.js'
 import { parseCreateInvoiceInput, parsePreCheckoutQuery, parseSuccessfulPaymentMessage, readIdFromPath } from './validation.js'
 
 // Telegram Stars ограничивает сумму одного инвойса значением 9 999 999 минимальных единиц.
@@ -460,10 +461,7 @@ export class PaymentRouter {
     // Обновляем invoice и saga в базе.
     audit({ ts: new Date().toISOString(), service: 'payment', action: 'payment.completed', userId: Number(invoice.telegramUserId), invoiceId: payload })
     await this.deps.prisma.$transaction(async (tx) => {
-      await tx.paymentSaga.updateMany({
-        data: { paidAmount: paid, status: 'awaiting_booking' },
-        where: { invoiceId: payload },
-      })
+      await markSagaAwaitingBooking(tx, payload, paid)
       await tx.pendingInvoice.update({
         data: { completedAt: new Date(), paidAmountMinorUnits: paid, status: 'completed' },
         where: { id: payload },
@@ -579,18 +577,7 @@ export class PaymentRouter {
 
     // В транзакции переводим saga и связанные записи в recovery-состояние.
     await this.deps.prisma.$transaction(async (tx) => {
-      await tx.paymentSaga.update({
-        data: { status: 'compensating' },
-        where: { invoiceId },
-      })
-      await tx.slotHold.updateMany({
-        data: { status: 'cancelled' },
-        where: { invoiceId, status: 'held' },
-      })
-      await tx.pendingInvoice.updateMany({
-        data: { status: 'failed' },
-        where: { id: invoiceId },
-      })
+      await startSagaCompensation(tx, invoiceId)
     })
     await this.writeAudit({
       action: 'payment.compensation_started',
