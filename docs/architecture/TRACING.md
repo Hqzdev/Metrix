@@ -140,6 +140,18 @@ await tracer.startActiveSpan('create-booking', async (span) => {
 
 По умолчанию `OTEL_TRACES_SAMPLER_ARG=1.0` — трейсится каждый запрос. На production с высокой нагрузкой снизить до `0.1` (10%) или использовать head-based sampling через Jaeger collector.
 
+## Целевая цепочка span-ов
+
+Для пользовательского бронирования один trace должен связывать весь путь:
+
+1. `web` или Telegram update создаёт входной request span.
+2. `bot-gateway` извлекает или создаёт `traceparent` и передаёт его дальше.
+3. `booking-service` создаёт бизнес-span `booking.create` / `booking.cancel`.
+4. Внутри booking-span должны быть дочерние spans для PostgreSQL/Prisma и Redis/BullMQ.
+5. `calendar-service`, `payment-service` и `notification-service` продолжают тот же trace через W3C headers.
+
+Минимальный критерий готовности: по одному `traceId` в Jaeger видно входной gateway span, booking business span, database span и downstream HTTP span. В Loki тот же `traceId` должен находить связанные structured logs.
+
 ## Что НЕ трейсится автоматически
 
 - Prisma queries (нужен `@opentelemetry/instrumentation-prisma-client`)
