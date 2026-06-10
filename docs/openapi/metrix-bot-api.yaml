@@ -263,6 +263,7 @@ paths:
       summary: Update booking status.
       parameters:
         - $ref: '#/components/parameters/BookingId'
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -282,6 +283,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /invoices:
     post:
       tags:
@@ -720,6 +723,13 @@ components:
       required: true
       schema:
         type: string
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: Optimistic concurrency token from the current booking ETag.
+      schema:
+        type: string
     LocationId:
       name: locationId
       in: path
@@ -771,6 +781,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     Conflict:
       description: Request conflicts with current state or replay protection.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PreconditionFailed:
+      description: If-Match does not match the current booking version.
       content:
         application/json:
           schema:
